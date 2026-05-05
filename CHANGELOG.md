@@ -1,2 +1,2 @@
-# Quilldee Changelog
+# Bernard L'Édit Changelog
 

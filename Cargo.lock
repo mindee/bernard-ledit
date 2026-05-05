@@ -104,6 +104,64 @@ dependencies = [
 ]
 
 [[package]]
+name = "bernard-ledit"
+version = "0.1.0"
+dependencies = [
+ "cargo-husky",
+ "serde",
+]
+
+[[package]]
+name = "bernard-ledit-dotnet"
+version = "0.1.0"
+dependencies = [
+ "bernard-ledit",
+ "uniffi",
+]
+
+[[package]]
+name = "bernard-ledit-java"
+version = "0.1.0"
+dependencies = [
+ "bernard-ledit",
+ "jni",
+]
+
+[[package]]
+name = "bernard-ledit-node"
+version = "0.1.0"
+dependencies = [
+ "bernard-ledit",
+ "napi",
+ "napi-build",
+ "napi-derive",
+]
+
+[[package]]
+name = "bernard-ledit-php"
+version = "0.1.0"
+dependencies = [
+ "bernard-ledit",
+ "ext-php-rs",
+]
+
+[[package]]
+name = "bernard-ledit-python"
+version = "0.1.0"
+dependencies = [
+ "bernard-ledit",
+ "pyo3",
+]
+
+[[package]]
+name = "bernard-ledit-ruby"
+version = "0.1.0"
+dependencies = [
+ "bernard-ledit",
+ "uniffi",
+]
+
+[[package]]
 name = "bindgen"
 version = "0.72.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1176,64 +1234,6 @@ dependencies = [
  "pyo3-build-config",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "quilldee"
-version = "0.1.0"
-dependencies = [
- "cargo-husky",
- "serde",
-]
-
-[[package]]
-name = "quilldee-dotnet"
-version = "0.1.0"
-dependencies = [
- "quilldee",
- "uniffi",
-]
-
-[[package]]
-name = "quilldee-java"
-version = "0.1.0"
-dependencies = [
- "jni",
- "quilldee",
-]
-
-[[package]]
-name = "quilldee-node"
-version = "0.1.0"
-dependencies = [
- "napi",
- "napi-build",
- "napi-derive",
- "quilldee",
-]
-
-[[package]]
-name = "quilldee-php"
-version = "0.1.0"
-dependencies = [
- "ext-php-rs",
- "quilldee",
-]
-
-[[package]]
-name = "quilldee-python"
-version = "0.1.0"
-dependencies = [
- "pyo3",
- "quilldee",
-]
-
-[[package]]
-name = "quilldee-ruby"
-version = "0.1.0"
-dependencies = [
- "quilldee",
- "uniffi",
 ]
 
 [[package]]

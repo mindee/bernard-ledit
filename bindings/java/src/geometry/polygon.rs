@@ -2,14 +2,14 @@
 #![allow(missing_docs)]
 #![allow(non_snake_case)]
 
+use bernard_ledit::geometry::point::Point;
+use bernard_ledit::geometry::polygon::Polygon;
 use jni::EnvUnowned;
 use jni::objects::{JClass, JDoubleArray, JLongArray};
 use jni::sys::{JNI_FALSE, JNI_TRUE, jboolean, jint, jlong, jlongArray, jstring};
-use quilldee::geometry::point::Point;
-use quilldee::geometry::polygon::Polygon;
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_mindee_quilldee_geometry_Polygon_equalsNative<'local>(
+pub extern "system" fn Java_com_mindee_bernardledit_geometry_Polygon_equalsNative<'local>(
     _env: EnvUnowned<'local>,
     _class: JClass<'local>,
     handle_a: jlong,
@@ -34,7 +34,7 @@ pub extern "system" fn Java_com_mindee_quilldee_geometry_Polygon_equalsNative<'l
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_mindee_quilldee_geometry_Polygon_newNative<'local>(
+pub extern "system" fn Java_com_mindee_bernardledit_geometry_Polygon_newNative<'local>(
     mut unowned_env: EnvUnowned<'local>,
     _class: JClass<'local>,
     handles: JLongArray<'local>,
@@ -57,7 +57,7 @@ pub extern "system" fn Java_com_mindee_quilldee_geometry_Polygon_newNative<'loca
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_mindee_quilldee_geometry_Polygon_newNativeFromCoords<'local>(
+pub extern "system" fn Java_com_mindee_bernardledit_geometry_Polygon_newNativeFromCoords<'local>(
     mut unowned_env: EnvUnowned<'local>,
     _class: JClass<'local>,
     handles: JDoubleArray<'local>,
@@ -79,7 +79,7 @@ pub extern "system" fn Java_com_mindee_quilldee_geometry_Polygon_newNativeFromCo
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_mindee_quilldee_geometry_Polygon_lengthNative<'local>(
+pub extern "system" fn Java_com_mindee_bernardledit_geometry_Polygon_lengthNative<'local>(
     _env: EnvUnowned<'local>,
     _class: JClass<'local>,
     handle: jlong,
@@ -89,7 +89,7 @@ pub extern "system" fn Java_com_mindee_quilldee_geometry_Polygon_lengthNative<'l
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_mindee_quilldee_geometry_Polygon_centroidNative<'local>(
+pub extern "system" fn Java_com_mindee_bernardledit_geometry_Polygon_centroidNative<'local>(
     _env: EnvUnowned<'local>,
     _class: JClass<'local>,
     handle: jlong,
@@ -100,7 +100,9 @@ pub extern "system" fn Java_com_mindee_quilldee_geometry_Polygon_centroidNative<
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_mindee_quilldee_geometry_Polygon_getPointHandlesNative<'local>(
+pub extern "system" fn Java_com_mindee_bernardledit_geometry_Polygon_getPointHandlesNative<
+    'local,
+>(
     mut env_unowned: EnvUnowned<'local>,
     _class: JClass<'local>,
     handle: jlong,
@@ -120,7 +122,7 @@ pub extern "system" fn Java_com_mindee_quilldee_geometry_Polygon_getPointHandles
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_mindee_quilldee_geometry_Polygon_toStringRepresentationNative<
+pub extern "system" fn Java_com_mindee_bernardledit_geometry_Polygon_toStringRepresentationNative<
     'local,
 >(
     mut unowned_env: EnvUnowned<'local>,
@@ -137,7 +139,7 @@ pub extern "system" fn Java_com_mindee_quilldee_geometry_Polygon_toStringReprese
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_mindee_quilldee_geometry_Polygon_getPointNative<'local>(
+pub extern "system" fn Java_com_mindee_bernardledit_geometry_Polygon_getPointNative<'local>(
     _env: EnvUnowned<'local>,
     _class: JClass<'local>,
     handle: jlong,
@@ -150,7 +152,7 @@ pub extern "system" fn Java_com_mindee_quilldee_geometry_Polygon_getPointNative<
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_mindee_quilldee_geometry_Polygon_destroyNative<'local>(
+pub extern "system" fn Java_com_mindee_bernardledit_geometry_Polygon_destroyNative<'local>(
     _env: EnvUnowned<'local>,
     _class: JClass<'local>,
     handle: jlong,
@@ -163,7 +165,7 @@ pub extern "system" fn Java_com_mindee_quilldee_geometry_Polygon_destroyNative<'
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_mindee_quilldee_geometry_Polygon_cloneNative<'local>(
+pub extern "system" fn Java_com_mindee_bernardledit_geometry_Polygon_cloneNative<'local>(
     _env: EnvUnowned<'local>,
     _class: JClass<'local>,
     handle: jlong,

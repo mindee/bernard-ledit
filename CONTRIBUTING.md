@@ -1,4 +1,4 @@
-# Contributing to Quilldee
+# Contributing to Bernard L'Édit
 
 Thank you for your interest in contributing! This document covers everything you need to get started.
 
@@ -85,14 +85,14 @@ sudo apt install python3 python3-venv
 Build only the core library (no binding dependencies needed):
 
 ```bash
-cargo build -p quilldee
+cargo build -p bernard-ledit
 ```
 
 Build a specific binding:
 
 ```bash
-cargo build -p quilldee-python
-cargo build -p quilldee-php
+cargo build -p bernard-ledit-python
+cargo build -p bernard-ledit-php
 # etc.
 ```
 
@@ -109,7 +109,7 @@ cargo build --workspace
 Run the core test suite:
 
 ```bash
-cargo nextest run -p quilldee
+cargo nextest run -p bernard-ledit
 ```
 
 Run all tests:
@@ -135,7 +135,7 @@ cargo deny check             # license and advisory checks
 Git hooks are managed via [`cargo-husky`](https://github.com/rhysd/cargo-husky). They are installed automatically the first time you run:
 
 ```bash
-cargo test -p quilldee
+cargo test -p bernard-ledit
 ```
 
 After that, `cargo fmt` is checked on every commit and the full lint + test suite runs on every push.

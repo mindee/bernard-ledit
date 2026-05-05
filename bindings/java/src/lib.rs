@@ -1,3 +1,3 @@
-//! Java bindings for the Quilldee library.
+//! Java bindings for the Bernard l'Édit library.
 
 mod geometry;

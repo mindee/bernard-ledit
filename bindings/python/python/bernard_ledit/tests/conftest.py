@@ -26,7 +26,7 @@ def pytest_configure():
 
 def _can_import_extension() -> bool:
     try:
-        importlib.import_module("quilldee._quilldee")
+        importlib.import_module("bernard_ledit._bernard_ledit")
     except ModuleNotFoundError:
         return False
     return True
@@ -47,7 +47,7 @@ def _run_maturin_develop(project_root: Path) -> bool:
 def _build_extension_with_cargo(project_root: Path) -> None:
     workspace_root = project_root.parents[1]
     subprocess.run(
-        ["cargo", "build", "-p", "quilldee-python"],
+        ["cargo", "build", "-p", "bernard-ledit-python"],
         cwd=workspace_root,
         check=True,
     )
@@ -60,16 +60,16 @@ def _build_extension_with_cargo(project_root: Path) -> None:
 def _built_extension_path(workspace_root: Path) -> Path:
     target_dir = workspace_root / "target" / "debug"
     candidates = [
-        target_dir / "libquilldee_python.so",
-        target_dir / "libquilldee_python.dylib",
-        target_dir / "quilldee_python.dll",
+        target_dir / "libbernard_ledit_python.so",
+        target_dir / "libbernard_ledit_python.dylib",
+        target_dir / "bernard_ledit_python.dll",
     ]
 
     for candidate in candidates:
         if candidate.exists():
             return candidate
 
-    raise RuntimeError("could not find compiled quilldee-python extension")
+    raise RuntimeError("could not find compiled bernard-ledit-python extension")
 
 
 def _package_extension_path(project_root: Path) -> Path:
@@ -78,4 +78,4 @@ def _package_extension_path(project_root: Path) -> Path:
         (suffix for suffix in suffixes if suffix.startswith(".abi3")),
         sysconfig.get_config_var("EXT_SUFFIX") or suffixes[0],
     )
-    return project_root / "python" / "quilldee" / f"_quilldee{suffix}"
+    return project_root / "python" / "bernard_ledit" / f"_bernard_ledit{suffix}"

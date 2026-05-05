@@ -1,5 +1,5 @@
 [package]
-name = "quilldee-java"
+name = "bernard-ledit-java"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,11 +10,11 @@ homepage.workspace = true
 publish = false
 
 [lib]
-name = "quilldee_java"
+name = "bernard_ledit_java"
 crate-type = ["cdylib"]
 
 [dependencies]
-quilldee = { path = "../../core", features = ["full"] }
+bernard-ledit = { path = "../../core", features = ["full"] }
 jni = "0.22.4"
 
 [lints]

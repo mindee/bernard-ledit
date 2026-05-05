@@ -2,15 +2,15 @@
 #![allow(missing_docs)]
 
 use crate::geometry::point::PyPoint;
+use bernard_ledit::geometry::point::Point;
+use bernard_ledit::geometry::polygon::Polygon;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::PyAnyMethods;
 use pyo3::types::PySlice;
 use pyo3::types::PySliceMethods;
 use pyo3::{Bound, FromPyObject, IntoPyObjectExt, Py, PyAny, PyRef, PyResult, pyclass, pymethods};
-use quilldee::geometry::point::Point;
-use quilldee::geometry::polygon::Polygon;
 
-#[pyclass(name = "Polygon", module = "quilldee.geometry")]
+#[pyclass(name = "Polygon", module = "bernard_ledit.geometry")]
 pub struct PyPolygon(Polygon);
 
 #[derive(FromPyObject)]

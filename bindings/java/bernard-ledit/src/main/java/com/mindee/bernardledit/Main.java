@@ -1,6 +1,6 @@
-package com.mindee.quilldee;
+package com.mindee.bernardledit;
 
-import com.mindee.quilldee.geometry.Point;
+import com.mindee.bernardledit.geometry.Point;
 
 public class Main {
     public static void main(String[] args) {

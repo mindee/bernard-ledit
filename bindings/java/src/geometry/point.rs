@@ -2,13 +2,13 @@
 #![allow(missing_docs)]
 #![allow(non_snake_case)]
 
+use bernard_ledit::geometry::point::Point;
 use jni::EnvUnowned;
 use jni::objects::{JClass, JDoubleArray};
 use jni::sys::{jdouble, jdoubleArray, jint, jlong, jstring};
-use quilldee::geometry::point::Point;
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_mindee_quilldee_geometry_Point_newNative<'local>(
+pub extern "system" fn Java_com_mindee_bernardledit_geometry_Point_newNative<'local>(
     _env: EnvUnowned<'local>,
     _class: JClass<'local>,
     x: jdouble,
@@ -19,7 +19,7 @@ pub extern "system" fn Java_com_mindee_quilldee_geometry_Point_newNative<'local>
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_mindee_quilldee_geometry_Point_destroyNative<'local>(
+pub extern "system" fn Java_com_mindee_bernardledit_geometry_Point_destroyNative<'local>(
     _env: EnvUnowned<'local>,
     _class: JClass<'local>,
     handle: jlong,
@@ -32,7 +32,7 @@ pub extern "system" fn Java_com_mindee_quilldee_geometry_Point_destroyNative<'lo
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_mindee_quilldee_geometry_Point_addNative<'local>(
+pub extern "system" fn Java_com_mindee_bernardledit_geometry_Point_addNative<'local>(
     _env: EnvUnowned<'local>,
     _class: JClass<'local>,
     self_handle: jlong,
@@ -45,7 +45,7 @@ pub extern "system" fn Java_com_mindee_quilldee_geometry_Point_addNative<'local>
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_mindee_quilldee_geometry_Point_subNative<'local>(
+pub extern "system" fn Java_com_mindee_bernardledit_geometry_Point_subNative<'local>(
     _env: EnvUnowned<'local>,
     _class: JClass<'local>,
     self_handle: jlong,
@@ -58,7 +58,7 @@ pub extern "system" fn Java_com_mindee_quilldee_geometry_Point_subNative<'local>
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_mindee_quilldee_geometry_Point_mulNative<'local>(
+pub extern "system" fn Java_com_mindee_bernardledit_geometry_Point_mulNative<'local>(
     _env: EnvUnowned<'local>,
     _class: JClass<'local>,
     self_handle: jlong,
@@ -70,7 +70,7 @@ pub extern "system" fn Java_com_mindee_quilldee_geometry_Point_mulNative<'local>
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_mindee_quilldee_geometry_Point_divNative<'local>(
+pub extern "system" fn Java_com_mindee_bernardledit_geometry_Point_divNative<'local>(
     _env: EnvUnowned<'local>,
     _class: JClass<'local>,
     self_handle: jlong,
@@ -82,7 +82,7 @@ pub extern "system" fn Java_com_mindee_quilldee_geometry_Point_divNative<'local>
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_mindee_quilldee_geometry_Point_getXNative<'local>(
+pub extern "system" fn Java_com_mindee_bernardledit_geometry_Point_getXNative<'local>(
     _env: EnvUnowned<'local>,
     _class: JClass<'local>,
     handle: jlong,
@@ -92,7 +92,7 @@ pub extern "system" fn Java_com_mindee_quilldee_geometry_Point_getXNative<'local
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_mindee_quilldee_geometry_Point_getYNative<'local>(
+pub extern "system" fn Java_com_mindee_bernardledit_geometry_Point_getYNative<'local>(
     _env: EnvUnowned<'local>,
     _class: JClass<'local>,
     handle: jlong,
@@ -102,7 +102,7 @@ pub extern "system" fn Java_com_mindee_quilldee_geometry_Point_getYNative<'local
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_mindee_quilldee_geometry_Point_indexNative<'local>(
+pub extern "system" fn Java_com_mindee_bernardledit_geometry_Point_indexNative<'local>(
     _env: EnvUnowned<'local>,
     _class: JClass<'local>,
     handle: jlong,
@@ -114,7 +114,7 @@ pub extern "system" fn Java_com_mindee_quilldee_geometry_Point_indexNative<'loca
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_mindee_quilldee_geometry_Point_toStringRepresentationNative<
+pub extern "system" fn Java_com_mindee_bernardledit_geometry_Point_toStringRepresentationNative<
     'local,
 >(
     mut unowned_env: EnvUnowned<'local>,
@@ -131,7 +131,7 @@ pub extern "system" fn Java_com_mindee_quilldee_geometry_Point_toStringRepresent
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_mindee_quilldee_geometry_Point_toTupleNative<'local>(
+pub extern "system" fn Java_com_mindee_bernardledit_geometry_Point_toTupleNative<'local>(
     mut unowned_env: EnvUnowned<'local>,
     _class: JClass<'local>,
     handle: jlong,
@@ -149,7 +149,7 @@ pub extern "system" fn Java_com_mindee_quilldee_geometry_Point_toTupleNative<'lo
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_mindee_quilldee_geometry_Point_fromTupleNative<'local>(
+pub extern "system" fn Java_com_mindee_bernardledit_geometry_Point_fromTupleNative<'local>(
     mut unowned_env: EnvUnowned<'local>,
     _class: JClass<'local>,
     tuple: JDoubleArray<'local>,
@@ -165,7 +165,7 @@ pub extern "system" fn Java_com_mindee_quilldee_geometry_Point_fromTupleNative<'
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_mindee_quilldee_geometry_Point_cloneNative<'local>(
+pub extern "system" fn Java_com_mindee_bernardledit_geometry_Point_cloneNative<'local>(
     _env: EnvUnowned<'local>,
     _class: JClass<'local>,
     handle: jlong,

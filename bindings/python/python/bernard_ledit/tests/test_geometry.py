@@ -1,6 +1,6 @@
 import pytest
 
-from quilldee.geometry import Point, Polygon
+from bernard_ledit.geometry import Point, Polygon
 
 
 def assert_point(point, x, y):

@@ -9,7 +9,7 @@ It is used internally by the official Mindee Client Libraries.
 
 ## Status
 
-Under heavy development. Expect things to break.
+Under *heavy* development. Expect things to break.
 
 ## License
 

@@ -1,5 +1,5 @@
 [package]
-name = "quilldee-php"
+name = "bernard-ledit-php"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,11 +10,11 @@ homepage.workspace = true
 publish = false
 
 [lib]
-name = "quilldee_php"
+name = "bernard_ledit_php"
 crate-type = ["cdylib"]
 
 [dependencies]
-quilldee = { path = "../../core", features = ["full"] }
+bernard-ledit = { path = "../../core", features = ["full"] }
 ext-php-rs = "0.15"
 
 [build-dependencies]

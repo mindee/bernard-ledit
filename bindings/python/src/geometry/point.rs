@@ -1,11 +1,11 @@
-//! Python bindings for the Quilldee library.
+//! Python bindings for the Bernard l'Édit library.
 
 #![allow(missing_docs)]
 
+use bernard_ledit::geometry::point::Point;
 use pyo3::prelude::*;
-use quilldee::geometry::point::Point;
 
-#[pyclass(name = "Point", module = "quilldee.geometry")]
+#[pyclass(name = "Point", module = "bernard_ledit.geometry")]
 pub struct PyPoint(pub Point);
 
 #[pymethods]

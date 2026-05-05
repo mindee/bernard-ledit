@@ -1,5 +1,5 @@
 [package]
-name = "quilldee-dotnet"
+name = "bernard-ledit-dotnet"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,11 +10,11 @@ homepage.workspace = true
 publish = false
 
 [lib]
-name = "quilldee_dotnet"
+name = "bernard_ledit_dotnet"
 crate-type = ["cdylib"]
 
 [dependencies]
-quilldee = { path = "../../core", features = ["full"] }
+bernard-ledit = { path = "../../core", features = ["full"] }
 uniffi = { version = "0.31.1" }
 
 [build-dependencies]
