@@ -14,6 +14,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: extractions/setup-just@v3
 
       - name: Install PHP dev headers
         run: sudo apt-get install -y php-dev libclang-dev
@@ -32,13 +33,10 @@ jobs:
           tool: cargo-deny,cargo-nextest
 
       - name: Check formatting
-        run: cargo fmt --all -- --check
+        run: just core format-check
 
       - name: Run Clippy
-        run: cargo clippy --all-features --all-targets -- -D warnings
-
-      - name: Run tests
-        run: cargo nextest run --all-features --no-tests=pass
+        run: just core lint
 
       - name: Check licenses and advisories
-        run: cargo deny check
+        run: just core check-deps

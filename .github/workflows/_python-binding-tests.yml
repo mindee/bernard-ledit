@@ -16,6 +16,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - uses: extractions/setup-just@v3
 
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -30,8 +31,9 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
 
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v5
+      - name: Install Python dependencies
+        run: pip install -U -e ".[test]"
 
       - name: Run Python binding tests
-        run: uv run --project bindings/python --extra test pytest
+        run: just python test
+
