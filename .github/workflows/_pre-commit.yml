@@ -1,0 +1,44 @@
+name: Remote pre-commit
+
+on:
+  workflow_call:
+
+concurrency:
+  group: ${{ github.workflow_ref }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install PHP dev headers
+        run: sudo apt-get install -y php-dev libclang-dev
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny,cargo-nextest
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run Clippy
+        run: cargo clippy --all-features --all-targets -- -D warnings
+
+      - name: Run tests
+        run: cargo nextest run --all-features --no-tests=pass
+
+      - name: Check licenses and advisories
+        run: cargo deny check

@@ -1,0 +1,32 @@
+[package]
+name = "quilldee"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/quilldee"
+readme = "../README.md"
+keywords = ["pdf", "image", "geometry", "ocr", "mindee"]
+categories = ["multimedia::images", "rendering"]
+exclude = [".github/", ".idea/"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+pdf = []
+image = []
+full = ["pdf", "image"]
+
+[dependencies]
+serde = { version = "1.0.228", features = ["derive"] }
+
+[dev-dependencies]
+cargo-husky = { version = "1", default-features = false, features = ["user-hooks"] }
+
+[lints]
+workspace = true

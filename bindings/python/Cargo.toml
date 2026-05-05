@@ -1,0 +1,21 @@
+[package]
+name = "quilldee-python"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish = false
+
+[lib]
+name = "quilldee_python"
+crate-type = ["cdylib"]
+
+[dependencies]
+quilldee = { path = "../../core", features = ["full"] }
+pyo3 = { version = "0.28", features = ["extension-module", "abi3-py39"] }
+
+[lints]
+workspace = true

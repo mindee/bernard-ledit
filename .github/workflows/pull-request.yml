@@ -1,0 +1,24 @@
+name: Pull Request
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  pre-commit:
+    uses: ./.github/workflows/_pre-commit.yml
+
+  unit-tests:
+    uses: ./.github/workflows/_unit-tests.yml
+    needs: pre-commit
+
+  python-binding-tests:
+    uses: ./.github/workflows/_python-binding-tests.yml
+    needs: unit-tests
+
+  java-binding-tests:
+    uses: ./.github/workflows/_java-binding-tests.yml
+    needs: unit-tests

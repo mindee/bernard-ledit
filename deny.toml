@@ -1,0 +1,49 @@
+[advisories]
+version = 2
+# Check all crates (direct and transitive) for unmaintained status
+unmaintained = "all"
+ignore = [
+    # RUSTSEC-2026-0009: time 0.3.45 DoS via stack exhaustion, fixed in 0.3.47.
+    # Pinned by zip via ext-php-rs; cannot upgrade from our workspace.
+    # Track: https://github.com/davidcole1340/ext-php-rs/issues
+    "RUSTSEC-2026-0009",
+]
+
+[licenses]
+version = 2
+# All licenses are denied unless explicitly listed here
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "ISC",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "bzip2-1.0.6",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "CC0-1.0",
+    "CDLA-Permissive-2.0",
+    "MPL-2.0",
+    "Zlib",
+]
+confidence-threshold = 0.8
+
+[bans]
+# Warn on duplicate versions of the same crate; consider "deny" later
+multiple-versions = "warn"
+# Deny wildcard dependencies (e.g. "*"), but allow path-only workspace deps
+wildcards = "deny"
+allow-wildcard-paths = true
+# Highlight all duplicate crates in output
+highlight = "all"
+# Known exceptions for duplicate versions (populate as needed)
+skip = []
+skip-tree = []
+
+[sources]
+# Only allow crates from crates.io
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

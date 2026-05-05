@@ -1,0 +1,4 @@
+#!/bin/sh
+cargo clippy --all-features --all-targets -- -D warnings &&
+cargo nextest run --all-features --no-tests=pass &&
+cargo deny check

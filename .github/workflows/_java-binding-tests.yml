@@ -1,0 +1,37 @@
+name: Java binding tests
+
+on:
+  workflow_call:
+
+jobs:
+  java-binding-tests:
+    name: Test Java binding (${{ matrix.os }}, Java ${{ matrix.java }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        java: ["11", "21"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: java-binding-${{ matrix.os }}-${{ matrix.java }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ matrix.java }}
+          cache: 'maven'
+
+      - name: Run Java binding tests
+        working-directory: bindings/java/quilldee
+        run: mvn test -DargLine="-Djava.library.path=../../target/debug"

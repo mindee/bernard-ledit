@@ -1,0 +1,28 @@
+[workspace]
+resolver = "3"
+members = [
+    "core",
+    "bindings/dotnet",
+    "bindings/java",
+    "bindings/nodejs",
+    "bindings/php",
+    "bindings/python",
+    "bindings/ruby",
+]
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Mindee <opensource@mindee.com>"]
+license = "MIT"
+repository = "https://github.com/mindee/quilldee"
+homepage = "https://github.com/mindee/quilldee"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
