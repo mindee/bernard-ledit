@@ -1,4 +1,12 @@
 #!/bin/sh
-cargo clippy --all-features --all-targets -- -D warnings &&
-cargo nextest run --all-features --no-tests=pass &&
-cargo deny check
+set -e
+
+just core test
+
+echo "☕ Running Java tests..."
+just java test
+
+echo "🐍 Running Python tests..."
+just python test
+
+echo "🚀 All pre-push checks passed! Ready for takeoff."

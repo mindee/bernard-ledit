@@ -19,3 +19,4 @@ pyo3 = { version = "0.28", features = ["extension-module", "abi3-py39"] }
 
 [lints]
 workspace = true
+

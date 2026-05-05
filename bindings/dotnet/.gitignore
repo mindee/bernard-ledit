@@ -1,0 +1,9 @@
+# .NET (bindings/dotnet)
+**/bin/
+**/obj/
+**/*.dll
+**/*.exe
+**/*.pdb
+**/*.nupkg
+**/.vs/
+**/*.user

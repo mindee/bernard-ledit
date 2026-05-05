@@ -9,54 +9,6 @@
 # Bindings
 bindings/**/*.so
 
-# Node.js (bindings/nodejs)
-bindings/nodejs/**/node_modules/
-bindings/nodejs/**/*.node
-bindings/nodejs/**/dist/
-bindings/nodejs/**/npm/
-bindings/nodejs/**/.npmrc.local
-bindings/nodejs/**/package-lock.json
-bindings/nodejs/**/yarn.lock
-bindings/nodejs/**/pnpm-lock.yaml
-
-# PHP (bindings/php)
-bindings/php/**/vendor/
-bindings/php/**/composer.lock
-
-# Python (bindings/python)
-bindings/python/**/__pycache__/
-bindings/python/**/*.py[cod]
-bindings/python/**/*.egg-info/
-bindings/python/**/dist/
-bindings/python/**/build/
-bindings/python/**/.venv/
-bindings/python/**/venv/
-bindings/python/**/*.pyi
-bindings/python/**/*.pyd
-
-# Ruby (bindings/ruby)
-bindings/ruby/**/*.gem
-bindings/ruby/**/.bundle/
-bindings/ruby/**/vendor/bundle/
-bindings/ruby/**/Gemfile.lock
-
-# Java (bindings/java)
-bindings/java/**/*.class
-bindings/java/**/*.jar
-bindings/java/**/.gradle/
-bindings/java/**/build/
-bindings/java/**/.mvn/
-
-# .NET (bindings/dotnet)
-bindings/dotnet/**/bin/
-bindings/dotnet/**/obj/
-bindings/dotnet/**/*.dll
-bindings/dotnet/**/*.exe
-bindings/dotnet/**/*.pdb
-bindings/dotnet/**/*.nupkg
-bindings/dotnet/**/.vs/
-bindings/dotnet/**/*.user
-
 # IDEs
 .codex
 .idea

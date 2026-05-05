@@ -109,6 +109,16 @@ impl From<Point> for (f64, f64) {
         (point.x, point.y)
     }
 }
+
+impl Hash for Point {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.x.to_bits().hash(state);
+        self.y.to_bits().hash(state);
+    }
+}
+
+impl Eq for Point {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -163,12 +173,3 @@ mod tests {
         assert_eq!(tuple2, (5.0, 6.0));
     }
 }
-
-impl Hash for Point {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.x.to_bits().hash(state);
-        self.y.to_bits().hash(state);
-    }
-}
-
-impl Eq for Point {}

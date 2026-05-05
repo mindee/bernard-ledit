@@ -1,0 +1,6 @@
+# Java (bindings/java)
+**/*.class
+**/*.jar
+**/.gradle/
+**/build/
+**/.mvn/
