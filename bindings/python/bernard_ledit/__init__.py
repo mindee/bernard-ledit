@@ -1,9 +1,9 @@
-"""Bernard l'Édit — PDF, image, and geometry utilities."""
+"""Bernard l'Édit - PDF, image, and geometry utilities."""
 
 import sys as _sys
 
-from ._bernard_ledit import *  # noqa: F401, F403
 from . import _bernard_ledit as _native
+from ._bernard_ledit import *  # noqa: F401, F403
 
 geometry = _native.geometry
 _sys.modules[__name__ + ".geometry"] = geometry

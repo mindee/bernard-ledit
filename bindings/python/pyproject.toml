@@ -16,10 +16,21 @@ classifiers = [
 test = [
     "pytest>=8",
 ]
+lint = [
+    "ruff",
+    "mypy",
+]
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP"]
 
 [tool.maturin]
 module-name = "bernard_ledit._bernard_ledit"
 features = ["pyo3/extension-module"]
+include = ["bernard_ledit/**/*.pyi"]
 
 [tool.pytest.ini_options]
 testpaths = ["bernard_ledit/tests"]

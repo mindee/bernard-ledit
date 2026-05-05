@@ -36,6 +36,8 @@ pub extern "system" fn Java_com_mindee_bernardledit_geometry_Polygon_equalsNativ
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_mindee_bernardledit_geometry_Polygon_hashCodeNative<'local>(
+    _env: EnvUnowned<'local>,
+    _class: JClass<'local>,
     handle: jlong,
 ) -> jint {
     if handle == 0 {
@@ -45,7 +47,10 @@ pub extern "system" fn Java_com_mindee_bernardledit_geometry_Polygon_hashCodeNat
     let mut hasher = DefaultHasher::new();
     poly.hash(&mut hasher);
     let hash_value = hasher.finish();
-    hash_value as jint
+    #[allow(clippy::cast_possible_truncation)]
+    {
+        hash_value as jint
+    }
 }
 
 #[unsafe(no_mangle)]

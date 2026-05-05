@@ -47,13 +47,15 @@ def test_polygon_indexing_raises_index_error_for_empty_or_out_of_range_access():
 
 
 def test_polygon_slicing_returns_polygon():
-    polygon = Polygon([
-        (0.0, 0.0),
-        (1.0, 1.0),
-        (2.0, 2.0),
-        (3.0, 3.0),
-        (4.0, 4.0),
-    ])
+    polygon = Polygon(
+        [
+            (0.0, 0.0),
+            (1.0, 1.0),
+            (2.0, 2.0),
+            (3.0, 3.0),
+            (4.0, 4.0),
+        ]
+    )
 
     every_other = polygon[::2]
     assert isinstance(every_other, Polygon)

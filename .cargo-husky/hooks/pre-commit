@@ -1,2 +1,16 @@
 #!/bin/sh
+set -e
+
+echo "🦀 Running Rust checks..."
+just core lint
+just core check-deps
+
 cargo fmt --all -- --check
+
+echo "☕ Running Java checks..."
+just java lint
+
+echo "🐍 Running Python checks..."
+just python lint
+
+echo "✅ All linting and formatting checks passed! Committing..."

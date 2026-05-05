@@ -34,13 +34,10 @@ jobs:
           cache: 'maven'
 
       - name: Run Java format check
-        working-directory: bindings/java/bernard-ledit
         run: just java format-check
 
       - name: Run Java lint
-        working-directory: bindings/java/bernard-ledit
         run: just java lint
 
       - name: Run Java binding tests
-        working-directory: bindings/java/bernard-ledit
         run: just java test

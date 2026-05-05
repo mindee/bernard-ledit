@@ -1,0 +1,9 @@
+# Node.js (bindings/nodejs)
+**/node_modules/
+**/*.node
+**/dist/
+**/npm/
+**/.npmrc.local
+**/package-lock.json
+**/yarn.lock
+**/pnpm-lock.yaml

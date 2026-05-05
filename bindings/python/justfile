@@ -7,8 +7,30 @@ default:
 
 # Builds Python bindings
 build:
-    maturin develop
+    maturin develop --extras test,lint
 
 # Test Python bindings
 test:
     pytest -vvv
+
+# Format and lint code using ruff
+lint:
+    ruff check .
+    ruff format
+
+# Format and lint code using ruff
+lint-check:
+    ruff check .
+    ruff format --check .
+    mypy .
+
+# Fix linting/formatting issues
+format:
+    ruff format .
+    ruff check --fix .
+
+# Clean up build artifacts
+clean:
+    rm -rf target/
+    rm -rf *.egg-info/
+    find . -type d -name "__pycache__" -exec rm -rf {} +

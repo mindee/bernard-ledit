@@ -33,6 +33,7 @@ jobs:
 
       - name: Install Python dependencies
         run: pip install -U -e ".[test]"
+        working-directory: bindings/python
 
       - name: Run Python binding tests
         run: just python test

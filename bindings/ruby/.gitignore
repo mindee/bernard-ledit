@@ -1,0 +1,5 @@
+# Ruby (bindings/ruby)
+**/*.gem
+**/.bundle/
+**/vendor/bundle/
+**/Gemfile.lock

@@ -1,0 +1,3 @@
+# PHP (bindings/php)
+**/vendor/
+**/composer.lock
