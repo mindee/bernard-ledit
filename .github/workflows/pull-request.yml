@@ -20,5 +20,5 @@ jobs:
     needs: unit-tests
 
   java-binding-tests:
-    uses: ./.github/workflows/_java-binding-tests.yml
+    uses: ./.github/workflows/_java-binding-ci.yml
     needs: unit-tests

@@ -10,9 +10,8 @@ build:
 test:
     cargo nextest run -p bernard-ledit
 
-# Runs Cargo formatting and Clippy on all Rust code
-lint:
-    cargo fmt --all -- --check
+# Runs cargo clippy
+clippy:
     cargo clippy --all-features --all-targets -- -D warnings
 
 # Runs cargo fmt on Rust
@@ -30,6 +29,9 @@ clean:
 # Checks for dependencies
 check-deps:
     cargo deny check
+
+# Runs Cargo formatting and Clippy on all Rust code
+lint: format-check clippy check-deps
 
 # Checks all lint tools
 check-all: format lint build check-deps test

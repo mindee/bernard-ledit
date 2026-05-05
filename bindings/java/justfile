@@ -13,6 +13,18 @@ build:
 clean:
     cd bernard-ledit && mvn clean
 
+# Formats Java code
+format:
+    cd bernard-ledit && mvn spotless:apply
+
+# Checks format for Java code
+format-check:
+    cd bernard-ledit && mvn spotless:check
+
+# Lints Java code
+lint:
+    cd bernard-ledit && mvn spotless:check pmd:check
+
 # Test Java bindings
 test:
     cd bernard-ledit && mvn test -DargLine="-Djava.library.path=../../target/debug"

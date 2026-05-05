@@ -7,6 +7,7 @@ use bernard_ledit::geometry::polygon::Polygon;
 use jni::EnvUnowned;
 use jni::objects::{JClass, JDoubleArray, JLongArray};
 use jni::sys::{JNI_FALSE, JNI_TRUE, jboolean, jint, jlong, jlongArray, jstring};
+use std::hash::{DefaultHasher, Hash, Hasher};
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_mindee_bernardledit_geometry_Polygon_equalsNative<'local>(
@@ -31,6 +32,20 @@ pub extern "system" fn Java_com_mindee_bernardledit_geometry_Polygon_equalsNativ
     } else {
         JNI_FALSE
     }
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_mindee_bernardledit_geometry_Polygon_hashCodeNative<'local>(
+    handle: jlong,
+) -> jint {
+    if handle == 0 {
+        return 0;
+    }
+    let poly = unsafe { &*(handle as *const Polygon) };
+    let mut hasher = DefaultHasher::new();
+    poly.hash(&mut hasher);
+    let hash_value = hasher.finish();
+    hash_value as jint
 }
 
 #[unsafe(no_mangle)]
