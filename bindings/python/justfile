@@ -1,0 +1,14 @@
+set shell := ["bash", "-c"]
+
+# List the default tasks
+[private]
+default:
+    @just --list
+
+# Builds Python bindings
+build:
+    maturin develop
+
+# Test Python bindings
+test:
+    pytest -vvv

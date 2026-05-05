@@ -1,0 +1,19 @@
+set shell := ["bash", "-c"]
+
+# List the default tasks
+[private]
+default:
+    @just --list
+
+# Builds Java bindings
+build:
+    cd bernard-ledit && mvn clean package
+
+# Cleans Java build artifacts
+clean:
+    cd bernard-ledit && mvn clean
+
+# Test Java bindings
+test:
+    cd bernard-ledit && mvn test -DargLine="-Djava.library.path=../../target/debug"
+

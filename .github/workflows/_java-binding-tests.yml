@@ -16,6 +16,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - uses: extractions/setup-just@v3
 
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -34,4 +35,4 @@ jobs:
 
       - name: Run Java binding tests
         working-directory: bindings/java/bernard-ledit
-        run: mvn test -DargLine="-Djava.library.path=../../target/debug"
+        run: just java test

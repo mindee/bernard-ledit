@@ -3,6 +3,9 @@
 **/*.rs.bk
 .env
 
+# Misc
+*.log
+
 # Bindings
 bindings/**/*.so
 

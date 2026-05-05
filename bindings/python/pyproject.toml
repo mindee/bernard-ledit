@@ -19,9 +19,7 @@ test = [
 
 [tool.maturin]
 module-name = "bernard_ledit._bernard_ledit"
-python-source = "python"
 features = ["pyo3/extension-module"]
 
 [tool.pytest.ini_options]
-testpaths = ["python/bernard_ledit/tests"]
-pythonpath = ["python"]
+testpaths = ["bernard_ledit/tests"]
