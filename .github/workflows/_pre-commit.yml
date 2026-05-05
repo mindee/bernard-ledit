@@ -36,7 +36,7 @@ jobs:
         run: just core format-check
 
       - name: Run Clippy
-        run: just core lint
+        run: just core clippy
 
       - name: Check licenses and advisories
         run: just core check-deps

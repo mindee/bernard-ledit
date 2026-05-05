@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
+use std::hash::{Hash, Hasher};
 use std::ops::{Add, Div, Index, Mul, Sub};
 
 /// A point in 2D space.
@@ -162,3 +163,12 @@ mod tests {
         assert_eq!(tuple2, (5.0, 6.0));
     }
 }
+
+impl Hash for Point {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.x.to_bits().hash(state);
+        self.y.to_bits().hash(state);
+    }
+}
+
+impl Eq for Point {}

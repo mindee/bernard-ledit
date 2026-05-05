@@ -3,6 +3,7 @@
 use crate::geometry::point::Point;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::hash::{Hash, Hasher};
 
 /// Collection of points.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -101,6 +102,14 @@ impl From<Vec<(f64, f64)>> for Polygon {
         Self(points)
     }
 }
+
+impl Hash for Polygon {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
+    }
+}
+
+impl Eq for Polygon {}
 
 /// A macro to create a `Polygon` struct using a collection of `Point`s.
 #[macro_export]
@@ -230,5 +239,48 @@ mod tests {
         assert_eq!(polygon.0[1], Point::new(10.0, 0.0));
         assert_eq!(polygon.0[2], Point::new(10.0, 10.0));
         assert_eq!(polygon.0[3], Point::new(0.0, 10.0));
+    }
+
+    #[test]
+    fn test_polygon_hash_consistency() {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let p1 = Point::new(1.0, 2.0);
+        let p2 = Point::new(3.0, 4.0);
+
+        let poly_a = Polygon(vec![p1, p2]);
+        let poly_b = Polygon(vec![p1, p2]);
+
+        assert_eq!(poly_a, poly_b);
+
+        let mut s1 = DefaultHasher::new();
+        poly_a.hash(&mut s1);
+        let h1 = s1.finish();
+
+        let mut s2 = DefaultHasher::new();
+        poly_b.hash(&mut s2);
+        let h2 = s2.finish();
+
+        assert_eq!(h1, h2, "Equal polygons must have equal hashes");
+    }
+
+    #[test]
+    fn test_polygon_hash_differentiation() {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let poly_a = Polygon(vec![Point::new(0.0, 0.0)]);
+        let poly_b = Polygon(vec![Point::new(0.0, 0.1)]);
+
+        let mut s1 = DefaultHasher::new();
+        poly_a.hash(&mut s1);
+        let h1 = s1.finish();
+
+        let mut s2 = DefaultHasher::new();
+        poly_b.hash(&mut s2);
+        let h2 = s2.finish();
+
+        assert_ne!(h1, h2, "Different polygons should have different hashes");
     }
 }
