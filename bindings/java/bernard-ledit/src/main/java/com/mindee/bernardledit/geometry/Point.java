@@ -1,4 +1,4 @@
-package com.mindee.quilldee.geometry;
+package com.mindee.bernardledit.geometry;
 
 import java.lang.ref.Cleaner;
 
@@ -6,7 +6,7 @@ public class Point implements AutoCloseable, Cloneable {
     private static final Cleaner CLEANER = Cleaner.create();
     private final Cleaner.Cleanable cleanable;
     static {
-        System.loadLibrary("quilldee_java");
+        System.loadLibrary("bernard_ledit_java");
     }
     private long nativeHandle;
 

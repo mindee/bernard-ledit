@@ -1,5 +1,5 @@
 [package]
-name = "quilldee-node"
+name = "bernard-ledit-node"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,11 +10,11 @@ homepage.workspace = true
 publish = false
 
 [lib]
-name = "quilldee_node"
+name = "bernard_ledit_node"
 crate-type = ["cdylib"]
 
 [dependencies]
-quilldee = { path = "../../core", features = ["full"] }
+bernard-ledit = { path = "../../core", features = ["full"] }
 napi = { version = "2", features = ["napi9"] }
 napi-derive = "2"
 

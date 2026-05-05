@@ -1,5 +1,5 @@
 [package]
-name = "quilldee-python"
+name = "bernard-ledit-python"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,11 +10,11 @@ homepage.workspace = true
 publish = false
 
 [lib]
-name = "quilldee_python"
+name = "bernard_ledit_python"
 crate-type = ["cdylib"]
 
 [dependencies]
-quilldee = { path = "../../core", features = ["full"] }
+bernard-ledit = { path = "../../core", features = ["full"] }
 pyo3 = { version = "0.28", features = ["extension-module", "abi3-py39"] }
 
 [lints]

@@ -1,5 +1,5 @@
 [package]
-name = "quilldee"
+name = "bernard-ledit"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -7,7 +7,7 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
-documentation = "https://docs.rs/quilldee"
+documentation = "https://docs.rs/bernard-ledit"
 readme = "../README.md"
 keywords = ["pdf", "image", "geometry", "ocr", "mindee"]
 categories = ["multimedia::images", "rendering"]

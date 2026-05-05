@@ -1,4 +1,4 @@
-package com.mindee.quilldee.geometry;
+package com.mindee.bernardledit.geometry;
 
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;

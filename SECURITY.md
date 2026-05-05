@@ -2,13 +2,13 @@
 
 ## Supported Versions
 
-Only the latest released version of `quilldee` receives security fixes.
+Only the latest released version of `bernard-ledit` receives security fixes.
 
 ## Reporting a Vulnerability
 
 **Do not open a public GitHub issue for security vulnerabilities.**
 
-Please report them privately via [GitHub Security Advisories](https://github.com/mindee/quilldee/security/advisories/new).
+Please report them privately via [GitHub Security Advisories](https://github.com/mindee/bernard-ledit/security/advisories/new).
 
 Include as much detail as possible:
 - A description of the vulnerability and its potential impact

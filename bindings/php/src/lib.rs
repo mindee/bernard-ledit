@@ -1,4 +1,4 @@
-//! PHP bindings for the Quilldee library.
+//! PHP bindings for the Bernard l'Édit library.
 
 #![allow(missing_docs)]
 

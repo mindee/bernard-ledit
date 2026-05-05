@@ -33,5 +33,5 @@ jobs:
           cache: 'maven'
 
       - name: Run Java binding tests
-        working-directory: bindings/java/quilldee
+        working-directory: bindings/java/bernard-ledit
         run: mvn test -DargLine="-Djava.library.path=../../target/debug"

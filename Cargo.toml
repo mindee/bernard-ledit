@@ -15,8 +15,8 @@ edition = "2024"
 rust-version = "1.85"
 authors = ["Mindee <opensource@mindee.com>"]
 license = "MIT"
-repository = "https://github.com/mindee/quilldee"
-homepage = "https://github.com/mindee/quilldee"
+repository = "https://github.com/mindee/bernard-ledit"
+homepage = "https://github.com/mindee/bernard-ledit"
 
 [workspace.lints.rust]
 unsafe_code = "deny"

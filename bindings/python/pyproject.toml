@@ -3,7 +3,7 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "quilldee"
+name = "bernard-ledit"
 version = "0.1.0"
 requires-python = ">=3.9"
 classifiers = [
@@ -18,10 +18,10 @@ test = [
 ]
 
 [tool.maturin]
-module-name = "quilldee._quilldee"
+module-name = "bernard_ledit._bernard_ledit"
 python-source = "python"
 features = ["pyo3/extension-module"]
 
 [tool.pytest.ini_options]
-testpaths = ["python/quilldee/tests"]
+testpaths = ["python/bernard_ledit/tests"]
 pythonpath = ["python"]

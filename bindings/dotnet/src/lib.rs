@@ -1,4 +1,4 @@
-//! .NET bindings for the Quilldee library.
+//! .NET bindings for the Bernard l'Édit library.
 
 #![allow(missing_docs)]
 
