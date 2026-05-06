@@ -39,8 +39,10 @@ skip = [
     { name = "digest" },
     { name = "getrandom" },
     { name = "r-efi" },
+    { name = "redox_syscall" },
     { name = "wit-bindgen" },
     { name = "winnow" },
+    { name = "windows-sys" },
 ]
 skip-tree = []
 

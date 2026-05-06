@@ -31,5 +31,14 @@ format:
     @just core format
 
 # Shortcut to run Rust check-all
-check-all:
+check:
     @just core check-all
+
+# Shortcut to run Rust clean
+clean:
+    @just core clean
+
+# Cleans up all un-necessary files
+clean-all: clean
+    @just java clean
+    @just python clean

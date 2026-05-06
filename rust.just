@@ -24,7 +24,7 @@ format-check:
 
 # Cleans Rust
 clean:
-    cargo clean
+    cargo clean && rm -rf ./core/.pdfium_cache
 
 # Checks for dependencies
 check-deps:

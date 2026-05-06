@@ -11,7 +11,29 @@ build:
 
 # Test Python bindings
 test:
-    pytest -vvv
+    #!/usr/bin/env bash
+    mkdir -p ../../core/.pdfium_cache
+    PDFIUM_FILE=$(find ../../core/.pdfium_cache -name "libpdfium.*" -o -name "pdfium.dll" | head -n 1)
+    if [ -z "$PDFIUM_FILE" ]; then
+    echo "⚠️ PDFium binary not found. Attempting to build core..."
+    just core build
+    PDFIUM_FILE=$(find ../../core/.pdfium_cache -name "libpdfium.*" -o -name "pdfium.dll" | head -n 1)
+    fi
+    if [ -z "$PDFIUM_FILE" ]; then
+    echo "⚠️ PDFium binary not found. Attempting to build core..."
+    just -f ../../justfile core build
+    PDFIUM_FILE=$(find ../../core/.pdfium_cache -name "libpdfium.*" -o -name "pdfium.dll" | head -n 1)
+    fi
+    PDFIUM_LIB_PATH=$(realpath $(dirname "$PDFIUM_FILE"))
+    echo "✅ Using PDFium from: $PDFIUM_LIB_PATH"
+    export LD_LIBRARY_PATH="$PDFIUM_LIB_PATH:$LD_LIBRARY_PATH"
+    export DYLD_LIBRARY_PATH="$PDFIUM_LIB_PATH:$DYLD_LIBRARY_PATH"
+    export PATH="$PDFIUM_LIB_PATH:$PATH"
+    if command -v python3 >/dev/null 2>&1; then
+    python3 -m pytest -vvv
+    else
+    python -m pytest -vvv
+    fi
 
 # Format and lint code using ruff
 lint:
@@ -34,3 +56,4 @@ clean:
     rm -rf target/
     rm -rf *.egg-info/
     find . -type d -name "__pycache__" -exec rm -rf {} +
+    rm -rf ./**/*.abi3.so
