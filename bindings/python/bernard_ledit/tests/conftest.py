@@ -1,35 +1,78 @@
 """Pytest bootstrap for local extension-module tests."""
 
+import ctypes
 import importlib
 import importlib.machinery
+import logging
 import shutil
 import subprocess
 import sys
 import sysconfig
 from pathlib import Path
 
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
+
 
 def pytest_configure():
-    if _can_import_extension():
-        return
+    conftest_path = Path(__file__).resolve()
+    workspace_root = conftest_path.parents[4]
+    python_pkg_dir = conftest_path.parents[1]
+    target_dir = workspace_root / "target" / "debug"
+    py_ext = sysconfig.get_config_var("EXT_SUFFIX") or (
+        ".pyd" if sys.platform == "win32" else ".so"
+    )
+    expected_so = python_pkg_dir / f"_bernard_ledit{py_ext}"
 
-    project_root = Path(__file__).resolve().parents[3]
+    if not expected_so.exists():
+        logger.info("🦀 Extension not found. Building with Cargo...")
+        subprocess.run(
+            ["cargo", "build", "-p", "bernard-ledit-python"],
+            cwd=workspace_root,
+            check=True,
+        )
+        if sys.platform == "win32":
+            cargo_built_name = "bernard_ledit_python"
+            cargo_ext = ".dll"
+        elif sys.platform == "darwin":
+            cargo_built_name = "libbernard_ledit_python"
+            cargo_ext = ".dylib"
+        else:
+            cargo_built_name = "libbernard_ledit_python"
+            cargo_ext = ".so"
 
-    if _run_maturin_develop(project_root):
-        importlib.invalidate_caches()
-        if _can_import_extension():
-            return
+        built_so = target_dir / f"{cargo_built_name}{cargo_ext}"
 
-    _build_extension_with_cargo(project_root)
+        if built_so.exists():
+            shutil.copy2(built_so, expected_so)
+            logger.info(f"✅ Copied extension to {expected_so}")
+        else:
+            raise RuntimeError(f"Build succeeded but couldn't find {built_so}")
+
+    _load_pdfium_globally(workspace_root)
     importlib.invalidate_caches()
 
 
 def _can_import_extension() -> bool:
     try:
         importlib.import_module("bernard_ledit._bernard_ledit")
-    except ModuleNotFoundError:
+    except (ModuleNotFoundError, ImportError) as e:
+        logger.warning(f"Raised while importing extension: {e}.")
         return False
     return True
+
+
+def _load_pdfium_globally(workspace_root):
+    cache_dir = workspace_root / "core" / ".pdfium_cache"
+    lib_pattern = "**/libpdfium.*" if sys.platform != "win32" else "**/pdfium.dll"
+    libs = list(cache_dir.glob(lib_pattern))
+
+    if libs:
+        lib_path = str(libs[0].resolve())
+        try:
+            ctypes.CDLL(lib_path, mode=ctypes.RTLD_GLOBAL)
+        except Exception as e:
+            logger.warning(f"Failed to pre-load PDFium: {e}")
 
 
 def _run_maturin_develop(project_root: Path) -> bool:
