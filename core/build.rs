@@ -76,6 +76,8 @@ fn main() {
 
     let target_path = out_dir.join(lib_name);
 
+    println!("cargo:rustc-env=PDFIUM_PATH={}", source_path.display());
+
     if source_path.exists() {
         fs::copy(&source_path, &target_path).unwrap_or_else(|e| {
             panic!(

@@ -25,6 +25,8 @@ full = ["pdf", "image"]
 [dependencies]
 serde = { version = "1.0.228", features = ["derive"] }
 pdfium-render = "0.9.1"
+thiserror = "2.0.18"
+image = "0.25.9"
 
 [build-dependencies]
 tar = "0.4.45"
@@ -32,6 +34,7 @@ flate2 = "1.1.9"
 ureq = "3.3.0"
 
 [dev-dependencies]
+test-case = { version = "3.3" }
 cargo-husky = { version = "1", default-features = false, features = ["user-hooks"] }
 
 [lints]
