@@ -4,14 +4,23 @@ import ctypes
 import importlib
 import importlib.machinery
 import logging
+import os
 import shutil
 import subprocess
 import sys
 import sysconfig
 from pathlib import Path
 
+import pytest
+
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(scope="session")
+def test_data_dir() -> Path:
+    """Path to the workspace-level shared test data directory."""
+    return Path(__file__).resolve().parents[4] / "tests" / "data"
 
 
 def pytest_configure():
@@ -69,10 +78,13 @@ def _load_pdfium_globally(workspace_root):
 
     if libs:
         lib_path = str(libs[0].resolve())
+        os.environ.setdefault("PDFIUM_PATH", lib_path)
         try:
             ctypes.CDLL(lib_path, mode=ctypes.RTLD_GLOBAL)
         except Exception as e:
             logger.warning(f"Failed to pre-load PDFium: {e}")
+    else:
+        logger.warning(f"PDFium library not found in {cache_dir}")
 
 
 def _run_maturin_develop(project_root: Path) -> bool:

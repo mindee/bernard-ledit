@@ -6,10 +6,14 @@ pub mod bitmap;
 pub mod document;
 /// PDF Error module.
 pub mod error;
+/// Font resolution module.
+pub mod font_resolver;
 /// JPEG embedding module.
 pub mod jpeg;
 /// PDF Page module.
 pub mod page;
+/// Text character module.
+pub mod text_char;
 
 pub use bitmap::Bitmap;
 pub use document::Document;

@@ -1,3 +1,4 @@
+use crate::pdf::text_char::TextChar;
 use crate::pdf::{PdfError, bitmap::Bitmap};
 use pdfium_render::prelude::*;
 
@@ -39,12 +40,62 @@ impl<'a> Page<'a> {
         let pb = self.inner.render_with_config(&cfg)?;
         Ok(Bitmap::from_pdfium(&pb))
     }
+
+    /// Extract all characters from the page.
+    /// # Errors
+    /// Returns a `PdfError` if text extraction fails.
+    pub fn chars(&self) -> Result<Vec<TextChar>, PdfError> {
+        let chars: Vec<TextChar> = self
+            .inner
+            .text()?
+            .chars()
+            .iter()
+            .map(|c| c.into())
+            .collect();
+        Ok(chars)
+    }
+
+    /// Get the page rotation in degrees.
+    /// # Errors
+    /// Returns a `PdfError` if the page rotation could not be determined.
+    pub fn rotation(&self) -> Result<u32, PdfError> {
+        let rotation = self.inner.rotation()?;
+        Ok(get_rotation(rotation))
+    }
+
+    /// Rotate the page by the specified number of degrees (0, 90, 180, or 270).
+    /// # Errors
+    /// Returns a `PdfError` if the rotation angle is invalid or could not be set.
+    pub fn rotate(&mut self, rotation: u32) -> Result<(), PdfError> {
+        let pdfium_rotation = match rotation {
+            0 => PdfPageRenderRotation::None,
+            90 => PdfPageRenderRotation::Degrees90,
+            180 => PdfPageRenderRotation::Degrees180,
+            270 => PdfPageRenderRotation::Degrees270,
+            _ => return Err(PdfError::Other(format!("Invalid rotation: {}", rotation))),
+        };
+
+        self.inner.set_rotation(pdfium_rotation);
+
+        Ok(())
+    }
+}
+
+/// Convert a `PdfPageRenderRotation` to a u32.
+pub fn get_rotation(rotation: PdfPageRenderRotation) -> u32 {
+    match rotation {
+        PdfPageRenderRotation::None => 0,
+        PdfPageRenderRotation::Degrees90 => 90,
+        PdfPageRenderRotation::Degrees180 => 180,
+        PdfPageRenderRotation::Degrees270 => 270,
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::pdf::{Document, pdfium};
     use image::{ImageBuffer, ImageFormat, Rgb};
+    use pdfium_render::prelude::PdfRect;
     use std::io::Cursor;
 
     /// Minimal synthetic JPEG: valid SOF0 header, no pixel data.
@@ -58,7 +109,7 @@ mod tests {
         ];
         data.extend_from_slice(&height.to_be_bytes());
         data.extend_from_slice(&width.to_be_bytes());
-        data.push(3); // RGB
+        data.push(3);
         data
     }
 
@@ -72,7 +123,7 @@ mod tests {
     }
 
     #[test]
-    fn size_matches_requested_dimensions() {
+    fn test_size_matches_requested_dimensions() {
         pdfium();
         let jpeg = make_minimal_jpeg(200, 150);
         let doc = Document::from_jpeg(&jpeg, 200.0, 150.0).unwrap();
@@ -80,7 +131,7 @@ mod tests {
     }
 
     #[test]
-    fn size_non_square_no_width_height_swap() {
+    fn test_size_non_square_no_width_height_swap() {
         pdfium();
         let jpeg = make_minimal_jpeg(100, 300);
         let doc = Document::from_jpeg(&jpeg, 100.0, 300.0).unwrap();
@@ -88,7 +139,7 @@ mod tests {
     }
 
     #[test]
-    fn is_empty_false_for_jpeg_page() {
+    fn test_is_empty_false_for_jpeg_page() {
         pdfium();
         let jpeg = make_minimal_jpeg(10, 10);
         let doc = Document::from_jpeg(&jpeg, 10.0, 10.0).unwrap();
@@ -96,7 +147,7 @@ mod tests {
     }
 
     #[test]
-    fn render_bitmap_size_matches_page_at_scale_one() {
+    fn test_render_bitmap_size_matches_page_at_scale_one() {
         pdfium();
         let jpeg = make_real_jpeg(100, 50);
         let doc = Document::from_jpeg(&jpeg, 100.0, 50.0).unwrap();
@@ -106,7 +157,7 @@ mod tests {
     }
 
     #[test]
-    fn render_scale_two_doubles_dimensions() {
+    fn test_render_scale_two_doubles_dimensions() {
         pdfium();
         let jpeg = make_real_jpeg(100, 50);
         let doc = Document::from_jpeg(&jpeg, 100.0, 50.0).unwrap();
@@ -118,11 +169,40 @@ mod tests {
     }
 
     #[test]
-    fn render_rgba_buffer_size_is_consistent() {
+    fn test_render_rgba_buffer_size_is_consistent() {
         pdfium();
         let jpeg = make_real_jpeg(20, 30);
         let doc = Document::from_jpeg(&jpeg, 20.0, 30.0).unwrap();
         let bmp = doc.page(0).unwrap().render(1.0).unwrap();
         assert_eq!(bmp.rgba.len(), (bmp.width * bmp.height * 4) as usize);
+    }
+
+    #[test]
+    fn test_chars_returns_text_chars() {
+        pdfium();
+        let doc = Document::from_bytes(test_data_bytes!("file_types/pdf/multipage.pdf").to_vec())
+            .unwrap();
+        let chars = doc.page(0).unwrap().chars().unwrap();
+        assert_eq!(chars.len(), 1);
+        assert_eq!(chars[0].char, '*');
+        assert_eq!(chars[0].stroke_color, [0, 0, 0, 255].into());
+        assert_eq!(chars[0].font_size, 18.0);
+        assert_eq!(
+            chars[0].bounds,
+            PdfRect::new_from_values(789.884, 38.192, 811.28595, 31.19)
+        );
+    }
+
+    #[test]
+    fn test_rotation() {
+        pdfium();
+        let vertical_doc =
+            Document::from_bytes(test_data_bytes!("file_types/pdf/blank_1.pdf").to_vec()).unwrap();
+        let mut page_0 = vertical_doc.page(0).unwrap();
+        assert_eq!(page_0.rotation().unwrap(), 0);
+        page_0
+            .rotate(180)
+            .expect("Rotation should be one of 0, 90, 180 or 270.");
+        assert_eq!(page_0.rotation().unwrap(), 180);
     }
 }

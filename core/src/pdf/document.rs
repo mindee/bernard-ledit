@@ -1,5 +1,7 @@
 use crate::pdf::error::{PdfBuilderError, PdfError};
+use crate::pdf::font_resolver::resolve_builtin_font;
 use crate::pdf::jpeg::build_jpeg_pdf;
+use crate::pdf::text_char::TextChar;
 use crate::pdf::{page::Page, pdfium};
 use pdfium_render::prelude::*;
 
@@ -117,11 +119,65 @@ impl Document {
         let pdf_bytes = build_jpeg_pdf(jpeg_bytes, width, height)?;
         Self::from_bytes(pdf_bytes).map_err(PdfBuilderError::Pdf)
     }
+
+    /// Add text to a page.
+    ///
+    /// Each [`TextChar`]'s `font_name`, `font_weight`, and `font_flags` are
+    /// used to pick one of the 14 PDF built-in font variants
+    /// (Helvetica / Times / Courier families plus Symbol and ZapfDingbats),
+    /// so requested fonts like "Arial Bold" are rendered using
+    /// `Helvetica-Bold`, "Times New Roman Italic" using `Times-Italic`, etc.
+    pub fn add_text(&mut self, page_idx: i32, chars: &[TextChar]) -> Result<(), PdfError> {
+        let resolved: Vec<PdfFontBuiltin> = chars
+            .iter()
+            .map(|c| resolve_builtin_font(&c.font_name, c.font_weight, c.font_flags))
+            .collect();
+
+        // Cache one PdfFontToken per distinct built-in font used.
+        let mut font_tokens: Vec<(PdfFontBuiltin, PdfFontToken)> = Vec::new();
+        for &builtin in &resolved {
+            if !font_tokens.iter().any(|(b, _)| *b == builtin) {
+                let token = self.inner.fonts_mut().new_built_in(builtin);
+                font_tokens.push((builtin, token));
+            }
+        }
+
+        let mut page = self.inner.pages_mut().get(PdfPageIndex::from(page_idx))?;
+        let page_height = page.height();
+        let objects = page.objects_mut();
+
+        for (char_data, builtin) in chars.iter().zip(resolved.iter()) {
+            let font_token = font_tokens
+                .iter()
+                .find(|(b, _)| b == builtin)
+                .map(|(_, t)| *t)
+                .expect("token was pre-resolved above");
+
+            let mut text_object = PdfPageTextObject::new(
+                &self.inner,
+                char_data.char.to_string(),
+                font_token,
+                PdfPoints {
+                    value: char_data.font_size,
+                },
+            )?;
+
+            text_object.translate(
+                char_data.bounds.left(),
+                PdfPoints::new(page_height.value - char_data.bounds.top().value),
+            )?;
+            objects.add_text_object(text_object)?;
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::pdf::text_char::TextChar;
     use crate::pdf::{Document, pdfium};
+    use pdfium_render::prelude::PdfRect;
 
     #[test]
     fn test_loads_from_jpeg() {
@@ -219,5 +275,89 @@ mod tests {
         let doc = Document::from_bytes(bytes_doc_1.to_vec()).unwrap();
         let mut doc2 = Document::from_bytes(bytes_doc_2.to_vec()).unwrap();
         doc2.import_pages(&doc, &[100, 101, 102]).unwrap();
+    }
+
+    #[test]
+    fn test_add_text() {
+        pdfium();
+        let bytes = test_data_bytes!("file_types/pdf/blank_1.pdf");
+        let doc = &mut Document::from_bytes(bytes.to_vec()).unwrap();
+        let page_height = doc.inner.pages().get(0).unwrap().height().value;
+        let page_width = doc.inner.pages().get(0).unwrap().width().value;
+        let chars = vec![TextChar {
+            char: 'A',
+            font_name: String::from("Arial"),
+            font_size: 12.0,
+            font_weight: 300,
+            stroke_color: Option::from([0, 0, 255, 255]),
+            fill_color: None,
+            font_flags: 0,
+            bounds: PdfRect::new_from_values(0.0, 0.0, 10.0, 10.0),
+        }];
+        doc.add_text(0, &chars).unwrap();
+        assert_eq!(
+            doc.inner
+                .pages()
+                .get(0)
+                .unwrap()
+                .text()
+                .unwrap()
+                .to_string(),
+            "A"
+        );
+        assert_eq!(doc.page(0).unwrap().chars().unwrap().len(), 1);
+        assert_eq!(doc.page(0).unwrap().chars().unwrap()[0].char, 'A');
+        assert_eq!(doc.page(0).unwrap().chars().unwrap()[0].font_size, 12.0);
+        PdfRect::new_from_values(829.312, 0.0, 843.34, 8.004);
+        assert_eq!(
+            doc.page(0).unwrap().chars().unwrap()[0].font_name,
+            String::from("Helvetica")
+        );
+        let _ = doc;
+    }
+
+    #[test]
+    fn test_add_text_resolves_font_families() {
+        pdfium();
+        let bytes = test_data_bytes!("file_types/pdf/blank_1.pdf");
+        let doc = &mut Document::from_bytes(bytes.to_vec()).unwrap();
+        let chars = vec![
+            TextChar {
+                char: 'T',
+                font_name: String::from("Times New Roman Bold"),
+                font_size: 12.0,
+                font_weight: 700,
+                stroke_color: None,
+                fill_color: None,
+                font_flags: 0,
+                bounds: PdfRect::new_from_values(0.0, 0.0, 10.0, 10.0),
+            },
+            TextChar {
+                char: 'C',
+                font_name: String::from("Courier"),
+                font_size: 12.0,
+                font_weight: 400,
+                stroke_color: None,
+                fill_color: None,
+                font_flags: 0,
+                bounds: PdfRect::new_from_values(20.0, 0.0, 30.0, 10.0),
+            },
+            TextChar {
+                char: 'H',
+                font_name: String::from("Helvetica Oblique"),
+                font_size: 12.0,
+                font_weight: 400,
+                stroke_color: None,
+                fill_color: None,
+                font_flags: 1 << 6,
+                bounds: PdfRect::new_from_values(40.0, 0.0, 50.0, 10.0),
+            },
+        ];
+        doc.add_text(0, &chars).unwrap();
+        let out = doc.page(0).unwrap().chars().unwrap();
+        assert_eq!(out.len(), 3);
+        assert_eq!(out[0].font_name, "Times-Bold");
+        assert_eq!(out[1].font_name, "Courier");
+        assert_eq!(out[2].font_name, "Helvetica-Oblique");
     }
 }

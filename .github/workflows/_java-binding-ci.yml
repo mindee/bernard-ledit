@@ -15,7 +15,9 @@ jobs:
         java: ["11", "21"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
       - uses: extractions/setup-just@v3
 
       - name: Set up Rust toolchain
