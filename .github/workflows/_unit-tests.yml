@@ -15,7 +15,9 @@ jobs:
         rust: [stable, "1.85"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Install PHP dev headers
         if: matrix.os == 'ubuntu-latest'

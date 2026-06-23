@@ -8,8 +8,11 @@ permissions:
   pull-requests: read
 
 jobs:
+  workflow-lint:
+    uses: ./.github/workflows/_workflow_lint.yml
   pre-commit:
     uses: ./.github/workflows/_pre-commit.yml
+    needs: workflow-lint
 
   unit-tests:
     uses: ./.github/workflows/_unit-tests.yml
