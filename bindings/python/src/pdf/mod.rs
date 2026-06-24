@@ -8,6 +8,8 @@ pub mod document;
 pub mod error;
 /// PDF page.
 pub mod page;
+/// Text character.
+pub mod text_char;
 
 /// Register the `pdf` submodule.
 /// # Errors
@@ -18,6 +20,7 @@ pub fn register_submodule(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<page::PyPdfPage>()?;
     m.add_class::<page::PageSize>()?;
     m.add_class::<bitmap::PyPdfBitmap>()?;
+    m.add_class::<text_char::PyTextChar>()?;
     m.add(
         "PdfiumError",
         parent.py().get_type::<error::PyPdfiumError>(),

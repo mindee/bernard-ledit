@@ -1,4 +1,4 @@
-use super::{bitmap::PyPdfBitmap, document::PyPdfDocument};
+use super::{bitmap::PyPdfBitmap, document::PyPdfDocument, text_char::PyTextChar};
 use crate::pdf::error::format_pdf_err;
 use pyo3::prelude::*;
 
@@ -34,6 +34,35 @@ impl PyPdfPage {
         self.doc.borrow(py).with_doc(|d| {
             d.page(self.index)
                 .map(|p| p.is_empty())
+                .map_err(|e| format_pdf_err(&e))
+        })?
+    }
+
+    /// Extract the page text.
+    fn text(&self, py: Python<'_>) -> PyResult<String> {
+        self.doc.borrow(py).with_doc(|d| {
+            d.page(self.index)
+                .and_then(|p| p.text())
+                .map_err(|e| format_pdf_err(&e))
+        })?
+    }
+
+    /// Extract the page text characters.
+    fn chars(&self, py: Python<'_>) -> PyResult<Vec<PyTextChar>> {
+        self.doc.borrow(py).with_doc(|d| {
+            let chars = d
+                .page(self.index)
+                .and_then(|p| p.chars())
+                .map_err(|e| format_pdf_err(&e))?;
+            Ok(chars.into_iter().map(PyTextChar::from).collect())
+        })?
+    }
+
+    /// Page rotation in degrees.
+    fn rotation(&self, py: Python<'_>) -> PyResult<u32> {
+        self.doc.borrow(py).with_doc(|d| {
+            d.page(self.index)
+                .and_then(|p| p.rotation())
                 .map_err(|e| format_pdf_err(&e))
         })?
     }

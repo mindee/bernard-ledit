@@ -20,10 +20,11 @@ const PDF_FONT_FLAG_ITALIC: i32 = 1 << 6;
 /// PDF built-in font variants.
 ///
 /// The mapping picks a family from the font name (Times / Courier / Symbol /
-/// ZapfDingbats, defaulting to Helvetica for any sans-serif or unknown name)
+/// `ZapfDingbats`, defaulting to Helvetica for any sans-serif or unknown name)
 /// and then picks a bold/italic variant based on `font_weight` (>= 600 is
 /// considered bold) and the italic flag in `font_flags` (or "italic" /
 /// "oblique" appearing in the font name).
+#[must_use]
 pub fn resolve_builtin_font(font_name: &str, font_weight: u32, font_flags: i32) -> PdfFontBuiltin {
     let lower = font_name.to_ascii_lowercase();
 

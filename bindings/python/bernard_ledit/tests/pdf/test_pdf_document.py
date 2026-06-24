@@ -6,6 +6,7 @@ from bernard_ledit.pdf import (
     PdfDocument,
     PdfiumError,
     PdfPage,
+    TextChar,
 )
 
 
@@ -118,3 +119,27 @@ def test_context_manager_does_not_suppress_exceptions(test_data_dir):
     with pytest.raises(ZeroDivisionError):
         with PdfDocument(data):
             _ = 1 / 0
+
+
+def test_add_text_updates_text_and_chars(test_data_dir):
+    data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
+    doc = PdfDocument(data)
+    doc.add_text(
+        0,
+        [
+            TextChar(
+                "A",
+                "Arial",
+                12.0,
+                300,
+                bounds=(0.0, 0.0, 10.0, 10.0),
+            )
+        ],
+    )
+
+    page = doc.get_page(0)
+    assert page.text() == "A"
+    chars = page.chars()
+    assert len(chars) == 1
+    assert chars[0].char == "A"
+    assert chars[0].font_name == "Helvetica"

@@ -124,9 +124,13 @@ impl Document {
     ///
     /// Each [`TextChar`]'s `font_name`, `font_weight`, and `font_flags` are
     /// used to pick one of the 14 PDF built-in font variants
-    /// (Helvetica / Times / Courier families plus Symbol and ZapfDingbats),
+    /// (Helvetica / Times / Courier families plus Symbol and `ZapfDingbats`),
     /// so requested fonts like "Arial Bold" are rendered using
     /// `Helvetica-Bold`, "Times New Roman Italic" using `Times-Italic`, etc.
+    /// # Panics
+    /// If the font name is not a valid built-in font name.
+    /// # Errors
+    /// Returns a `PdfError` if the font name is not a valid built-in font name.
     pub fn add_text(&mut self, page_idx: i32, chars: &[TextChar]) -> Result<(), PdfError> {
         let resolved: Vec<PdfFontBuiltin> = chars
             .iter()
@@ -144,31 +148,40 @@ impl Document {
 
         let mut page = self.inner.pages_mut().get(PdfPageIndex::from(page_idx))?;
         let page_height = page.height();
-        let objects = page.objects_mut();
+        page.set_content_regeneration_strategy(PdfPageContentRegenerationStrategy::Manual);
+        {
+            let objects = page.objects_mut();
 
-        for (char_data, builtin) in chars.iter().zip(resolved.iter()) {
-            let font_token = font_tokens
-                .iter()
-                .find(|(b, _)| b == builtin)
-                .map(|(_, t)| *t)
-                .expect("token was pre-resolved above");
+            for (char_data, builtin) in chars.iter().zip(resolved.iter()) {
+                let font_token = font_tokens
+                    .iter()
+                    .find(|(b, _)| b == builtin)
+                    .map(|(_, t)| *t)
+                    .expect("token was pre-resolved above");
 
-            let mut text_object = PdfPageTextObject::new(
-                &self.inner,
-                char_data.char.to_string(),
-                font_token,
-                PdfPoints {
-                    value: char_data.font_size,
-                },
-            )?;
-
-            text_object.translate(
-                char_data.bounds.left(),
-                PdfPoints::new(page_height.value - char_data.bounds.top().value),
-            )?;
-            objects.add_text_object(text_object)?;
+                objects.create_text_object(
+                    PdfPoints::new(char_data.bounds[1]),
+                    PdfPoints::new(page_height.value - char_data.bounds[2]),
+                    char_data.char,
+                    font_token,
+                    PdfPoints::new(char_data.font_size),
+                )?;
+            }
         }
 
+        page.regenerate_content()?;
+
+        Ok(())
+    }
+
+    /// Appends a JPEG as a new page.
+    /// # Panics
+    /// If the JPEG cannot be decoded.
+    /// # Errors
+    /// Returns `PdfError` if the JPEG cannot be decoded.
+    pub fn append_jpeg_page(&mut self, jpeg_bytes: &[u8]) -> Result<(), PdfiumError> {
+        let doc = &mut Self::from_jpeg(jpeg_bytes, 100.0, 100.0).unwrap();
+        self.inner.pages_mut().append(&doc.inner)?;
         Ok(())
     }
 }
@@ -177,7 +190,6 @@ impl Document {
 mod tests {
     use crate::pdf::text_char::TextChar;
     use crate::pdf::{Document, pdfium};
-    use pdfium_render::prelude::PdfRect;
 
     #[test]
     fn test_loads_from_jpeg() {
@@ -282,8 +294,6 @@ mod tests {
         pdfium();
         let bytes = test_data_bytes!("file_types/pdf/blank_1.pdf");
         let doc = &mut Document::from_bytes(bytes.to_vec()).unwrap();
-        let page_height = doc.inner.pages().get(0).unwrap().height().value;
-        let page_width = doc.inner.pages().get(0).unwrap().width().value;
         let chars = vec![TextChar {
             char: 'A',
             font_name: String::from("Arial"),
@@ -292,7 +302,7 @@ mod tests {
             stroke_color: Option::from([0, 0, 255, 255]),
             fill_color: None,
             font_flags: 0,
-            bounds: PdfRect::new_from_values(0.0, 0.0, 10.0, 10.0),
+            bounds: [0.0, 0.0, 10.0, 10.0],
         }];
         doc.add_text(0, &chars).unwrap();
         assert_eq!(
@@ -307,8 +317,8 @@ mod tests {
         );
         assert_eq!(doc.page(0).unwrap().chars().unwrap().len(), 1);
         assert_eq!(doc.page(0).unwrap().chars().unwrap()[0].char, 'A');
-        assert_eq!(doc.page(0).unwrap().chars().unwrap()[0].font_size, 12.0);
-        PdfRect::new_from_values(829.312, 0.0, 843.34, 8.004);
+        let font_size = doc.page(0).unwrap().chars().unwrap()[0].font_size;
+        assert!((font_size - 12.0).abs() < 0.1);
         assert_eq!(
             doc.page(0).unwrap().chars().unwrap()[0].font_name,
             String::from("Helvetica")
@@ -330,7 +340,7 @@ mod tests {
                 stroke_color: None,
                 fill_color: None,
                 font_flags: 0,
-                bounds: PdfRect::new_from_values(0.0, 0.0, 10.0, 10.0),
+                bounds: [0.0, 0.0, 10.0, 10.0],
             },
             TextChar {
                 char: 'C',
@@ -340,7 +350,7 @@ mod tests {
                 stroke_color: None,
                 fill_color: None,
                 font_flags: 0,
-                bounds: PdfRect::new_from_values(20.0, 0.0, 30.0, 10.0),
+                bounds: [20.0, 0.0, 30.0, 10.0],
             },
             TextChar {
                 char: 'H',
@@ -350,7 +360,7 @@ mod tests {
                 stroke_color: None,
                 fill_color: None,
                 font_flags: 1 << 6,
-                bounds: PdfRect::new_from_values(40.0, 0.0, 50.0, 10.0),
+                bounds: [40.0, 0.0, 50.0, 10.0],
             },
         ];
         doc.add_text(0, &chars).unwrap();

@@ -20,6 +20,7 @@ pub use document::Document;
 pub use error::PdfError;
 pub use page::Page;
 use std::sync::OnceLock;
+pub use text_char::TextChar;
 
 use pdfium_render::prelude::*;
 
