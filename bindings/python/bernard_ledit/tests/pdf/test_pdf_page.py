@@ -44,6 +44,15 @@ def test_page_render_scale_affects_size(test_data_dir):
     assert large.height >= small.height * 2 - 1
 
 
+def test_page_text_chars_and_rotation(test_data_dir):
+    data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
+    doc = PdfDocument(data)
+    page = doc.get_page(0)
+    assert page.text() == ""
+    assert page.chars() == []
+    assert page.rotation() == 0
+
+
 def test_page_repr(test_data_dir):
     data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
     doc = PdfDocument(data)

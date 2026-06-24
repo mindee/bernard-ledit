@@ -1,7 +1,7 @@
 //! PDF document.
-use super::page::PyPdfPage;
+use super::{page::PyPdfPage, text_char::PyTextChar};
 use crate::pdf::error::{closed_err, format_pdf_err};
-use bernard_ledit::pdf::Document;
+use bernard_ledit::pdf::{Document, TextChar as RustTextChar};
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use std::sync::Mutex;
@@ -93,6 +93,20 @@ impl PyPdfDocument {
         Ok(())
     }
 
+    /// Add text to a page.
+    #[allow(clippy::needless_pass_by_value)]
+    fn add_text(&self, page_idx: u16, chars: Vec<Bound<'_, PyTextChar>>) -> PyResult<()> {
+        let chars: Vec<RustTextChar> = chars
+            .iter()
+            .map(|c| RustTextChar::from(&*c.borrow()))
+            .collect();
+        self.with_doc_mut(|d| {
+            d.add_text(i32::from(page_idx), &chars)
+                .map_err(|e| format_pdf_err(&e))
+        })??;
+        Ok(())
+    }
+
     /// Save the document into a file-like object.
     fn save(&self, buf: &Bound<'_, PyAny>) -> PyResult<()> {
         let mut bytes: Vec<u8> = Vec::new();
@@ -150,6 +164,14 @@ impl PyPdfDocument {
     pub(crate) fn with_doc<R>(&self, f: impl FnOnce(&Document) -> R) -> PyResult<R> {
         let g = self.inner.lock().map_err(|_| closed_err())?;
         let d = g.as_ref().ok_or_else(closed_err)?;
+        let result = f(d);
+        drop(g);
+        Ok(result)
+    }
+
+    pub(crate) fn with_doc_mut<R>(&self, f: impl FnOnce(&mut Document) -> R) -> PyResult<R> {
+        let mut g = self.inner.lock().map_err(|_| closed_err())?;
+        let d = g.as_mut().ok_or_else(closed_err)?;
         let result = f(d);
         drop(g);
         Ok(result)

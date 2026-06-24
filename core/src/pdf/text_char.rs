@@ -1,4 +1,5 @@
-use pdfium_render::prelude::{PdfFontWeight, PdfPageTextChar, PdfRect};
+use crate::pdf::PdfError;
+use pdfium_render::prelude::{PdfFontWeight, PdfPageTextChar};
 
 /// Represents a character in a PDF text string.
 pub struct TextChar {
@@ -17,36 +18,42 @@ pub struct TextChar {
     /// Flags associated with the font.
     pub font_flags: i32,
     /// Character bounding box.
-    pub bounds: PdfRect,
+    pub bounds: [f32; 4],
 }
 
-impl TextChar {
-    /// Creates a new `TextChar`.
-    pub fn new(
-        char: char,
-        font_name: impl Into<String>,
-        font_size: f32,
-        font_weight: u32,
-        stroke_color: Option<[u8; 4]>,
-        fill_color: Option<[u8; 4]>,
-        font_flags: i32,
-        bounds: PdfRect,
-    ) -> Self {
-        Self {
-            char,
-            font_name: font_name.into(),
-            font_size,
-            font_weight,
-            stroke_color,
-            fill_color,
-            font_flags,
-            bounds,
-        }
+impl TryFrom<PdfPageTextChar<'_>> for TextChar {
+    type Error = PdfError;
+    fn try_from(char: PdfPageTextChar<'_>) -> Result<Self, Self::Error> {
+        let char_bounds = char.loose_bounds()?;
+        Ok(Self {
+            char: char
+                .unicode_char()
+                .ok_or_else(|| PdfError::Other("Missing unicode character".to_string()))?,
+            font_name: char.font_name(),
+            font_size: char.unscaled_font_size().value,
+            font_weight: font_weight_to_u32(char.font_weight()),
+            stroke_color: char
+                .stroke_color()
+                .ok()
+                .map(|c| [c.red(), c.green(), c.blue(), c.alpha()]),
+            fill_color: char
+                .fill_color()
+                .ok()
+                .map(|c| [c.red(), c.green(), c.blue(), c.alpha()]),
+            font_flags: 0,
+            bounds: [
+                char_bounds.bottom().value,
+                char_bounds.left().value,
+                char_bounds.top().value,
+                char_bounds.right().value,
+            ],
+        })
     }
 }
 
 /// Convert a `PdfFontWeight` to a u32.
-pub fn font_weight_to_u32(weight: Option<PdfFontWeight>) -> u32 {
+#[must_use]
+pub const fn font_weight_to_u32(weight: Option<PdfFontWeight>) -> u32 {
     match weight {
         Some(PdfFontWeight::Weight100) => 100,
         Some(PdfFontWeight::Weight200) => 200,
@@ -58,26 +65,7 @@ pub fn font_weight_to_u32(weight: Option<PdfFontWeight>) -> u32 {
         Some(PdfFontWeight::Weight800) => 800,
         Some(PdfFontWeight::Weight900) => 900,
         Some(PdfFontWeight::Custom(val)) => val,
-        None => 400,
-    }
-}
-
-impl From<PdfPageTextChar<'_>> for TextChar {
-    fn from(char: PdfPageTextChar<'_>) -> Self {
-        Self::new(
-            char.unicode_char().unwrap(),
-            char.font_name(),
-            char.unscaled_font_size().value,
-            font_weight_to_u32(char.font_weight()),
-            char.stroke_color()
-                .ok()
-                .map(|c| [c.red(), c.green(), c.blue(), c.alpha()]),
-            char.fill_color()
-                .ok()
-                .map(|c| [c.red(), c.green(), c.blue(), c.alpha()]),
-            0,
-            char.loose_bounds().unwrap(),
-        )
+        None => 0,
     }
 }
 
@@ -92,7 +80,7 @@ impl Default for TextChar {
             stroke_color: None,
             fill_color: Some([0, 0, 0, 255]),
             font_flags: 0,
-            bounds: PdfRect::new_from_values(0.0, 0.0, 0.0, 0.0),
+            bounds: [0.0, 0.0, 0.0, 0.0],
         }
     }
 }

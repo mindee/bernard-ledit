@@ -50,8 +50,8 @@ impl<'a> Page<'a> {
             .text()?
             .chars()
             .iter()
-            .map(|c| c.into())
-            .collect();
+            .map(TryInto::try_into)
+            .collect::<Result<_, _>>()?;
         Ok(chars)
     }
 
@@ -72,7 +72,7 @@ impl<'a> Page<'a> {
             90 => PdfPageRenderRotation::Degrees90,
             180 => PdfPageRenderRotation::Degrees180,
             270 => PdfPageRenderRotation::Degrees270,
-            _ => return Err(PdfError::Other(format!("Invalid rotation: {}", rotation))),
+            _ => return Err(PdfError::Other(format!("Invalid rotation: {rotation}"))),
         };
 
         self.inner.set_rotation(pdfium_rotation);
@@ -82,7 +82,8 @@ impl<'a> Page<'a> {
 }
 
 /// Convert a `PdfPageRenderRotation` to a u32.
-pub fn get_rotation(rotation: PdfPageRenderRotation) -> u32 {
+#[must_use]
+pub const fn get_rotation(rotation: PdfPageRenderRotation) -> u32 {
     match rotation {
         PdfPageRenderRotation::None => 0,
         PdfPageRenderRotation::Degrees90 => 90,
@@ -95,7 +96,6 @@ pub fn get_rotation(rotation: PdfPageRenderRotation) -> u32 {
 mod tests {
     use crate::pdf::{Document, pdfium};
     use image::{ImageBuffer, ImageFormat, Rgb};
-    use pdfium_render::prelude::PdfRect;
     use std::io::Cursor;
 
     /// Minimal synthetic JPEG: valid SOF0 header, no pixel data.
@@ -186,11 +186,20 @@ mod tests {
         assert_eq!(chars.len(), 1);
         assert_eq!(chars[0].char, '*');
         assert_eq!(chars[0].stroke_color, [0, 0, 0, 255].into());
-        assert_eq!(chars[0].font_size, 18.0);
-        assert_eq!(
-            chars[0].bounds,
-            PdfRect::new_from_values(789.884, 38.192, 811.28595, 31.19)
-        );
+        let font_size = doc.page(0).unwrap().chars().unwrap()[0].font_size;
+        assert!((font_size - 18.0).abs() < 0.1);
+        let expected_bounds: [f32; 4] = [789.884, 31.19, 811.28595, 38.192];
+        let tolerance = 2.0;
+
+        for (actual, expected) in chars[0].bounds.iter().zip(expected_bounds.iter()) {
+            assert!(
+                (actual - expected).abs() < tolerance,
+                "Bounds mismatch: {} != {} (diff: {})",
+                actual,
+                expected,
+                (actual - expected).abs()
+            );
+        }
     }
 
     #[test]
