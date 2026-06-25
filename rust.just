@@ -22,9 +22,9 @@ format-check:
 clean:
     cargo clean && rm -rf ./core/.pdfium_cache
 
-# Checks for dependencies
+# Checks for dependencies (requires nightly for cargo-udeps; installs it automatically if missing)
 check-deps:
-    cargo deny check && cargo +nightly udeps
+    cargo deny check && (rustup toolchain install nightly --no-self-update 2>/dev/null || true) && cargo +nightly udeps
 
 # Checks the core library across all feature combinations without dev-dependencies
 hack-check:
