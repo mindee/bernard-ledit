@@ -3,6 +3,10 @@ name: Python binding tests
 on:
   workflow_call:
 
+concurrency:
+  group: ${{ github.workflow_ref }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   python-binding-tests:
     name: Test Python binding (${{ matrix.os }}, Python ${{ matrix.python }})
@@ -36,7 +40,7 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          key: python-binding-${{ matrix.os }}-${{ matrix.python }}
+          key: python-binding-${{ matrix.os }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -46,7 +50,7 @@ jobs:
           cache-dependency-path: bindings/python/pyproject.toml
 
       - name: Install Python dependencies
-        run: pip install -U -e ".[test]"
+        run: pip install -e ".[test]"
         working-directory: bindings/python
 
       - name: Run Python binding tests
