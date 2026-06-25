@@ -20,8 +20,8 @@ jobs:
 
   python-binding-tests:
     uses: ./.github/workflows/_python-binding-tests.yml
-    needs: unit-tests
+    needs: pre-commit
 
   java-binding-tests:
     uses: ./.github/workflows/_java-binding-ci.yml
-    needs: unit-tests
+    needs: pre-commit
