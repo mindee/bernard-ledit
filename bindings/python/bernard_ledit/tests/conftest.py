@@ -54,7 +54,7 @@ def pytest_configure():
 
         if built_so.exists():
             shutil.copy2(built_so, expected_so)
-            logger.info(f"✅ Copied extension to {expected_so}")
+            logger.info(f"Copied extension to {expected_so}")
         else:
             raise RuntimeError(f"Build succeeded but couldn't find {built_so}")
 

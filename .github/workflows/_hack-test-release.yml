@@ -1,0 +1,41 @@
+name: Hack test release
+
+on:
+  workflow_call:
+
+jobs:
+  hack-test-release:
+    name: Hack release tests (Linux)
+    runs-on: ubuntu-latest
+    env:
+      CARGO_INCREMENTAL: 0
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: extractions/setup-just@v4
+
+      - name: Cache PDFium binary
+        uses: actions/cache@v6
+        with:
+          path: core/.pdfium_cache
+          key: pdfium-${{ runner.os }}-${{ hashFiles('core/build.rs') }}
+          restore-keys: |
+            pdfium-${{ runner.os }}-
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: hack-test-release-${{ runner.os }}
+
+      - name: Install cargo tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-hack,cargo-nextest
+
+      - name: Run release feature powerset tests
+        run: just core hack-test-release

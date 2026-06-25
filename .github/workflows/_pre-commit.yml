@@ -3,10 +3,6 @@ name: Remote pre-commit
 on:
   workflow_call:
 
-concurrency:
-  group: ${{ github.workflow_ref }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   pre-commit:
     runs-on: ubuntu-latest
@@ -15,7 +11,7 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
-      - uses: extractions/setup-just@v3
+      - uses: extractions/setup-just@v4
 
       - name: Install PHP dev headers
         run: sudo apt-get install -y php-dev libclang-dev
@@ -31,13 +27,19 @@ jobs:
       - name: Install cargo tools
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-deny,cargo-nextest
+          tool: cargo-deny,cargo-hack,cargo-udeps
 
       - name: Check formatting
         run: just core format-check
 
       - name: Run Clippy
         run: just core clippy
+
+      - name: Check feature matrix
+        run: just core hack-check
+
+      - name: Set up nightly Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
 
       - name: Check licenses and advisories
         run: just core check-deps

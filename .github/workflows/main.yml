@@ -1,7 +1,10 @@
-name: Pull Request
+name: Main
 
 on:
-  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -9,11 +12,11 @@ concurrency:
 
 permissions:
   contents: read
-  pull-requests: read
 
 jobs:
   workflow-lint:
     uses: ./.github/workflows/_workflow_lint.yml
+
   pre-commit:
     uses: ./.github/workflows/_pre-commit.yml
     needs: workflow-lint
@@ -29,3 +32,7 @@ jobs:
   java-binding-tests:
     uses: ./.github/workflows/_java-binding-ci.yml
     needs: pre-commit
+
+  hack-test-release:
+    uses: ./.github/workflows/_hack-test-release.yml
+    needs: unit-tests

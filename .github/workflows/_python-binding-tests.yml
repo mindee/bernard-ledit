@@ -7,6 +7,8 @@ jobs:
   python-binding-tests:
     name: Test Python binding (${{ matrix.os }}, Python ${{ matrix.python }})
     runs-on: ${{ matrix.os }}
+    env:
+      CARGO_INCREMENTAL: 0
 
     strategy:
       fail-fast: false
@@ -18,7 +20,15 @@ jobs:
       - uses: actions/checkout@v6
         with:
           submodules: recursive
-      - uses: extractions/setup-just@v3
+
+      - name: Cache PDFium binary
+        uses: actions/cache@v6
+        with:
+          path: core/.pdfium_cache
+          key: pdfium-${{ runner.os }}-${{ hashFiles('core/build.rs') }}
+          restore-keys: |
+            pdfium-${{ runner.os }}-
+      - uses: extractions/setup-just@v4
 
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -26,17 +36,18 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          key: python-binding-${{ matrix.os }}-${{ matrix.python }}
+          key: python-binding-${{ matrix.os }}
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: bindings/python/pyproject.toml
 
       - name: Install Python dependencies
-        run: pip install -U -e ".[test]"
+        run: pip install -e ".[test]"
         working-directory: bindings/python
 
       - name: Run Python binding tests
         run: just python test
-
