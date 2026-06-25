@@ -3,10 +3,6 @@ name: Python binding tests
 on:
   workflow_call:
 
-concurrency:
-  group: ${{ github.workflow_ref }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   python-binding-tests:
     name: Test Python binding (${{ matrix.os }}, Python ${{ matrix.python }})
@@ -32,7 +28,7 @@ jobs:
           key: pdfium-${{ runner.os }}-${{ hashFiles('core/build.rs') }}
           restore-keys: |
             pdfium-${{ runner.os }}-
-      - uses: extractions/setup-just@v3
+      - uses: extractions/setup-just@v4
 
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable

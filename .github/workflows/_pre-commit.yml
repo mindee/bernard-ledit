@@ -3,10 +3,6 @@ name: Remote pre-commit
 on:
   workflow_call:
 
-concurrency:
-  group: ${{ github.workflow_ref }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   pre-commit:
     runs-on: ubuntu-latest
@@ -15,7 +11,7 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
-      - uses: extractions/setup-just@v3
+      - uses: extractions/setup-just@v4
 
       - name: Install PHP dev headers
         run: sudo apt-get install -y php-dev libclang-dev

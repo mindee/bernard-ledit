@@ -13,4 +13,4 @@ just java lint
 echo "🐍 Running Python checks..."
 just python lint
 
-echo "✅ All linting and formatting checks passed! Committing..."
+echo "All linting and formatting checks passed! Committing..."

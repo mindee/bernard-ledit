@@ -15,17 +15,17 @@ test:
     mkdir -p ../../core/.pdfium_cache
     PDFIUM_FILE=$(find ../../core/.pdfium_cache -name "libpdfium.*" -o -name "pdfium.dll" | head -n 1)
     if [ -z "$PDFIUM_FILE" ]; then
-    echo "⚠️ PDFium binary not found. Attempting to build core..."
+    echo "PDFium binary not found. Attempting to build core..."
     just core build
     PDFIUM_FILE=$(find ../../core/.pdfium_cache -name "libpdfium.*" -o -name "pdfium.dll" | head -n 1)
     fi
     if [ -z "$PDFIUM_FILE" ]; then
-    echo "⚠️ PDFium binary not found. Attempting to build core..."
+    echo "PDFium binary not found. Attempting to build core..."
     just -f ../../justfile core build
     PDFIUM_FILE=$(find ../../core/.pdfium_cache -name "libpdfium.*" -o -name "pdfium.dll" | head -n 1)
     fi
     PDFIUM_LIB_PATH=$(realpath $(dirname "$PDFIUM_FILE"))
-    echo "✅ Using PDFium from: $PDFIUM_LIB_PATH"
+    echo "Using PDFium from: $PDFIUM_LIB_PATH"
     export LD_LIBRARY_PATH="$PDFIUM_LIB_PATH:$LD_LIBRARY_PATH"
     export DYLD_LIBRARY_PATH="$PDFIUM_LIB_PATH:$DYLD_LIBRARY_PATH"
     export PATH="$PDFIUM_LIB_PATH:$PATH"
@@ -37,7 +37,7 @@ test:
     if "$PYTHON_BIN" -m pytest --help 2>/dev/null | grep -q -- "-n "; then
     "$PYTHON_BIN" -m pytest -vvv -n auto
     else
-    echo "⚠️ pytest-xdist not installed for $PYTHON_BIN, running tests without parallel workers."
+    echo "pytest-xdist not installed for $PYTHON_BIN, running tests without parallel workers."
     "$PYTHON_BIN" -m pytest -vvv
     fi
 

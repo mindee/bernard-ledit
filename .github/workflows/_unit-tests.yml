@@ -3,10 +3,6 @@ name: Unit tests
 on:
   workflow_call:
 
-concurrency:
-  group: ${{ github.workflow_ref }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   unit-tests:
     name: Test (${{ matrix.os }}, Rust ${{ matrix.rust }})
