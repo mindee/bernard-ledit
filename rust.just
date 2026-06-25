@@ -48,4 +48,3 @@ lint: format-check clippy check-deps hack-check
 # Checks all lint tools
 check-all: format lint build check-deps test hack-test
     @echo "'\033[0;32m'All Rust checks passed.\033[0m"
-
