@@ -1,5 +1,10 @@
 # Bernard l'Édit
 
+<p align="center">
+  <img src="docs/resources/bernard-ledit_logo.png" width="40%" alt="Bernard L'Édit">
+</p>
+
+
 PDF, image, and geometry utilities for the Mindee ecosystem.
 
 A Rust library providing a shared, high-performance foundation for PDF manipulation, image processing, and geometry operations.
