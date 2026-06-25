@@ -9,6 +9,9 @@ repository.workspace = true
 homepage.workspace = true
 publish = false
 
+[package.metadata.cargo-udeps.ignore]
+normal = ["bernard-ledit", "napi", "napi-derive"]
+
 [lib]
 name = "bernard_ledit_node"
 crate-type = ["cdylib"]

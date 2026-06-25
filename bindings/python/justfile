@@ -30,9 +30,9 @@ test:
     export DYLD_LIBRARY_PATH="$PDFIUM_LIB_PATH:$DYLD_LIBRARY_PATH"
     export PATH="$PDFIUM_LIB_PATH:$PATH"
     if command -v python3 >/dev/null 2>&1; then
-    python3 -m pytest -vvv
+    python3 -m pytest -vvv -n auto
     else
-    python -m pytest -vvv
+    python -m pytest -vvv -n auto
     fi
 
 # Format and lint code using ruff

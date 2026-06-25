@@ -13,6 +13,9 @@ keywords = ["pdf", "image", "geometry", "ocr", "mindee"]
 categories = ["multimedia::images", "rendering"]
 exclude = [".github/", ".idea/"]
 
+
+[package.metadata.cargo-udeps.ignore]
+development = [""]
 [lib]
 crate-type = ["cdylib", "rlib"]
 

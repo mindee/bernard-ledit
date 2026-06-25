@@ -6,10 +6,6 @@ default:
 build:
     cargo build --release -p bernard-ledit
 
-# Tests the core Rust library in release mode
-test:
-    cargo nextest run -p bernard-ledit
-
 # Runs cargo clippy
 clippy:
     cargo clippy --all-features --all-targets -- -D warnings
@@ -28,11 +24,28 @@ clean:
 
 # Checks for dependencies
 check-deps:
-    cargo deny check
+    cargo deny check && cargo +nightly udeps
+
+# Checks the core library across all feature combinations without dev-dependencies
+hack-check:
+    cargo hack check -p bernard-ledit --feature-powerset --no-dev-deps
+
+# Tests all feature combinations using nextest
+hack-test:
+    cargo hack nextest run -p bernard-ledit --feature-powerset
+
+# Tests the core Rust library in release mode
+hack-test-release:
+    cargo hack nextest run -p bernard-ledit --release --feature-powerset
+
+# Test the core Rust library
+test:
+    cargo nextest run -p bernard-ledit
 
 # Runs Cargo formatting and Clippy on all Rust code
-lint: format-check clippy check-deps
+lint: format-check clippy check-deps hack-check
 
 # Checks all lint tools
-check-all: format lint build check-deps test
+check-all: format lint build check-deps test hack-test
     @echo "'\033[0;32m'All Rust checks passed.\033[0m"
+
