@@ -1,4 +1,5 @@
 import io
+from pathlib import Path
 
 import pytest
 
@@ -8,6 +9,7 @@ from bernard_ledit.pdf import (
     PdfPage,
     TextChar,
 )
+from bernard_ledit.tests.utils import cleanup_output_files
 
 
 def test_document_from_bytes(test_data_dir):
@@ -271,3 +273,28 @@ def test_document_has_no_content_false(test_data_dir):
     data = (test_data_dir / "file_types/pdf/multipage.pdf").read_bytes()
     doc = PdfDocument(data)
     assert doc.has_no_content() is False
+
+
+def test_save_(test_data_dir):
+    data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
+    doc = PdfDocument(data)
+    with io.BytesIO() as buf:
+        doc.save(buf)
+        saved = buf.getvalue()
+        assert saved.startswith(b"%PDF-")
+
+
+def test_save_to_path(test_data_dir):
+    data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
+    doc = PdfDocument(data)
+    with open(test_data_dir / "output" / "save_to_file.pdf", "wb") as tmp:
+        doc.save_to_file(Path(tmp.name))
+    with open(test_data_dir / "output" / "save_to_file.pdf", "rb") as f:
+        saved = f.read()
+        assert saved.startswith(b"%PDF-")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def cleanup():
+    yield
+    cleanup_output_files(["save_to_file.pdf"])

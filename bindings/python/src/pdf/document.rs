@@ -179,6 +179,21 @@ impl PyPdfDocument {
         Ok(())
     }
 
+    /// Save the document directly to a file path.
+    #[allow(clippy::needless_pass_by_value)]
+    fn save_to_file(&self, path: PathBuf) -> PyResult<()> {
+        let mut file = std::fs::File::create(&path).map_err(|e| {
+            pyo3::exceptions::PyIOError::new_err(format!(
+                "Failed to create file at {}: {}",
+                path.display(),
+                e
+            ))
+        })?;
+        self.with_doc(|d| d.save(&mut file).map_err(|e| format_pdf_err(&e)))??;
+
+        Ok(())
+    }
+
     /// Rasterizes a PDF page and returns the JPEG bytes.
     fn rasterize_page(&self, page_index: u16, quality: u8) -> PyResult<Vec<u8>> {
         self.with_doc(|d| {
