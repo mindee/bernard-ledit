@@ -262,12 +262,12 @@ def test_document_from_nonexistent_path():
         PdfDocument("this_file_does_not_exist_xyz.pdf")
 
 
-def test_document_is_blank_true():
+def test_document_has_no_content_true():
     doc = PdfDocument.new()
-    assert doc.is_blank() is True
+    assert doc.has_no_content() is True
 
 
-def test_document_is_blank_false(test_data_dir):
+def test_document_has_no_content_false(test_data_dir):
     data = (test_data_dir / "file_types/pdf/multipage.pdf").read_bytes()
     doc = PdfDocument(data)
-    assert doc.is_blank() is False
+    assert doc.has_no_content() is False

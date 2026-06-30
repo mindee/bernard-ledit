@@ -61,8 +61,8 @@ impl PyPdfDocument {
     }
 
     /// Returns true if the document contains neither text nor objects.
-    fn is_blank(&self) -> PyResult<bool> {
-        self.with_doc(|d| d.is_blank().map_err(|e| format_pdf_err(&e)))?
+    fn has_no_content(&self) -> PyResult<bool> {
+        self.with_doc(|d| d.has_no_content().map_err(|e| format_pdf_err(&e)))?
     }
 
     /// Sequence protocol: allows indexing like `pdf[0]` and iteration like `for page in pdf:`

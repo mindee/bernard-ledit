@@ -108,10 +108,10 @@ impl Document {
     /// Returns true if the document contains neither text nor objects
     /// # Errors
     /// Returns a [`PdfError`] if text extraction fails for any page.
-    pub fn is_blank(&self) -> Result<bool, PdfError> {
+    pub fn has_no_content(&self) -> Result<bool, PdfError> {
         let count = self.page_count()?;
         for i in 0..count {
-            if !self.page(i)?.is_empty() {
+            if !self.page(i)?.is_empty()? {
                 return Ok(false);
             }
         }
@@ -236,7 +236,7 @@ impl Document {
     /// # Panics
     /// If the JPEG cannot be decoded.
     /// # Errors
-    /// Returns `PdfError` if the JPEG cannot be decoded.
+    /// Returns a [`PdfError`] if the JPEG is invalid or the page cannot be appended.
     pub fn append_jpeg_page(&mut self, jpeg_bytes: &[u8]) -> Result<(), PdfError> {
         let doc = Self::from_jpeg_autosize(jpeg_bytes)
             .map_err(|e| PdfError::Other(format!("Invalid JPEG: {e}")))?;
@@ -260,9 +260,7 @@ impl Document {
     /// # Errors
     /// Returns `PdfError` if the file cannot be written.
     pub fn save_to_file(&self, path: &str) -> Result<(), PdfError> {
-        self.inner
-            .save_to_file(path)
-            .map_err(|_| PdfError::Io(std::io::Error::last_os_error()))
+        self.inner.save_to_file(path).map_err(PdfError::from)
     }
 
     /// Checks whether the document has any text.
@@ -515,9 +513,9 @@ mod tests {
         pdfium();
         let bytes_multipage: &[u8] = test_data_bytes!("file_types/pdf/multipage.pdf");
         let doc = Document::from_bytes(bytes_multipage.to_vec()).unwrap();
-        assert!(!doc.is_blank().unwrap());
+        assert!(!doc.has_no_content().unwrap());
         let bytes_blank: &[u8] = test_data_bytes!("file_types/pdf/blank.pdf");
         let doc_blank = Document::from_bytes(bytes_blank.to_vec()).unwrap();
-        assert!(doc_blank.is_blank().unwrap());
+        assert!(doc_blank.has_no_content().unwrap());
     }
 }
