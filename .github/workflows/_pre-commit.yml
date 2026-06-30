@@ -4,7 +4,21 @@ on:
   workflow_call:
 
 jobs:
-  pre-commit:
+  format:
+    name: Check formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: extractions/setup-just@v4
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check formatting
+        run: just core format-check
+
+  clippy:
+    name: Run Clippy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -12,34 +26,53 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - uses: extractions/setup-just@v4
-
       - name: Install PHP dev headers
         run: sudo apt-get install -y php-dev libclang-dev
-
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
-
+          components: clippy
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
-
-      - name: Install cargo tools
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-deny,cargo-hack,cargo-udeps
-
-      - name: Check formatting
-        run: just core format-check
-
       - name: Run Clippy
         run: just core clippy
 
+  hack:
+    name: Check feature matrix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - uses: extractions/setup-just@v4
+      - name: Install PHP dev headers
+        run: sudo apt-get install -y php-dev libclang-dev
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+      - name: Install cargo-hack
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-hack
       - name: Check feature matrix
         run: just core hack-check
 
+  deps:
+    name: Check dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - uses: extractions/setup-just@v4
       - name: Set up nightly Rust toolchain
         uses: dtolnay/rust-toolchain@nightly
-
+      - name: Install cargo tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny,cargo-udeps
       - name: Check licenses and advisories
         run: just core check-deps
