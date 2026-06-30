@@ -35,11 +35,5 @@ jobs:
           java-version: ${{ matrix.java }}
           cache: 'maven'
 
-      - name: Run Java format check
-        run: just java format-check
-
-      - name: Run Java lint
-        run: just java lint
-
-      - name: Run Java binding tests
-        run: just java test
+      - name: Run Java checks and tests
+        run: just java ci
