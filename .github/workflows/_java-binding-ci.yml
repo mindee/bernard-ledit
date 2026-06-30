@@ -2,6 +2,24 @@ name: Java binding tests
 
 on:
   workflow_call:
+    inputs:
+      java-versions:
+        required: true
+        type: string
+        description: "A JSON-formatted string array of Java versions to test"
+
+  workflow_dispatch:
+    inputs:
+      java_version:
+        description: "Select a Java version to test (or all)"
+        type: choice
+        required: true
+        default: "11"
+        options:
+          - "11"
+          - "17"
+          - "21"
+          - "All"
 
 jobs:
   java-binding-tests:
@@ -11,8 +29,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        java: ["11", "21"]
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+        java: ${{ fromJSON(github.event_name == 'workflow_dispatch' && (inputs.java_version == 'All' && '["11", "17", "21"]' || format('["{0}"]', inputs.java_version)) || inputs.java-versions) }}
 
     steps:
       - uses: actions/checkout@v6

@@ -2,7 +2,27 @@ name: Python binding tests
 
 on:
   workflow_call:
+    inputs:
+      python-versions:
+        required: true
+        type: string
+        description: "A JSON-formatted string array of Python versions to test"
 
+  workflow_dispatch:
+    inputs:
+      python_version:
+        description: "Select a Python version to test (or all)"
+        type: choice
+        required: true
+        default: "3.9"
+        options:
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
+          - "3.14"
+          - "All"
 jobs:
   python-binding-tests:
     name: Test Python binding (${{ matrix.os }}, Python ${{ matrix.python }})
@@ -15,8 +35,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        python: ["3.9", "3.12"]
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+        python: ${{ fromJSON(github.event_name == 'workflow_dispatch' && (inputs.python_version == 'All' && '["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]' || format('["{0}"]', inputs.python_version)) || inputs.python-versions) }}
 
     steps:
       - uses: actions/checkout@v6
