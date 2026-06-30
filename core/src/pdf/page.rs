@@ -19,10 +19,10 @@ impl<'a> Page<'a> {
         (self.inner.width().value, self.inner.height().value)
     }
 
-    /// Check if the page is empty.
+    /// Check if the page contains neither test nor objects.
     #[must_use = "this returns the result of the operation, without modifying the original"]
     pub fn is_empty(&self) -> bool {
-        self.inner.objects().len() == 0
+        self.inner.objects().len() == 0 && self.inner.text().unwrap().is_empty()
     }
 
     /// Extract all text from the page.
