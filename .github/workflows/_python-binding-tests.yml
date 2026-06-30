@@ -9,6 +9,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       CARGO_INCREMENTAL: 0
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: sccache
 
     strategy:
       fail-fast: false
@@ -33,6 +35,9 @@ jobs:
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
@@ -42,11 +47,15 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
-          cache: pip
-          cache-dependency-path: bindings/python/pyproject.toml
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: bindings/python/pyproject.toml
 
       - name: Install Python dependencies
-        run: pip install -e ".[test]"
+        run: uv pip install --system -e ".[test]"
         working-directory: bindings/python
 
       - name: Run Python binding tests
