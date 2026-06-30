@@ -32,15 +32,13 @@ impl PyPdfDocument {
     fn new(input: PdfInput<'_>) -> PyResult<Self> {
         let bytes: Vec<u8> = match input {
             PdfInput::Bytes(b) => b.as_bytes().to_vec(),
-            PdfInput::Path(path) => {
-                std::fs::read(&path).map_err(|e| {
-                    pyo3::exceptions::PyIOError::new_err(format!(
-                        "Failed to read file at {}: {}",
-                        path.display(),
-                        e
-                    ))
-                })?
-            }
+            PdfInput::Path(path) => std::fs::read(&path).map_err(|e| {
+                pyo3::exceptions::PyIOError::new_err(format!(
+                    "Failed to read file at {}: {}",
+                    path.display(),
+                    e
+                ))
+            })?,
             PdfInput::FileLike(obj) => {
                 let data = obj.call_method0("read")?;
                 data.extract::<Vec<u8>>()?
@@ -69,16 +67,26 @@ impl PyPdfDocument {
 
     /// Sequence protocol: allows indexing like `pdf[0]` and iteration like `for page in pdf:`
     fn __getitem__(slf: Bound<'_, Self>, index: isize) -> PyResult<PyPdfPage> {
-        let len = slf.borrow().__len__()? as isize;
+        let len_usize = slf.borrow().__len__()?;
+        let len = isize::try_from(len_usize).map_err(|_| {
+            pyo3::exceptions::PyIndexError::new_err("Document length exceeds index limits")
+        })?;
+
         let mut idx = index;
         if idx < 0 {
             idx += len;
         }
-        if idx < 0 || idx >= len {
-            return Err(pyo3::exceptions::PyIndexError::new_err("Page index out of range"));
-        }
 
-        Self::get_page(slf, idx as u16)
+        if idx < 0 || idx >= len {
+            return Err(pyo3::exceptions::PyIndexError::new_err(
+                "Page index out of range",
+            ));
+        }
+        let page_idx = u16::try_from(idx).map_err(|_| {
+            pyo3::exceptions::PyIndexError::new_err("Page index out of valid range (max 65535)")
+        })?;
+
+        Self::get_page(slf, page_idx)
     }
 
     /// Number of pages in the document.
@@ -148,12 +156,11 @@ impl PyPdfDocument {
     }
 
     /// Append a JPEG page to the document.
+    #[allow(clippy::needless_pass_by_value)]
     fn append_multiple_jpeg_pages(&self, jpegs: Vec<Vec<u8>>) -> PyResult<()> {
         self.with_doc_mut(|d| {
-            d.append_multiple_jpeg_pages(
-                &jpegs.iter().map(|v| v.as_slice()).collect::<Vec<&[u8]>>(),
-            )
-            .map_err(|e| format_pdf_err(&e))
+            d.append_multiple_jpeg_pages(&jpegs.iter().map(Vec::as_slice).collect::<Vec<&[u8]>>())
+                .map_err(|e| format_pdf_err(&e))
         })??;
         Ok(())
     }
@@ -174,7 +181,10 @@ impl PyPdfDocument {
 
     /// Rasterizes a PDF page and returns the JPEG bytes.
     fn rasterize_page(&self, page_index: u16, quality: u8) -> PyResult<Vec<u8>> {
-        self.with_doc(|d| d.rasterize_page(page_index, quality).map_err(|e| format_pdf_err(&e)))?
+        self.with_doc(|d| {
+            d.rasterize_page(page_index, quality)
+                .map_err(|e| format_pdf_err(&e))
+        })?
     }
 
     /// Close the document.

@@ -20,6 +20,8 @@ impl<'a> Page<'a> {
     }
 
     /// Check if the page contains neither test nor objects.
+    /// # Panics
+    /// Panics if the page cannot be rendered.
     #[must_use = "this returns the result of the operation, without modifying the original"]
     pub fn is_empty(&self) -> bool {
         self.inner.objects().len() == 0 && self.inner.text().unwrap().is_empty()

@@ -80,8 +80,8 @@ pub(super) fn jpeg_info(data: &[u8]) -> Result<(u32, u32, u8), PdfBuilderError> 
 /// The result is approximately `jpeg_bytes.len() + 500 bytes`.
 pub(crate) fn build_jpeg_pdf(
     jpeg_bytes: &[u8],
-    page_width: f32,
-    page_height: f32,
+    page_width: f64,
+    page_height: f64,
 ) -> Result<Vec<u8>, PdfBuilderError> {
     let (img_w, img_h, components) = jpeg_info(jpeg_bytes)?;
 
@@ -161,12 +161,10 @@ pub(crate) fn build_jpeg_pdf(
 
 /// An adapter that builds a PDF using the JPEG's intrinsic dimensions
 /// for the page width and height (mapping 1 pixel to 1 PDF point).
-pub(crate) fn build_jpeg_pdf_auto_size(
-    jpeg_bytes: &[u8],
-) -> Result<Vec<u8>, PdfBuilderError> {
+pub(crate) fn build_jpeg_pdf_auto_size(jpeg_bytes: &[u8]) -> Result<Vec<u8>, PdfBuilderError> {
     let (width, height, _components) = jpeg_info(jpeg_bytes)?;
 
-    build_jpeg_pdf(jpeg_bytes, width as f32, height as f32)
+    build_jpeg_pdf(jpeg_bytes, f64::from(width), f64::from(height))
 }
 
 #[cfg(test)]

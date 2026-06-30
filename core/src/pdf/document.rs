@@ -1,9 +1,9 @@
-use image::codecs::jpeg::JpegEncoder;
 use crate::pdf::error::{PdfBuilderError, PdfError};
 use crate::pdf::font_resolver::resolve_builtin_font;
 use crate::pdf::jpeg::{build_jpeg_pdf, build_jpeg_pdf_auto_size};
 use crate::pdf::text_char::TextChar;
 use crate::pdf::{page::Page, pdfium};
+use image::codecs::jpeg::JpegEncoder;
 use pdfium_render::prelude::*;
 
 /// A struct that represents a PDF document.
@@ -106,6 +106,8 @@ impl Document {
     }
 
     /// Returns true if the document contains neither text nor objects
+    /// # Errors
+    /// Returns a [`PdfError`] if text extraction fails for any page.
     pub fn is_blank(&self) -> Result<bool, PdfError> {
         let count = self.page_count()?;
         for i in 0..count {
@@ -117,6 +119,8 @@ impl Document {
     }
 
     /// Extracts all text from the document as a vec of `TextChar`.
+    /// # Errors
+    /// Returns a [`PdfError`] if text extraction fails for any page.
     pub fn text_as_chars(&self) -> Result<Vec<Vec<TextChar>>, PdfError> {
         let count = self.page_count()?;
         let mut characters = Vec::with_capacity(count as usize);
@@ -137,7 +141,7 @@ impl Document {
     /// # Errors
     /// Returns a [`PdfBuilderError`] if the JPEG header cannot be parsed or
     /// if PDF creation fails.
-    pub fn from_jpeg(jpeg_bytes: &[u8], width: f32, height: f32) -> Result<Self, PdfBuilderError> {
+    pub fn from_jpeg(jpeg_bytes: &[u8], width: f64, height: f64) -> Result<Self, PdfBuilderError> {
         let pdf_bytes = build_jpeg_pdf(jpeg_bytes, width, height)?;
         Self::from_bytes(pdf_bytes).map_err(PdfBuilderError::Pdf)
     }
@@ -207,6 +211,8 @@ impl Document {
     }
 
     /// Rasterizes a PDF page and returns the JPEG bytes.
+    /// # Errors
+    /// Returns a [`PdfError`] if the page cannot be rendered.
     pub fn rasterize_page(&self, page_index: u16, quality: u8) -> Result<Vec<u8>, PdfError> {
         let page = self.inner.pages().get(page_index.into())?;
         let config = PdfRenderConfig::new();
@@ -260,6 +266,8 @@ impl Document {
     }
 
     /// Checks whether the document has any text.
+    /// # Errors
+    /// Returns a [`PdfError`] if text extraction fails for any page.
     pub fn has_text(&self) -> Result<bool, PdfError> {
         let count = self.page_count()?;
         for i in 0..count {
@@ -495,7 +503,10 @@ mod tests {
             let chars = doc.page(i).unwrap().chars().unwrap();
             let text = doc.page(i).unwrap().text().unwrap();
             assert_eq!(chars.iter().map(|c| c.char).collect::<String>(), text);
-            assert_eq!(text.replace("\r\n", ""), "*".repeat(((i+1)*(i+1)).into()));
+            assert_eq!(
+                text.replace("\r\n", ""),
+                "*".repeat(((i + 1) * (i + 1)).into())
+            );
         }
     }
 

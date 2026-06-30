@@ -144,16 +144,19 @@ def test_add_text_updates_text_and_chars(test_data_dir):
     assert chars[0].char == "A"
     assert chars[0].font_name == "Helvetica"
 
+
 def test_append_jpeg_page(test_data_dir):
     doc = PdfDocument.new()
     jpeg_data = (test_data_dir / "file_types/receipt.jpg").read_bytes()
     doc.append_jpeg_page(jpeg_data)
     assert len(doc) == 1
 
+
 def test_append_jpeg_page_invalid_data():
     doc = PdfDocument.new()
     with pytest.raises(PdfiumError):
         doc.append_jpeg_page(b"not a valid jpeg")
+
 
 def test_append_multiple_jpeg_pages(test_data_dir):
     doc = PdfDocument.new()
@@ -161,15 +164,19 @@ def test_append_multiple_jpeg_pages(test_data_dir):
     doc.append_multiple_jpeg_pages([jpeg_data, jpeg_data, jpeg_data])
     assert len(doc) == 3
 
+
 def test_has_text_true(test_data_dir):
     data = (test_data_dir / "file_types/pdf/multipage.pdf").read_bytes()
     doc = PdfDocument(data)
     assert doc.has_text() is True
 
+
 def test_has_text_false(test_data_dir):
     data = (test_data_dir / "file_types/pdf/blank.pdf").read_bytes()
     doc = PdfDocument(data)
     assert doc.has_text() is False
+
+
 def test_rasterize_page_returns_jpeg_bytes(test_data_dir):
     data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
     doc = PdfDocument(data)
@@ -196,6 +203,7 @@ def test_rasterize_page_fails_on_closed_doc(test_data_dir):
 
     with pytest.raises(RuntimeError):
         doc.rasterize_page(0, 85)
+
 
 def test_document_getitem_returns_page(test_data_dir):
     data = (test_data_dir / "file_types/pdf/multipage.pdf").read_bytes()
@@ -235,6 +243,7 @@ def test_document_iteration_empty():
     doc = PdfDocument.new()
     pages = [page for page in doc]
     assert len(pages) == 0
+
 
 def test_document_from_str_path(test_data_dir):
     path_str = str(test_data_dir / "file_types/pdf/blank.pdf")
