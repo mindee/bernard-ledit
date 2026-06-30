@@ -223,7 +223,7 @@ impl Document {
         let mut encoder = JpegEncoder::new_with_quality(&mut buffer, quality);
         encoder
             .encode(
-                &rgb_image,
+                rgb_image.as_raw(),
                 rgb_image.width(),
                 rgb_image.height(),
                 image::ExtendedColorType::Rgb8,

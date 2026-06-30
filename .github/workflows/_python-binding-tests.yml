@@ -36,7 +36,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
-        python: ${{ fromJSON(github.event_name == 'workflow_dispatch' && (inputs.python_version == 'All' && '["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]' || format('["{0}"]', inputs.python_version)) || inputs.python-versions) }}
+        python: ${{ fromJSON(github.event_name == 'workflow_dispatch' && (inputs.python_version == 'All' && '["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]' || format('["{0}"]', inputs.python_version)) || inputs['python-versions']) }}
 
     steps:
       - uses: actions/checkout@v6

@@ -1,5 +1,4 @@
 import io
-from pathlib import Path
 
 import pytest
 
@@ -287,9 +286,9 @@ def test_save_(test_data_dir):
 def test_save_to_path(test_data_dir):
     data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
     doc = PdfDocument(data)
-    with open(test_data_dir / "output" / "save_to_file.pdf", "wb") as tmp:
-        doc.save_to_file(Path(tmp.name))
-    with open(test_data_dir / "output" / "save_to_file.pdf", "rb") as f:
+    file_path = test_data_dir / "output" / "save_to_file.pdf"
+    doc.save_to_file(file_path)
+    with open(file_path, "rb") as f:
         saved = f.read()
         assert saved.startswith(b"%PDF-")
 
