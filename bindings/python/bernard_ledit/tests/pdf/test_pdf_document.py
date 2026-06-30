@@ -8,7 +8,6 @@ from bernard_ledit.pdf import (
     PdfPage,
     TextChar,
 )
-from bernard_ledit.tests.utils import cleanup_output_files
 
 
 def test_document_from_bytes(test_data_dir):
@@ -282,18 +281,14 @@ def test_save_(test_data_dir):
         saved = buf.getvalue()
         assert saved.startswith(b"%PDF-")
 
-
-def test_save_to_path(test_data_dir):
+def test_save_to_path(test_data_dir, tmp_path):
     data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
     doc = PdfDocument(data)
-    file_path = test_data_dir / "output" / "save_to_file.pdf"
+
+    file_path = tmp_path / "save_to_file.pdf"
+
     doc.save_to_file(file_path)
+
     with open(file_path, "rb") as f:
         saved = f.read()
         assert saved.startswith(b"%PDF-")
-
-
-@pytest.fixture(scope="module", autouse=True)
-def cleanup():
-    yield
-    cleanup_output_files(["save_to_file.pdf"])
