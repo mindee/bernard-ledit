@@ -31,7 +31,10 @@ jobs:
 
       - uses: extractions/setup-just@v4
       - name: Install PHP dev headers
-        run: sudo apt-get install -y php-dev libclang-dev
+        uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          packages: php-dev libclang-dev
+          version: 1.0
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -58,7 +61,10 @@ jobs:
           submodules: recursive
       - uses: extractions/setup-just@v4
       - name: Install PHP dev headers
-        run: sudo apt-get install -y php-dev libclang-dev
+        uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          packages: php-dev libclang-dev
+          version: 1.0
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
       - name: Cache PDFium binary
