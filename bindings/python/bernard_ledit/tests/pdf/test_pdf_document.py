@@ -281,6 +281,7 @@ def test_save_(test_data_dir):
         saved = buf.getvalue()
         assert saved.startswith(b"%PDF-")
 
+
 def test_save_to_path(test_data_dir, tmp_path):
     data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
     doc = PdfDocument(data)

@@ -75,8 +75,8 @@ fn main() {
     }
 
     let target_path = out_dir.join(lib_name);
-
-    println!("cargo:rustc-env=PDFIUM_PATH={}", source_path.display());
+    let python_package_dir = manifest_dir.join("../bindings/python/bernard_ledit");
+    let bundled_pdfium_path = python_package_dir.join(lib_name);
 
     if source_path.exists() {
         fs::copy(&source_path, &target_path).unwrap_or_else(|e| {
@@ -84,6 +84,19 @@ fn main() {
                 "Failed to copy PDFium library from {} to {}: {e}",
                 source_path.display(),
                 target_path.display()
+            );
+        });
+        fs::create_dir_all(&python_package_dir).unwrap_or_else(|e| {
+            panic!(
+                "Failed to create Python package directory {}: {e}",
+                python_package_dir.display()
+            );
+        });
+        fs::copy(&source_path, &bundled_pdfium_path).unwrap_or_else(|e| {
+            panic!(
+                "Failed to copy PDFium library from {} to {}: {e}",
+                source_path.display(),
+                bundled_pdfium_path.display()
             );
         });
     } else {
