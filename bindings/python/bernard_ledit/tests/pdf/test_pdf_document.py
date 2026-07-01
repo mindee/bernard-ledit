@@ -143,3 +143,152 @@ def test_add_text_updates_text_and_chars(test_data_dir):
     assert len(chars) == 1
     assert chars[0].char == "A"
     assert chars[0].font_name == "Helvetica"
+
+
+def test_append_jpeg_page(test_data_dir):
+    doc = PdfDocument.new()
+    jpeg_data = (test_data_dir / "file_types/receipt.jpg").read_bytes()
+    doc.append_jpeg_page(jpeg_data)
+    assert len(doc) == 1
+
+
+def test_append_jpeg_page_invalid_data():
+    doc = PdfDocument.new()
+    with pytest.raises(PdfiumError):
+        doc.append_jpeg_page(b"not a valid jpeg")
+
+
+def test_append_multiple_jpeg_pages(test_data_dir):
+    doc = PdfDocument.new()
+    jpeg_data = (test_data_dir / "file_types/receipt.jpg").read_bytes()
+    doc.append_multiple_jpeg_pages([jpeg_data, jpeg_data, jpeg_data])
+    assert len(doc) == 3
+
+
+def test_has_text_true(test_data_dir):
+    data = (test_data_dir / "file_types/pdf/multipage.pdf").read_bytes()
+    doc = PdfDocument(data)
+    assert doc.has_text() is True
+
+
+def test_has_text_false(test_data_dir):
+    data = (test_data_dir / "file_types/pdf/blank.pdf").read_bytes()
+    doc = PdfDocument(data)
+    assert doc.has_text() is False
+
+
+def test_rasterize_page_returns_jpeg_bytes(test_data_dir):
+    data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
+    doc = PdfDocument(data)
+
+    jpeg_bytes = doc.rasterize_page(0, 85)
+
+    assert isinstance(jpeg_bytes, bytes)
+    assert len(jpeg_bytes) > 0
+    assert jpeg_bytes.startswith(b"\xff\xd8")
+
+
+def test_rasterize_page_out_of_bounds_raises(test_data_dir):
+    data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
+    doc = PdfDocument(data)
+
+    with pytest.raises(PdfiumError):
+        doc.rasterize_page(99, 85)
+
+
+def test_rasterize_page_fails_on_closed_doc(test_data_dir):
+    data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
+    doc = PdfDocument(data)
+    doc.close()
+
+    with pytest.raises(RuntimeError):
+        doc.rasterize_page(0, 85)
+
+
+def test_document_getitem_returns_page(test_data_dir):
+    data = (test_data_dir / "file_types/pdf/multipage.pdf").read_bytes()
+    doc = PdfDocument(data)
+
+    page = doc[0]
+    assert isinstance(page, PdfPage)
+
+
+def test_document_getitem_negative_index(test_data_dir):
+    data = (test_data_dir / "file_types/pdf/multipage.pdf").read_bytes()
+    doc = PdfDocument(data)
+    last_page = doc[-1]
+    assert isinstance(last_page, PdfPage)
+
+
+def test_document_getitem_out_of_bounds_raises(test_data_dir):
+    data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
+    doc = PdfDocument(data)
+    with pytest.raises(IndexError, match="Page index out of range"):
+        _ = doc[1]
+
+    with pytest.raises(IndexError, match="Page index out of range"):
+        _ = doc[-2]
+
+
+def test_document_is_iterable(test_data_dir):
+    data = (test_data_dir / "file_types/pdf/multipage.pdf").read_bytes()
+    doc = PdfDocument(data)
+    pages = [page for page in doc]
+
+    assert len(pages) == len(doc)
+    assert all(isinstance(page, PdfPage) for page in pages)
+
+
+def test_document_iteration_empty():
+    doc = PdfDocument.new()
+    pages = [page for page in doc]
+    assert len(pages) == 0
+
+
+def test_document_from_str_path(test_data_dir):
+    path_str = str(test_data_dir / "file_types/pdf/blank.pdf")
+    doc = PdfDocument(path_str)
+    assert len(doc) == 10
+
+
+def test_document_from_pathlib_path(test_data_dir):
+    path_obj = test_data_dir / "file_types/pdf/blank_1.pdf"
+    doc = PdfDocument(path_obj)
+    assert len(doc) == 1
+
+
+def test_document_from_nonexistent_path():
+    with pytest.raises(OSError, match="Failed to read file"):
+        PdfDocument("this_file_does_not_exist_xyz.pdf")
+
+
+def test_document_has_no_content_true():
+    doc = PdfDocument.new()
+    assert doc.has_no_content() is True
+
+
+def test_document_has_no_content_false(test_data_dir):
+    data = (test_data_dir / "file_types/pdf/multipage.pdf").read_bytes()
+    doc = PdfDocument(data)
+    assert doc.has_no_content() is False
+
+
+def test_save_(test_data_dir):
+    data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
+    doc = PdfDocument(data)
+    with io.BytesIO() as buf:
+        doc.save(buf)
+        saved = buf.getvalue()
+        assert saved.startswith(b"%PDF-")
+
+def test_save_to_path(test_data_dir, tmp_path):
+    data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
+    doc = PdfDocument(data)
+
+    file_path = tmp_path / "save_to_file.pdf"
+
+    doc.save_to_file(file_path)
+
+    with open(file_path, "rb") as f:
+        saved = f.read()
+        assert saved.startswith(b"%PDF-")

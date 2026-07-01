@@ -28,10 +28,14 @@ jobs:
   python-binding-tests:
     uses: ./.github/workflows/_python-binding-tests.yml
     needs: pre-commit
+    with:
+      python-versions: '["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]'
 
   java-binding-tests:
     uses: ./.github/workflows/_java-binding-ci.yml
     needs: pre-commit
+    with:
+      java-versions: '["11", "17", "21"]'
 
   hack-test-release:
     uses: ./.github/workflows/_hack-test-release.yml

@@ -80,8 +80,8 @@ pub(super) fn jpeg_info(data: &[u8]) -> Result<(u32, u32, u8), PdfBuilderError> 
 /// The result is approximately `jpeg_bytes.len() + 500 bytes`.
 pub(crate) fn build_jpeg_pdf(
     jpeg_bytes: &[u8],
-    page_width: f32,
-    page_height: f32,
+    page_width: f64,
+    page_height: f64,
 ) -> Result<Vec<u8>, PdfBuilderError> {
     let (img_w, img_h, components) = jpeg_info(jpeg_bytes)?;
 
@@ -157,6 +157,14 @@ pub(crate) fn build_jpeg_pdf(
     w!("trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n{xref_pos}\n%%EOF\n");
 
     Ok(pdf)
+}
+
+/// An adapter that builds a PDF using the JPEG's intrinsic dimensions
+/// for the page width and height (mapping 1 pixel to 1 PDF point).
+pub(crate) fn build_jpeg_pdf_auto_size(jpeg_bytes: &[u8]) -> Result<Vec<u8>, PdfBuilderError> {
+    let (width, height, _components) = jpeg_info(jpeg_bytes)?;
+
+    build_jpeg_pdf(jpeg_bytes, f64::from(width), f64::from(height))
 }
 
 #[cfg(test)]
@@ -492,6 +500,22 @@ mod tests {
         assert!(
             !String::from_utf8_lossy(&pdf).contains("/Decode"),
             "Grayscale images should not have a /Decode array"
+        );
+    }
+
+    #[test]
+    fn build_jpeg_pdf_auto_size_uses_intrinsic_dimensions() {
+        // Create a 300x150 RGB JPEG
+        let jpeg = make_minimal_jpeg(300, 150, 3);
+
+        // Build the PDF without passing explicit dimensions
+        let pdf = build_jpeg_pdf_auto_size(&jpeg).unwrap();
+        let text = String::from_utf8_lossy(&pdf);
+
+        // Verify the MediaBox picked up the 300x150 dimensions
+        assert!(
+            text.contains("/MediaBox [0 0 300 150]"),
+            "Auto-sized MediaBox dimensions incorrect"
         );
     }
 }

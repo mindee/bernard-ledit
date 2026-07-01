@@ -31,11 +31,12 @@ impl PyPdfPage {
     }
 
     fn is_empty(&self, py: Python<'_>) -> PyResult<bool> {
-        self.doc.borrow(py).with_doc(|d| {
+        let emptiness = self.doc.borrow(py).with_doc(|d| {
             d.page(self.index)
                 .map(|p| p.is_empty())
                 .map_err(|e| format_pdf_err(&e))
-        })?
+        })??;
+        emptiness.map_err(|e| format_pdf_err(&e))
     }
 
     /// Extract the page text.

@@ -3,8 +3,53 @@ name: Remote pre-commit
 on:
   workflow_call:
 
+env:
+  CARGO_INCREMENTAL: 0
+
 jobs:
-  pre-commit:
+  format:
+    name: Check formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: extractions/setup-just@v4
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check formatting
+        run: just core format-check
+
+  clippy:
+    name: Run Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - uses: extractions/setup-just@v4
+      - name: Install PHP dev headers
+        run: sudo apt-get install -y php-dev libclang-dev
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Cache PDFium binary
+        uses: actions/cache@v6
+        with:
+          path: core/.pdfium_cache
+          key: pdfium-${{ runner.os }}-${{ hashFiles('core/build.rs') }}
+          restore-keys: |
+            pdfium-${{ runner.os }}-
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+      - name: Run Clippy
+        run: just core clippy
+
+  hack:
+    name: Check feature matrix
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -12,34 +57,49 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - uses: extractions/setup-just@v4
-
       - name: Install PHP dev headers
         run: sudo apt-get install -y php-dev libclang-dev
-
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+      - name: Cache PDFium binary
+        uses: actions/cache@v6
         with:
-          components: rustfmt, clippy
-
+          path: core/.pdfium_cache
+          key: pdfium-${{ runner.os }}-${{ hashFiles('core/build.rs') }}
+          restore-keys: |
+            pdfium-${{ runner.os }}-
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
-
-      - name: Install cargo tools
+      - name: Install cargo-hack
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-deny,cargo-hack,cargo-udeps
-
-      - name: Check formatting
-        run: just core format-check
-
-      - name: Run Clippy
-        run: just core clippy
-
+          tool: cargo-hack
       - name: Check feature matrix
         run: just core hack-check
 
+  deps:
+    name: Check dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - uses: extractions/setup-just@v4
       - name: Set up nightly Rust toolchain
         uses: dtolnay/rust-toolchain@nightly
-
+      - name: Cache PDFium binary
+        uses: actions/cache@v6
+        with:
+          path: core/.pdfium_cache
+          key: pdfium-${{ runner.os }}-${{ hashFiles('core/build.rs') }}
+          restore-keys: |
+            pdfium-${{ runner.os }}-
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+      - name: Install cargo tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny,cargo-udeps
       - name: Check licenses and advisories
         run: just core check-deps

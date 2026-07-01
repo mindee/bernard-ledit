@@ -23,9 +23,9 @@ pub fn format_pdf_err(e: &PdfError) -> PyErr {
             pyo3::exceptions::PyIndexError::new_err(e.to_string())
         }
         PdfError::Io(_) => pyo3::exceptions::PyIOError::new_err(e.to_string()),
-        PdfError::DocumentCreationFailed | PdfError::Other(_) => {
+        PdfError::DocumentCreationFailed => {
             pyo3::exceptions::PyRuntimeError::new_err(e.to_string())
         }
-        PdfError::Pdfium(_) => PyPdfiumError::new_err(e.to_string()),
+        PdfError::Pdfium(_) | PdfError::Other(_) => PyPdfiumError::new_err(e.to_string()),
     }
 }

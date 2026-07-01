@@ -40,7 +40,8 @@ pub fn initialize(library_path: &str) -> Result<(), PdfError> {
 
 pub(crate) fn pdfium() -> &'static Pdfium {
     PDFIUM.get_or_init(|| {
-        let path = std::env::var("PDFIUM_PATH").expect("PDFIUM_PATH environment variable not set");
+        let path = std::env::var("PDFIUM_PATH").unwrap_or_else(|_| env!("PDFIUM_PATH").to_string());
+
         let bindings = Pdfium::bind_to_library(path).expect("bundled pdfium not found");
         Pdfium::new(bindings)
     })

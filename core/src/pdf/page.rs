@@ -19,10 +19,11 @@ impl<'a> Page<'a> {
         (self.inner.width().value, self.inner.height().value)
     }
 
-    /// Check if the page is empty.
-    #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub fn is_empty(&self) -> bool {
-        self.inner.objects().len() == 0
+    /// Check if the page contains neither test nor objects.
+    /// # Errors
+    /// Returns a `PdfError` if the text can't be extracted.
+    pub fn is_empty(&self) -> Result<bool, PdfError> {
+        Ok(self.inner.objects().len() == 0 && self.inner.text()?.is_empty())
     }
 
     /// Extract all text from the page.
@@ -143,7 +144,7 @@ mod tests {
         pdfium();
         let jpeg = make_minimal_jpeg(10, 10);
         let doc = Document::from_jpeg(&jpeg, 10.0, 10.0).unwrap();
-        assert!(!doc.page(0).unwrap().is_empty());
+        assert!(!doc.page(0).unwrap().is_empty().unwrap());
     }
 
     #[test]

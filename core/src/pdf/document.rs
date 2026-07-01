@@ -1,8 +1,9 @@
 use crate::pdf::error::{PdfBuilderError, PdfError};
 use crate::pdf::font_resolver::resolve_builtin_font;
-use crate::pdf::jpeg::build_jpeg_pdf;
+use crate::pdf::jpeg::{build_jpeg_pdf, build_jpeg_pdf_auto_size};
 use crate::pdf::text_char::TextChar;
 use crate::pdf::{page::Page, pdfium};
+use image::codecs::jpeg::JpegEncoder;
 use pdfium_render::prelude::*;
 
 /// A struct that represents a PDF document.
@@ -104,6 +105,31 @@ impl Document {
         Ok(parts.join("\n"))
     }
 
+    /// Returns true if the document contains neither text nor objects
+    /// # Errors
+    /// Returns a [`PdfError`] if text extraction fails for any page.
+    pub fn has_no_content(&self) -> Result<bool, PdfError> {
+        let count = self.page_count()?;
+        for i in 0..count {
+            if !self.page(i)?.is_empty()? {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+
+    /// Extracts all text from the document as a vec of `TextChar`.
+    /// # Errors
+    /// Returns a [`PdfError`] if text extraction fails for any page.
+    pub fn text_as_chars(&self) -> Result<Vec<Vec<TextChar>>, PdfError> {
+        let count = self.page_count()?;
+        let mut characters = Vec::with_capacity(count as usize);
+        for i in 0..count {
+            characters.push(self.page(i)?.chars()?);
+        }
+        Ok(characters)
+    }
+
     /// Build a single-page PDF from a JPEG-encoded image.
     ///
     /// `width` and `height` are the PDF page dimensions in points.
@@ -115,8 +141,19 @@ impl Document {
     /// # Errors
     /// Returns a [`PdfBuilderError`] if the JPEG header cannot be parsed or
     /// if PDF creation fails.
-    pub fn from_jpeg(jpeg_bytes: &[u8], width: f32, height: f32) -> Result<Self, PdfBuilderError> {
+    pub fn from_jpeg(jpeg_bytes: &[u8], width: f64, height: f64) -> Result<Self, PdfBuilderError> {
         let pdf_bytes = build_jpeg_pdf(jpeg_bytes, width, height)?;
+        Self::from_bytes(pdf_bytes).map_err(PdfBuilderError::Pdf)
+    }
+
+    /// Build a single-page PDF from a JPEG-encoded image.
+    ///
+    /// `width` and `height` are determined from the JPEG header.
+    /// # Errors
+    /// Returns a [`PdfBuilderError`] if the JPEG header cannot be parsed or
+    /// if PDF creation fails.
+    pub fn from_jpeg_autosize(jpeg_bytes: &[u8]) -> Result<Self, PdfBuilderError> {
+        let pdf_bytes = build_jpeg_pdf_auto_size(jpeg_bytes)?;
         Self::from_bytes(pdf_bytes).map_err(PdfBuilderError::Pdf)
     }
 
@@ -137,7 +174,6 @@ impl Document {
             .map(|c| resolve_builtin_font(&c.font_name, c.font_weight, c.font_flags))
             .collect();
 
-        // Cache one PdfFontToken per distinct built-in font used.
         let mut font_tokens: Vec<(PdfFontBuiltin, PdfFontToken)> = Vec::new();
         for &builtin in &resolved {
             if !font_tokens.iter().any(|(b, _)| *b == builtin) {
@@ -174,15 +210,70 @@ impl Document {
         Ok(())
     }
 
+    /// Rasterizes a PDF page and returns the JPEG bytes.
+    /// # Errors
+    /// Returns a [`PdfError`] if the page cannot be rendered.
+    pub fn rasterize_page(&self, page_index: u16, quality: u8) -> Result<Vec<u8>, PdfError> {
+        let page = self.inner.pages().get(page_index.into())?;
+        let config = PdfRenderConfig::new();
+        let bitmap = page.render_with_config(&config)?;
+        let rgb_image = bitmap.as_image()?.into_rgb8();
+
+        let mut buffer = Vec::new();
+        let mut encoder = JpegEncoder::new_with_quality(&mut buffer, quality);
+        encoder
+            .encode(
+                rgb_image.as_raw(),
+                rgb_image.width(),
+                rgb_image.height(),
+                image::ExtendedColorType::Rgb8,
+            )
+            .map_err(|e| PdfError::Other(format!("Failed to encode JPEG: {e}")))?;
+        Ok(buffer)
+    }
+
     /// Appends a JPEG as a new page.
     /// # Panics
     /// If the JPEG cannot be decoded.
     /// # Errors
-    /// Returns `PdfError` if the JPEG cannot be decoded.
-    pub fn append_jpeg_page(&mut self, jpeg_bytes: &[u8]) -> Result<(), PdfiumError> {
-        let doc = &mut Self::from_jpeg(jpeg_bytes, 100.0, 100.0).unwrap();
+    /// Returns a [`PdfError`] if the JPEG is invalid or the page cannot be appended.
+    pub fn append_jpeg_page(&mut self, jpeg_bytes: &[u8]) -> Result<(), PdfError> {
+        let doc = Self::from_jpeg_autosize(jpeg_bytes)
+            .map_err(|e| PdfError::Other(format!("Invalid JPEG: {e}")))?;
         self.inner.pages_mut().append(&doc.inner)?;
         Ok(())
+    }
+
+    /// Appends a bunch of JPEGs as a new page.
+    /// # Panics
+    /// If one of the JPEGs cannot be decoded.
+    /// # Errors
+    /// Returns `PdfError` if a JPEG cannot be decoded.
+    pub fn append_multiple_jpeg_pages(&mut self, jpegs: &[&[u8]]) -> Result<(), PdfError> {
+        for jpeg in jpegs {
+            self.append_jpeg_page(jpeg)?;
+        }
+        Ok(())
+    }
+
+    /// Save the document to a file.
+    /// # Errors
+    /// Returns `PdfError` if the file cannot be written.
+    pub fn save_to_file(&self, path: &str) -> Result<(), PdfError> {
+        self.inner.save_to_file(path).map_err(PdfError::from)
+    }
+
+    /// Checks whether the document has any text.
+    /// # Errors
+    /// Returns a [`PdfError`] if text extraction fails for any page.
+    pub fn has_text(&self) -> Result<bool, PdfError> {
+        let count = self.page_count()?;
+        for i in 0..count {
+            if !self.page(i)?.text()?.is_empty() {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 }
 
@@ -369,5 +460,62 @@ mod tests {
         assert_eq!(out[0].font_name, "Times-Bold");
         assert_eq!(out[1].font_name, "Courier");
         assert_eq!(out[2].font_name, "Helvetica-Oblique");
+    }
+
+    #[test]
+    fn test_append_jpeg_page() {
+        pdfium();
+        let bytes = test_data_bytes!("file_types/receipt.jpg");
+        let mut doc = Document::new().unwrap();
+        doc.append_jpeg_page(bytes).unwrap();
+        assert_eq!(doc.page_count().unwrap(), 1);
+    }
+
+    #[test]
+    fn test_append_multiple_jpeg_pages() {
+        pdfium();
+        let bytes1: &[u8] = test_data_bytes!("file_types/receipt.jpg");
+        let bytes_array = [bytes1, bytes1, bytes1];
+        let mut doc = Document::new().unwrap();
+        doc.append_multiple_jpeg_pages(&bytes_array).unwrap();
+        assert_eq!(doc.page_count().unwrap(), 3);
+    }
+
+    #[test]
+    fn test_has_text() {
+        pdfium();
+        let bytes_multipage: &[u8] = test_data_bytes!("file_types/pdf/multipage.pdf");
+        let doc = Document::from_bytes(bytes_multipage.to_vec()).unwrap();
+        assert!(doc.has_text().unwrap());
+        let bytes_blank: &[u8] = test_data_bytes!("file_types/pdf/blank_1.pdf");
+        let doc_blank = Document::from_bytes(bytes_blank.to_vec()).unwrap();
+        assert!(!doc_blank.has_text().unwrap());
+    }
+
+    #[test]
+    fn test_extract_chars() {
+        pdfium();
+        let bytes_multipage: &[u8] = test_data_bytes!("file_types/pdf/multipage.pdf");
+        let doc = Document::from_bytes(bytes_multipage.to_vec()).unwrap();
+        for i in 0..doc.page_count().unwrap() {
+            let chars = doc.page(i).unwrap().chars().unwrap();
+            let text = doc.page(i).unwrap().text().unwrap();
+            assert_eq!(chars.iter().map(|c| c.char).collect::<String>(), text);
+            assert_eq!(
+                text.replace("\r\n", ""),
+                "*".repeat(((i + 1) * (i + 1)).into())
+            );
+        }
+    }
+
+    #[test]
+    fn test_is_empty() {
+        pdfium();
+        let bytes_multipage: &[u8] = test_data_bytes!("file_types/pdf/multipage.pdf");
+        let doc = Document::from_bytes(bytes_multipage.to_vec()).unwrap();
+        assert!(!doc.has_no_content().unwrap());
+        let bytes_blank: &[u8] = test_data_bytes!("file_types/pdf/blank.pdf");
+        let doc_blank = Document::from_bytes(bytes_blank.to_vec()).unwrap();
+        assert!(doc_blank.has_no_content().unwrap());
     }
 }

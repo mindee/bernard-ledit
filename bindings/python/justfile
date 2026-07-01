@@ -7,6 +7,8 @@ default:
 
 # Builds Python bindings
 build:
+    @echo "Cleaning up stale C-extensions..."
+    rm -f bernard_ledit/*.so
     maturin develop --extras test,lint
 
 # Test Python bindings

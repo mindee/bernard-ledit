@@ -29,3 +29,7 @@ lint:
 test:
     cd bernard-ledit && mvn test -DargLine="-Djava.library.path=../../target/debug"
 
+# Combined CI check: format, lint and test in a single Maven run
+ci:
+    cd bernard-ledit && mvn --no-transfer-progress spotless:check pmd:check test -DargLine="-Djava.library.path=../../target/debug"
+
