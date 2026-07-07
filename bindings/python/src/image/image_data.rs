@@ -46,7 +46,7 @@ impl PyImage {
         Ok(resized_image)
     }
 
-    #[pyo3(signature = (format, quality = 85, optimize = true))]
+    #[pyo3(signature = (format, quality = 85, optimize = false))]
     fn encode<'py>(
         &self,
         py: Python<'py>,

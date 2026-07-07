@@ -177,10 +177,14 @@ impl Image {
         }
         match format {
             ImageFormat::Jpeg => {
+                if !(1..=100).contains(&quality) {
+                    return Err(ImageError::Encode(format!(
+                        "invalid JPEG quality: {quality} (expected 1..=100)"
+                    )));
+                }
                 let rgb_image = self.inner.to_rgb8();
                 let mut encoder =
                     image::codecs::jpeg::JpegEncoder::new_with_quality(&mut cursor, quality);
-
                 encoder
                     .encode(
                         rgb_image.as_raw(),
@@ -210,8 +214,8 @@ pub fn downscale_to_fit(img: &Image, max_width: Option<u32>, max_height: Option<
     let (width, height) = img.size();
     // Clamp each bound to the current size so `resize` (which fits within the
     // box using the smaller of the two ratios) can only ever scale down.
-    let bound_w = max_width.map_or(width, |w| w.min(width));
-    let bound_h = max_height.map_or(height, |h| h.min(height));
+    let bound_w = max_width.map_or(width, |w| w.clamp(1, width));
+    let bound_h = max_height.map_or(height, |h| h.clamp(1, height));
 
     if bound_w == width && bound_h == height {
         return Image {
@@ -226,9 +230,10 @@ pub fn downscale_to_fit(img: &Image, max_width: Option<u32>, max_height: Option<
     }
 }
 
-/// Compresses image data.
+/// Compresses image data by decoding, optionally downscaling, and re-encoding as JPEG.
+/// Returns (`jpeg_bytes`, `width`, `height`).
 /// # Errors
-/// Returns `ImageError::InvalidDimensions` if the dimensions are invalid.
+/// Returns an error if the image cannot be decoded, resized, or encoded.
 pub fn compress(
     data: &[u8],
     quality: u8,
