@@ -89,7 +89,7 @@ mod tests {
     }
 
     /// Input: a single BGRA pixel (0, 128, 255, 200).
-    /// pdfium-render's `as_rgba_bytes()` should swap B and R → (255, 128, 0, 200).
+    /// pdfium-render's `as_rgba_bytes()` should swap B and R -> (255, 128, 0, 200).
     #[test]
     fn test_from_pdfium_bgra_to_rgba_channel_order() {
         pdfium();

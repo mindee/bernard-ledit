@@ -42,13 +42,12 @@ skip = [
     { name = "convert_case" },
     { name = "getrandom" },
     { name = "itertools" },
+    { name = "libloading" },
     { name = "nom" },
     { name = "r-efi" },
     { name = "shlex" },
     { name = "winnow" },
     { name = "windows-sys" },
-    { name = "zune-core" },
-    { name = "zune-jpeg" },
 ]
 skip-tree = []
 
