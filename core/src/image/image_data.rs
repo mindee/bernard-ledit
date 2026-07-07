@@ -365,8 +365,6 @@ mod tests {
         ));
     }
 
-    // ── Image::decode / size / format ─────────────────────────────────────────
-
     #[test]
     fn decode_png_records_size_and_format() {
         let bytes = synth_bytes(20, 10, ImageFormat::Png);

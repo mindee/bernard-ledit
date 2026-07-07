@@ -20,9 +20,6 @@ def make_png(test_data_dir):
     return _make
 
 
-# ── decode ───────────────────────────────────────────────────────────────────
-
-
 def test_decode_jpeg_fixture(test_data_dir):
     data = (test_data_dir / "file_types/receipt.jpg").read_bytes()
     img = decode(data)
@@ -42,8 +39,6 @@ def test_decode_garbage_raises():
     with pytest.raises(ImageError):
         decode(b"\xde\xad\xbe\xef")
 
-
-# ── guess_format ─────────────────────────────────────────────────────────────
 
 
 def test_guess_format_jpeg(test_data_dir):
@@ -66,9 +61,6 @@ def test_guess_format_garbage_raises():
         guess_format(b"\x00\x01\x02\x03")
 
 
-# ── size / format properties ─────────────────────────────────────────────────
-
-
 def test_size_property(make_png):
     img = decode(make_png(30, 20))
     assert img.size == (30, 20)
@@ -77,9 +69,6 @@ def test_size_property(make_png):
 def test_format_property(make_png):
     img = decode(make_png(10, 10))
     assert img.format == "PNG"
-
-
-# ── crop ─────────────────────────────────────────────────────────────────────
 
 
 def test_crop_valid_box(make_png):
@@ -98,9 +87,6 @@ def test_crop_inverted_box_raises(make_png):
     img = decode(make_png(30, 30))
     with pytest.raises(ValueError):
         img.crop(20, 5, 10, 25)
-
-
-# ── resize ───────────────────────────────────────────────────────────────────
 
 
 def test_resize_exact(make_png):
@@ -131,10 +117,6 @@ def test_resize_zero_dimension_raises(make_png):
     img = decode(make_png(40, 40))
     with pytest.raises(ValueError):
         img.resize(0, 20)
-
-
-# ── encode ───────────────────────────────────────────────────────────────────
-
 
 def test_encode_jpeg_magic(make_png):
     img = decode(make_png(16, 16))
@@ -172,18 +154,11 @@ def test_encode_roundtrip_readable(make_png):
     assert reloaded.size == (24, 12)
     assert reloaded.format == "JPEG"
 
-
-# ── __repr__ ─────────────────────────────────────────────────────────────────
-
-
 def test_repr_contains_dimensions_and_format(make_png):
     img = decode(make_png(24, 18))
     text = repr(img)
     assert "24x18" in text
     assert "PNG" in text
-
-
-# ── compress ─────────────────────────────────────────────────────────────────
 
 
 def test_compress_returns_jpeg_and_dimensions(make_png):
