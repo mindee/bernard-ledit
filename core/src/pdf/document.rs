@@ -215,6 +215,12 @@ impl Document {
     /// # Errors
     /// Returns a [`PdfError`] if the page cannot be rendered.
     pub fn rasterize_page(&self, page_index: u16, quality: u8) -> Result<Vec<u8>, PdfError> {
+        if quality > 100 {
+            return Err(PdfError::Other(
+                "Quality must be between 0 and 100".to_string(),
+            ));
+        }
+
         let _lock = crate::pdf::PDFIUM_RENDER_LOCK
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
