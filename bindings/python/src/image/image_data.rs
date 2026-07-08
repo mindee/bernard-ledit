@@ -1,6 +1,7 @@
 use super::error::format_image_err;
 use bernard_ledit::image::{
-    Filter, Image, compress as core_compress, format_name, guess_format as core_guess, parse_format,
+    Filter, Image, compress as core_compress, format_name, guess_format as core_guess,
+    parse_output_format,
 };
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
@@ -54,7 +55,7 @@ impl PyImage {
         quality: u8,
         optimize: bool,
     ) -> PyResult<Bound<'py, PyBytes>> {
-        let parsed_format = parse_format(format).map_err(|e| format_image_err(&e))?;
+        let parsed_format = parse_output_format(format).map_err(|e| format_image_err(&e))?;
         let bytes_vec_u8 = self
             .inner
             .encode(parsed_format, quality, optimize)

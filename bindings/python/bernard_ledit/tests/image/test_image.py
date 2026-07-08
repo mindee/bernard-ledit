@@ -40,7 +40,6 @@ def test_decode_garbage_raises():
         decode(b"\xde\xad\xbe\xef")
 
 
-
 def test_guess_format_jpeg(test_data_dir):
     data = (test_data_dir / "file_types/receipt.jpg").read_bytes()
     assert guess_format(data) == "JPEG"
@@ -118,6 +117,7 @@ def test_resize_zero_dimension_raises(make_png):
     with pytest.raises(ValueError):
         img.resize(0, 20)
 
+
 def test_encode_jpeg_magic(make_png):
     img = decode(make_png(16, 16))
     out = img.encode("JPEG")
@@ -128,6 +128,15 @@ def test_encode_png_magic(make_png):
     img = decode(make_png(16, 16))
     out = img.encode("PNG")
     assert out[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_encode_pdf_magic(make_png):
+    img = decode(make_png(40, 25))
+    out = img.encode("PDF")
+    assert out[:8] == b"%PDF-1.4"
+    assert out.rstrip().endswith(b"%%EOF")
+    assert b"/MediaBox [0 0 40 25]" in out
+    assert b"/Filter /DCTDecode" in out
 
 
 def test_encode_quality_argument(make_png):
@@ -153,6 +162,7 @@ def test_encode_roundtrip_readable(make_png):
     reloaded = decode(jpeg)
     assert reloaded.size == (24, 12)
     assert reloaded.format == "JPEG"
+
 
 def test_repr_contains_dimensions_and_format(make_png):
     img = decode(make_png(24, 18))

@@ -14,6 +14,25 @@ pub struct Image {
 /// Thin wrapper for resize filters, so the string->enum parse lives in core.
 pub struct Filter(pub FilterType);
 
+/// A target encode format: any raster [`ImageFormat`], or PDF.
+///
+/// PDF is not a raster format the `image` crate knows about, so it lives here
+/// alongside the raster formats to give [`Image::encode`] a single entry point
+/// for every output the SDK can produce.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OutputFormat {
+    /// A raster format handled by the `image` crate (PNG, JPEG, WEBP, ...).
+    Image(ImageFormat),
+    /// A single-page PDF embedding the image as a JPEG.
+    Pdf,
+}
+
+impl From<ImageFormat> for OutputFormat {
+    fn from(format: ImageFormat) -> Self {
+        Self::Image(format)
+    }
+}
+
 /// Magic-byte sniff. Backs the public `guess_format`.
 /// # Errors
 /// Returns an error if the image format cannot be determined.
@@ -70,6 +89,17 @@ pub fn parse_format(name: &str) -> Result<ImageFormat, ImageError> {
             "Unknown format: {name}"
         ))),
     }
+}
+
+/// Parse a format string into an [`OutputFormat`], accepting `"PDF"` in addition
+/// to every raster name understood by [`parse_format`].
+/// # Errors
+/// Returns `ImageError::UnsupportedFormat` on miss.
+pub fn parse_output_format(name: &str) -> Result<OutputFormat, ImageError> {
+    if name.eq_ignore_ascii_case("PDF") {
+        return Ok(OutputFormat::Pdf);
+    }
+    parse_format(name).map(OutputFormat::Image)
 }
 impl std::str::FromStr for Filter {
     type Err = ImageError;
@@ -162,19 +192,32 @@ impl Image {
     }
 
     /// Encode to `format` at `quality` (quality only affects JPEG).
+    ///
+    /// Accepts any raster [`ImageFormat`] or [`OutputFormat::Pdf`]. Choosing PDF
+    /// produces a single-page document that embeds the image as a JPEG, so no
+    /// separate trip through the `pdf` module is needed.
     /// TODO: `optimize` is accepted at the language layer but ignored.
     /// # Errors
-    /// Returns `ImageError::InvalidDimensions` if the dimensions are invalid.
+    /// Returns `ImageError::Encode` if encoding fails or `ImageError::InvalidDimensions`
+    /// if the dimensions are invalid.
     pub fn encode(
         &self,
-        format: ImageFormat,
+        format: impl Into<OutputFormat>,
         quality: u8,
         optimize: bool,
     ) -> Result<Vec<u8>, ImageError> {
-        let mut cursor = Cursor::new(Vec::new());
         if optimize {
             warn!("optimize=true ignored for Image::encode");
         }
+        match format.into() {
+            OutputFormat::Pdf => self.encode_pdf(quality),
+            OutputFormat::Image(image_format) => self.encode_raster(image_format, quality),
+        }
+    }
+
+    /// Encode to a raster `format` at `quality` (quality only affects JPEG).
+    fn encode_raster(&self, format: ImageFormat, quality: u8) -> Result<Vec<u8>, ImageError> {
+        let mut cursor = Cursor::new(Vec::new());
         match format {
             ImageFormat::Jpeg => {
                 if !(1..=100).contains(&quality) {
@@ -202,18 +245,20 @@ impl Image {
         }
         Ok(cursor.into_inner())
     }
+
+    /// Encode as a single-page PDF that embeds the image as a JPEG via
+    /// `/Filter /DCTDecode`. The page maps one image pixel to one PDF point.
+    fn encode_pdf(&self, quality: u8) -> Result<Vec<u8>, ImageError> {
+        let jpeg_bytes = self.encode_raster(ImageFormat::Jpeg, quality)?;
+        crate::pdf::jpeg::build_jpeg_pdf_auto_size(&jpeg_bytes)
+            .map_err(|e| ImageError::Encode(e.to_string()))
+    }
 }
 
 /// Aspect-preserving downscale.
-///
-/// Fits the image within `max_width`/`max_height` while preserving aspect
-/// ratio (Pillow `thumbnail` semantics). Bounds are clamped to the current
-/// dimensions so the image is never upscaled. Uses `Lanczos3`.
 #[must_use]
 pub fn downscale_to_fit(img: &Image, max_width: Option<u32>, max_height: Option<u32>) -> Image {
     let (width, height) = img.size();
-    // Clamp each bound to the current size so `resize` (which fits within the
-    // box using the smaller of the two ratios) can only ever scale down.
     let bound_w = max_width.map_or(width, |w| w.clamp(1, width));
     let bound_h = max_height.map_or(height, |h| h.clamp(1, height));
 
@@ -497,6 +542,68 @@ mod tests {
         let reloaded = Image::decode(&jpeg).unwrap();
         assert_eq!(reloaded.size(), (24, 12));
         assert_eq!(reloaded.format(), Some(ImageFormat::Jpeg));
+    }
+
+    #[test]
+    fn encode_pdf_has_magic_bytes_and_embeds_jpeg() {
+        let bytes = synth_bytes(24, 12, ImageFormat::Png);
+        let img = Image::decode(&bytes).unwrap();
+        let pdf = img.encode(OutputFormat::Pdf, 85, false).unwrap();
+        assert!(pdf.starts_with(b"%PDF-1.4\n"), "PDF header missing");
+        assert!(pdf.ends_with(b"%%EOF\n"), "PDF %%EOF marker missing");
+        assert!(
+            String::from_utf8_lossy(&pdf).contains("/Filter /DCTDecode"),
+            "embedded JPEG (DCTDecode) missing"
+        );
+    }
+
+    #[test]
+    fn encode_pdf_media_box_matches_image_size() {
+        let bytes = synth_bytes(40, 25, ImageFormat::Png);
+        let img = Image::decode(&bytes).unwrap();
+        let pdf = img.encode(OutputFormat::Pdf, 85, false).unwrap();
+        assert!(
+            String::from_utf8_lossy(&pdf).contains("/MediaBox [0 0 40 25]"),
+            "PDF page size should map 1 pixel to 1 point"
+        );
+    }
+
+    #[test]
+    fn encode_pdf_via_string_format() {
+        let bytes = synth_bytes(16, 16, ImageFormat::Png);
+        let img = Image::decode(&bytes).unwrap();
+        let format = parse_output_format("pdf").unwrap();
+        assert_eq!(format, OutputFormat::Pdf);
+        let pdf = img.encode(format, 85, false).unwrap();
+        assert!(pdf.starts_with(b"%PDF-1.4\n"));
+    }
+
+    #[test]
+    fn encode_pdf_rejects_invalid_quality() {
+        let bytes = synth_bytes(16, 16, ImageFormat::Png);
+        let img = Image::decode(&bytes).unwrap();
+        assert!(matches!(
+            img.encode(OutputFormat::Pdf, 0, false),
+            Err(ImageError::Encode(_))
+        ));
+    }
+
+    #[test]
+    fn parse_output_format_pdf_case_insensitive() {
+        assert_eq!(parse_output_format("PDF").unwrap(), OutputFormat::Pdf);
+        assert_eq!(parse_output_format("Pdf").unwrap(), OutputFormat::Pdf);
+        assert_eq!(
+            parse_output_format("jpeg").unwrap(),
+            OutputFormat::Image(ImageFormat::Jpeg)
+        );
+    }
+
+    #[test]
+    fn parse_output_format_unknown_errors() {
+        assert!(matches!(
+            parse_output_format("not-a-format"),
+            Err(ImageError::UnsupportedFormat(_))
+        ));
     }
 
     #[test]
