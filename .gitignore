@@ -3,6 +3,10 @@
 **/*.rs.bk
 .env
 
+# Python
+.venv*
+venv/
+
 # Misc
 *.log
 
