@@ -47,7 +47,7 @@ impl PyImage {
         Ok(resized_image)
     }
 
-    #[pyo3(signature = (format, quality = 85, optimize = false))]
+    #[pyo3(signature = (format, quality = 85, optimize = true))]
     fn encode<'py>(
         &self,
         py: Python<'py>,
@@ -63,6 +63,62 @@ impl PyImage {
         Ok(PyBytes::new(py, bytes_vec_u8.as_slice()))
     }
 
+    /// Saves the image to a path-like or a writable buffer.
+    ///
+    /// `format` is inferred from the file extension when saving to a path, or
+    /// from the image's own format when saving to a buffer. Pass an explicit
+    /// `format` string (e.g. `"JPEG"`, `"PNG"`, `"PDF"`) to override.
+    #[pyo3(signature = (dest, format = None, quality = 85, optimize = true))]
+    fn save(
+        &self,
+        py: Python<'_>,
+        dest: &Bound<'_, PyAny>,
+        format: Option<&str>,
+        quality: u8,
+        optimize: bool,
+    ) -> PyResult<()> {
+        let is_buffer = dest.hasattr("write")?;
+
+        let fmt_str: String = if let Some(f) = format {
+            f.to_string()
+        } else if is_buffer {
+            self.inner
+                .format()
+                .and_then(format_name)
+                .unwrap_or("JPEG")
+                .to_string()
+        } else {
+            let os = py.import("os")?;
+            let path_str: String = os.call_method1("fspath", (dest,))?.extract()?;
+            let ext = std::path::Path::new(&path_str)
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("jpg")
+                .to_uppercase();
+            if ext == "JPG" {
+                "JPEG".to_string()
+            } else {
+                ext
+            }
+        };
+
+        let parsed_format = parse_output_format(&fmt_str).map_err(|e| format_image_err(&e))?;
+        let encoded = self
+            .inner
+            .encode(parsed_format, quality, optimize)
+            .map_err(|e| format_image_err(&e))?;
+
+        if is_buffer {
+            dest.call_method1("write", (PyBytes::new(py, &encoded),))?;
+        } else {
+            let os = py.import("os")?;
+            let path_str: String = os.call_method1("fspath", (dest,))?.extract()?;
+            std::fs::write(&path_str, &encoded)
+                .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))?;
+        }
+        Ok(())
+    }
+
     fn __repr__(&self) -> String {
         let (w, h) = self.inner.size();
         let fmt = self.inner.format().and_then(format_name).unwrap_or("?");
@@ -71,12 +127,18 @@ impl PyImage {
 }
 
 /// Decodes raw bytes into an image.
+/// Accepts `bytes`, `bytearray`, or any file-like object with a `read()` method (e.g. `BytesIO`).
 /// # Errors
 /// Returns an error if the image data is invalid.
 #[pyfunction]
-pub fn decode(data: &[u8]) -> PyResult<PyImage> {
+pub fn decode(data: &Bound<'_, PyAny>) -> PyResult<PyImage> {
+    let bytes: Vec<u8> = if data.hasattr("read")? {
+        data.call_method0("read")?.extract()?
+    } else {
+        data.extract()?
+    };
     Ok(PyImage {
-        inner: Image::decode(data).map_err(|e| format_image_err(&e))?,
+        inner: Image::decode(&bytes).map_err(|e| format_image_err(&e))?,
     })
 }
 
@@ -84,8 +146,13 @@ pub fn decode(data: &[u8]) -> PyResult<PyImage> {
 /// # Errors
 /// Returns an error if the image data is invalid.
 #[pyfunction]
-pub fn guess_format(data: &[u8]) -> PyResult<&'static str> {
-    let fmt = core_guess(data).map_err(|e| format_image_err(&e))?;
+pub fn guess_format(data: &Bound<'_, PyAny>) -> PyResult<&'static str> {
+    let bytes: Vec<u8> = if data.hasattr("read")? {
+        data.call_method0("read")?.extract()?
+    } else {
+        data.extract()?
+    };
+    let fmt = core_guess(&bytes).map_err(|e| format_image_err(&e))?;
     Ok(format_name(fmt).unwrap_or("UNKNOWN"))
 }
 
