@@ -95,10 +95,11 @@ impl PyImage {
                 .and_then(|e| e.to_str())
                 .unwrap_or("jpg")
                 .to_uppercase();
-            if ext == "JPG" {
-                "JPEG".to_string()
-            } else {
-                ext
+            match ext.as_str() {
+                "JPG" | "JPEG" => "JPEG".to_string(),
+                "TIF" => "TIFF".to_string(),
+                "EXR" => "OPENEXR".to_string(),
+                _ => ext,
             }
         };
 

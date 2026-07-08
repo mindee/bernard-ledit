@@ -37,6 +37,9 @@ impl<'a> Page<'a> {
     /// # Errors
     /// Returns a `PdfError` if the page could not be rendered.
     pub fn render(&self, scale: f32) -> Result<Bitmap, PdfError> {
+        let _lock = crate::pdf::PDFIUM_RENDER_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let cfg = PdfRenderConfig::new().scale_page_by_factor(scale);
         let pb = self.inner.render_with_config(&cfg)?;
         Ok(Bitmap::from_pdfium(&pb))
