@@ -256,9 +256,15 @@ impl Image {
 }
 
 /// Aspect-preserving downscale.
+///
+/// Fits the image within `max_width`/`max_height` while preserving aspect
+/// ratio (Pillow `thumbnail` semantics). Bounds are clamped to the current
+/// dimensions so the image is never upscaled. Uses `Lanczos3`.
 #[must_use]
 pub fn downscale_to_fit(img: &Image, max_width: Option<u32>, max_height: Option<u32>) -> Image {
     let (width, height) = img.size();
+    // Clamp each bound to the current size so `resize` (which fits within the
+    // box using the smaller of the two ratios) can only ever scale down.
     let bound_w = max_width.map_or(width, |w| w.clamp(1, width));
     let bound_h = max_height.map_or(height, |h| h.clamp(1, height));
 
