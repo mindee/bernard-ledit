@@ -1,4 +1,5 @@
 import io
+import pathlib
 
 import pytest
 
@@ -35,6 +36,38 @@ def test_decode_png_fixture(test_data_dir):
     assert img.format == "PNG"
 
 
+def test_decode_from_bytearray(test_data_dir):
+    data = bytearray((test_data_dir / "file_types/receipt.jpg").read_bytes())
+    img = decode(data)
+    assert isinstance(img, Image)
+    assert img.format == "JPEG"
+
+
+def test_decode_from_seeked_bytesio(test_data_dir):
+    """Simulates a BinaryIO buffer that has been partially consumed before decode."""
+    data = (test_data_dir / "file_types/receipt.jpg").read_bytes()
+    buf = io.BytesIO(data)
+    buf.seek(0)
+    img = decode(buf)
+    assert isinstance(img, Image)
+    assert img.format == "JPEG"
+
+
+def test_decode_from_bytes_io(test_data_dir):
+    data = (test_data_dir / "file_types/receipt.jpg").read_bytes()
+    img = decode(io.BytesIO(data))
+    assert isinstance(img, Image)
+    assert img.format == "JPEG"
+
+
+def test_decode_from_buffered_reader(test_data_dir):
+    path = test_data_dir / "file_types/receipt.jpg"
+    with open(path, "rb") as f:
+        img = decode(f)
+    assert isinstance(img, Image)
+    assert img.format == "JPEG"
+
+
 def test_decode_garbage_raises():
     with pytest.raises(ImageError):
         decode(b"\xde\xad\xbe\xef")
@@ -58,6 +91,27 @@ def test_guess_format_tiff(test_data_dir):
 def test_guess_format_garbage_raises():
     with pytest.raises(ValueError):
         guess_format(b"\x00\x01\x02\x03")
+
+
+def test_guess_format_from_bytes_io(test_data_dir):
+    data = (test_data_dir / "file_types/receipt.jpg").read_bytes()
+    assert guess_format(io.BytesIO(data)) == "JPEG"
+
+
+def test_guess_format_from_buffered_reader(test_data_dir):
+    path = test_data_dir / "file_types/receipt.jpg"
+    with open(path, "rb") as f:
+        assert guess_format(f) == "JPEG"
+
+
+def test_guess_format_from_seeked_bytesio(test_data_dir):
+    """
+    Simulates a BinaryIO buffer that has been partially consumed before guess_format.
+    """
+    data = (test_data_dir / "file_types/receipt.jpg").read_bytes()
+    buf = io.BytesIO(data)
+    buf.seek(0)
+    assert guess_format(buf) == "JPEG"
 
 
 def test_size_property(make_png):
@@ -145,9 +199,15 @@ def test_encode_quality_argument(make_png):
     assert out[:3] == b"\xff\xd8\xff"
 
 
-def test_encode_optimize_is_noop(make_png):
-    img = decode(make_png(32, 32))
-    assert img.encode("JPEG", 85, True) == img.encode("JPEG", 85, False)
+def test_encode_optimize_reduces_jpeg_size(make_png):
+    # Use a large enough image for optimized Huffman to make a measurable difference.
+    img = decode(make_png(256, 256))
+    unoptimized = img.encode("JPEG", 85, False)
+    optimized = img.encode("JPEG", 85, True)
+    assert len(optimized) <= len(unoptimized), (
+        f"optimized JPEG ({len(optimized)} bytes) should be <= unoptimized ("
+        f"{len(unoptimized)} bytes)"
+    )
 
 
 def test_encode_unknown_format_raises(make_png):
@@ -207,10 +267,80 @@ def test_compress_output_is_bytes(make_png):
     data = make_png(40, 40)
     jpeg, _, _ = compress(data)
     assert isinstance(jpeg, bytes)
-    # Sanity: the returned bytes are a valid stream a BytesIO can wrap.
     assert io.BytesIO(jpeg).read(3) == b"\xff\xd8\xff"
 
 
 def test_compress_garbage_raises():
     with pytest.raises(ImageError):
         compress(b"\x00\x01")
+
+
+# --- save() ---
+
+
+def test_save_to_path_str(make_png, tmp_path):
+    img = decode(make_png(32, 32))
+    out = str(tmp_path / "out.png")
+    img.save(out)
+    assert pathlib.Path(out).read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_save_to_pathlib(make_png, tmp_path):
+    img = decode(make_png(32, 32))
+    out = tmp_path / "out.jpg"
+    img.save(out)
+    assert out.read_bytes()[:3] == b"\xff\xd8\xff"
+
+
+def test_save_infers_jpeg_from_jpg_extension(make_png, tmp_path):
+    img = decode(make_png(32, 32))
+    out = tmp_path / "out.jpg"
+    img.save(out)
+    assert out.read_bytes()[:3] == b"\xff\xd8\xff"
+
+
+def test_save_to_pdf_by_extension(make_png, tmp_path):
+    img = decode(make_png(40, 25))
+    out = tmp_path / "out.pdf"
+    img.save(out)
+    data = out.read_bytes()
+    assert data[:5] == b"%PDF-"
+    assert data.rstrip().endswith(b"%%EOF")
+
+
+def test_save_to_pdf_explicit_format(make_png, tmp_path):
+    img = decode(make_png(40, 25))
+    out = tmp_path / "out.png"  # extension says PNG, but format overrides
+    img.save(out, format="PDF")
+    data = out.read_bytes()
+    assert data[:5] == b"%PDF-"
+
+
+def test_save_to_buffer_bytesio(make_png):
+    img = decode(make_png(32, 32))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    assert buf.read(8) == b"\x89PNG\r\n\x1a\n"
+
+
+def test_save_to_buffer_infers_own_format(test_data_dir):
+    img = decode((test_data_dir / "file_types/receipt.jpg").read_bytes())
+    buf = io.BytesIO()
+    img.save(buf)  # no format: should fall back to JPEG (image's own format)
+    buf.seek(0)
+    assert buf.read(3) == b"\xff\xd8\xff"
+
+
+def test_save_to_buffer_pdf(make_png):
+    img = decode(make_png(40, 25))
+    buf = io.BytesIO()
+    img.save(buf, format="PDF")
+    buf.seek(0)
+    assert buf.read(5) == b"%PDF-"
+
+
+def test_save_unknown_format_raises(make_png, tmp_path):
+    img = decode(make_png(16, 16))
+    with pytest.raises(ValueError):
+        img.save(tmp_path / "out.nope", format="NOPE")

@@ -1,9 +1,10 @@
 use crate::pdf::error::{PdfBuilderError, PdfError};
 use crate::pdf::font_resolver::resolve_builtin_font;
+use crate::pdf::jpeg::encode_jpeg_mozjpeg;
 use crate::pdf::jpeg::{build_jpeg_pdf, build_jpeg_pdf_auto_size};
 use crate::pdf::text_char::TextChar;
 use crate::pdf::{page::Page, pdfium};
-use image::codecs::jpeg::JpegEncoder;
+
 use pdfium_render::prelude::*;
 
 /// A struct that represents a PDF document.
@@ -214,22 +215,21 @@ impl Document {
     /// # Errors
     /// Returns a [`PdfError`] if the page cannot be rendered.
     pub fn rasterize_page(&self, page_index: u16, quality: u8) -> Result<Vec<u8>, PdfError> {
+        let _lock = crate::pdf::PDFIUM_RENDER_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let page = self.inner.pages().get(page_index.into())?;
         let config = PdfRenderConfig::new();
         let bitmap = page.render_with_config(&config)?;
         let rgb_image = bitmap.as_image()?.into_rgb8();
-
-        let mut buffer = Vec::new();
-        let mut encoder = JpegEncoder::new_with_quality(&mut buffer, quality);
-        encoder
-            .encode(
-                rgb_image.as_raw(),
-                rgb_image.width(),
-                rgb_image.height(),
-                image::ExtendedColorType::Rgb8,
-            )
-            .map_err(|e| PdfError::Other(format!("Failed to encode JPEG: {e}")))?;
-        Ok(buffer)
+        encode_jpeg_mozjpeg(
+            rgb_image.as_raw(),
+            rgb_image.width(),
+            rgb_image.height(),
+            quality,
+            true,
+        )
+        .map_err(|e| PdfError::Other(format!("Failed to encode JPEG: {e}")))
     }
 
     /// Appends a JPEG as a new page.

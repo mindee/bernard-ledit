@@ -19,12 +19,18 @@ pub use bitmap::Bitmap;
 pub use document::Document;
 pub use error::PdfError;
 pub use page::Page;
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 pub use text_char::TextChar;
 
 use pdfium_render::prelude::*;
 
 static PDFIUM: OnceLock<Pdfium> = OnceLock::new();
+
+/// pdfium uses global state during rendering (`FPDF_RenderPageBitmap`) and is
+/// not thread-safe by default. Serialise all render calls behind this lock so
+/// concurrent threads (Python `threading`, Rust async runtimes, etc.) cannot
+/// race inside pdfium internals.
+pub(crate) static PDFIUM_RENDER_LOCK: Mutex<()> = Mutex::new(());
 
 /// Initializes the `PDFium` library.
 /// # Errors
