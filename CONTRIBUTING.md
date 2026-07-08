@@ -1,4 +1,4 @@
-# Contributing to Bernard L'Édit
+# Contributing to Bernard l'Édit
 
 Thank you for your interest in contributing! This document covers everything you need to get started.
 
@@ -6,7 +6,17 @@ Thank you for your interest in contributing! This document covers everything you
 
 ### Rust toolchain
 
-Install Rust via [rustup](https://rustup.rs). The required toolchain version and components are declared in `rust-toolchain.toml` and will be installed automatically on first use.
+Install Rust via [rustup](https://rustup.rs). The exact toolchain version and components are declared in `rust-toolchain.toml` and will be installed automatically on first use.
+
+### just
+
+All build, test, and lint commands are run via [just](https://github.com/casey/just):
+
+```bash
+cargo install just
+```
+
+Run `just` with no arguments to list all available commands.
 
 ### Cargo tools
 
@@ -14,12 +24,25 @@ Install the required cargo tools using [cargo-binstall](https://github.com/cargo
 
 ```bash
 cargo install cargo-binstall
-cargo binstall cargo-deny cargo-nextest
+cargo binstall cargo-deny cargo-nextest cargo-hack
 ```
 
 ### Binding-specific dependencies
 
 You only need these if you are working on the corresponding language binding.
+
+#### Python (`bindings/python`)
+
+Python 3.9+, a virtualenv, and [maturin](https://github.com/PyO3/maturin) are required:
+
+```bash
+# Debian / Ubuntu
+sudo apt install python3 python3-venv
+
+python3 -m venv .venv
+source .venv/bin/activate
+pip install maturin
+```
 
 #### PHP (`bindings/php`)
 
@@ -69,63 +92,54 @@ Ruby 3.1+ and Bundler are required:
 sudo apt install ruby ruby-dev bundler
 ```
 
-#### Python (`bindings/python`)
-
-Python 3.9+ is required:
-
-```bash
-# Debian / Ubuntu
-sudo apt install python3 python3-venv
-```
-
 ---
 
 ## Building
 
-Build only the core library (no binding dependencies needed):
-
 ```bash
-cargo build -p bernard-ledit
-```
+# Rust core
+just build
 
-Build a specific binding:
+# Python binding (installs into the active virtualenv via maturin develop)
+just python build
 
-```bash
-cargo build -p bernard-ledit-python
-cargo build -p bernard-ledit-php
-# etc.
-```
-
-Build everything (requires all binding dependencies above):
-
-```bash
-cargo build --workspace
+# Java binding
+just java build
 ```
 
 ---
 
 ## Testing
 
-Run the core test suite:
-
 ```bash
-cargo nextest run -p bernard-ledit
+# Rust core
+just test
+
+# Python binding
+just python test
+
+# Full Rust check (all feature combinations, lint, tests)
+just check
 ```
 
-Run all tests:
-
-```bash
-cargo nextest run --workspace
-```
+> **Note:** Rust tests run single-threaded (`RUST_TEST_THREADS=1` via `.cargo/config.toml`).
+> This is required because pdfium's renderer and mozjpeg are not safe for concurrent use.
+> Do not override this when running the test suite.
 
 ---
 
 ## Linting and formatting
 
 ```bash
-cargo fmt --all -- --check   # check formatting
-cargo clippy --all-features --all-targets -- -D warnings
-cargo deny check             # license and advisory checks
+# Rust: fmt check + clippy + cargo-deny + cargo-udeps + hack-check
+just lint
+
+# Python: ruff + mypy
+just python lint-check
+
+# Auto-fix formatting
+just format         # Rust
+just python format  # Python
 ```
 
 ---
@@ -135,7 +149,7 @@ cargo deny check             # license and advisory checks
 Git hooks are managed via [`cargo-husky`](https://github.com/rhysd/cargo-husky). They are installed automatically the first time you run:
 
 ```bash
-cargo test -p bernard-ledit
+just test
 ```
 
 After that, `cargo fmt` is checked on every commit and the full lint + test suite runs on every push.
@@ -144,7 +158,12 @@ After that, `cargo fmt` is checked on every commit and the full lint + test suit
 
 ## Submitting changes
 
-1. Fork the repository and create a branch from `main`.
+1. Create a branch from `dev` (not `main` — see below).
 2. Make your changes with tests where applicable.
-3. Ensure `cargo fmt`, `cargo clippy`, and `cargo nextest run` all pass.
-4. Open a pull request against `main` using the provided template.
+3. Ensure `just lint` and `just test` pass (and `just python lint-check` + `just python test` for Python changes).
+4. Add a `CHANGELOG.md` entry.
+5. If you added a dependency, update `THIRD_PARTY_NOTICES` if required by its license.
+6. Open a pull request against **`dev`** using the provided template.
+
+> **Branch strategy:** `main` is the release branch — only `dev` is merged into it (via the release PR template).
+> All feature and fix PRs target `dev`.

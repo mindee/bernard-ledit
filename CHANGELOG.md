@@ -1,2 +1,2 @@
-# Bernard L'Édit Changelog
+# Bernard l'Édit Changelog
 
