@@ -82,8 +82,10 @@ mod tests {
         assert!(
             local_bitmap
                 .rgba
-                .chunks_exact(4)
-                .all(|pixel| pixel == [255, 0, 0, 255]),
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .all(|pixel| pixel == &[255, 0, 0, 255]),
             "Bitmap data contained unexpected bytes (expected RGBA red: [255, 0, 0, 255])"
         );
     }

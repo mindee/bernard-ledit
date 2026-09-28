@@ -89,7 +89,9 @@ pub extern "system" fn Java_com_mindee_bernardledit_geometry_Polygon_newNativeFr
         handles.get_region(env, 0, &mut buf)?;
 
         let points: Vec<Point> = buf
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .map(|chunk| Point::new(chunk[0], chunk[1]))
             .collect();
         let polygon = Box::new(Polygon::new(points));
