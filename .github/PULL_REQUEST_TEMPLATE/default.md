@@ -1,32 +1,13 @@
 ## Description
-<!-- Describe your changes and why they are needed. -->
+<!--- Describe your changes in detail -->
+<!--- Why is this change required? What problem does it solve? -->
 
 
-## Type of change
-<!-- Put an `x` in all boxes that apply. -->
+## Types of changes
+<!--- What types of changes does your code introduce? Put an `x` in all the boxes that apply: -->
 
-- [ ] Bug fix (non-breaking)
-- [ ] New feature (non-breaking)
-- [ ] Breaking change
-- [ ] Dependency upgrade
-- [ ] Docs / refactoring (no behavior change)
-
-## Affected bindings
-<!-- Check all bindings touched by this PR. -->
-
-- [ ] Rust core (`core/`)
-- [ ] Python (`bindings/python/`)
-- [ ] .NET (`bindings/dotnet/`)
-- [ ] Java (`bindings/java/`)
-- [ ] Node.js (`bindings/nodejs/`)
-- [ ] PHP (`bindings/php/`)
-- [ ] Ruby (`bindings/ruby/`)
-
-## Checklist
-
-- [ ] Tests added / updated
-- [ ] Stubs / type annotations updated (for binding changes)
-- [ ] `CHANGELOG.md` entry added
-- [ ] No new compiler warnings (`just lint`)
-- [ ] Passing tests (core and bindings)
-- [ ] `THIRD_PARTY_NOTICES` updated if new dependencies were added
+- [ ] Docs change / refactoring / dependency upgrade
+- [ ] Bug fix (non-breaking change which fixes an issue)
+- [ ] New feature (non-breaking change which adds functionality)
+- [ ] Breaking change (fix or feature that would cause existing functionality to change)
+- [ ] Requires a change to the official Guide documentation.
