@@ -152,7 +152,8 @@ Git hooks are managed via [`cargo-husky`](https://github.com/rhysd/cargo-husky).
 just test
 ```
 
-After that, `cargo fmt` is checked on every commit and the full lint + test suite runs on every push.
+After that, `cargo fmt` is checked on commits where code files are edited and the full lint + test suite runs on push
+operations where code files were edited.
 
 ---
 

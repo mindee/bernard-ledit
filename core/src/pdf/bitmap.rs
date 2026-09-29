@@ -15,6 +15,7 @@ pub struct Bitmap {
 impl Bitmap {
     /// Construct from a pdfium bitmap.
     /// # Panics
+    ///
     /// Panics if the `PDFium` bitmap has a negative width or height.
     #[must_use = "this returns a newly constructed `Bitmap` without side effects; dropping it wastes allocation"]
     pub fn from_pdfium(pb: &PdfBitmap) -> Self {

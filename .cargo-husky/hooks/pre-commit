@@ -1,16 +1,47 @@
 #!/bin/sh
 set -e
 
-echo "🦀 Running Rust checks..."
-just core lint
-just core check-deps
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
 
-cargo fmt --all -- --check
+staged_matches() {
+    printf '%s\n' "$staged" | grep -qE "$1"
+}
 
-echo "☕ Running Java checks..."
-just java lint
+if staged_matches '(\.rs$|^Cargo\.(toml|lock)$|/Cargo\.toml$|^deny\.toml$|^rust\.just$|^\.cargo/)'; then
+    echo "Running Rust checks..."
+    just core lint
+    just core check-deps
+    cargo fmt --all -- --check
+fi
 
-echo "🐍 Running Python checks..."
-just python lint
+if staged_matches '^bindings/java/'; then
+    echo "Running Java checks..."
+    just java lint
+fi
+
+if staged_matches '^bindings/python/'; then
+    echo "Running Python checks..."
+    just python lint
+fi
+
+if staged_matches '^bindings/nodejs/' && test -f bindings/nodejs/justfile; then
+    echo "Running Node.js checks..."
+    just nodejs lint
+fi
+
+if staged_matches '^bindings/php/' && test -f bindings/php/justfile; then
+    echo "Running PHP checks..."
+    just php lint
+fi
+
+if staged_matches '^bindings/dotnet/' && test -f bindings/dotnet/justfile; then
+    echo "Running .NET checks..."
+    just dotnet lint
+fi
+
+if staged_matches '^bindings/ruby/' && test -f bindings/ruby/justfile; then
+    echo "Running Ruby checks..."
+    just ruby lint
+fi
 
 echo "All linting and formatting checks passed! Committing..."
