@@ -22,38 +22,38 @@ changed_matches() {
 }
 
 if changed_matches '(\.rs$|^Cargo\.(toml|lock)$|/Cargo\.toml$|^deny\.toml$|^rust\.just$|^\.cargo/)'; then
-    echo "🦀 Running Rust tests..."
+    echo "Running Rust tests..."
     just core test
 fi
 
 if changed_matches '^bindings/java/'; then
-    echo "☕ Running Java tests..."
+    echo "Running Java tests..."
     just java test
 fi
 
 if changed_matches '^bindings/python/'; then
-    echo "🐍 Running Python tests..."
+    echo "Running Python tests..."
     just python test
 fi
 
 if changed_matches '^bindings/nodejs/' && test -f bindings/nodejs/justfile; then
-    echo "🟢 Running Node.js tests..."
+    echo "Running Node.js tests..."
     just nodejs test
 fi
 
 if changed_matches '^bindings/php/' && test -f bindings/php/justfile; then
-    echo "🐘 Running PHP tests..."
+    echo "Running PHP tests..."
     just php test
 fi
 
 if changed_matches '^bindings/dotnet/' && test -f bindings/dotnet/justfile; then
-    echo "🟣 Running .NET tests..."
+    echo "Running .NET tests..."
     just dotnet test
 fi
 
 if changed_matches '^bindings/ruby/' && test -f bindings/ruby/justfile; then
-    echo "💎 Running Ruby tests..."
+    echo "Running Ruby tests..."
     just ruby test
 fi
 
-echo "🚀 All pre-push checks passed! Ready for takeoff."
+echo "All pre-push checks passed!"

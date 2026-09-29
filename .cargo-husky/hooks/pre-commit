@@ -8,39 +8,39 @@ staged_matches() {
 }
 
 if staged_matches '(\.rs$|^Cargo\.(toml|lock)$|/Cargo\.toml$|^deny\.toml$|^rust\.just$|^\.cargo/)'; then
-    echo "🦀 Running Rust checks..."
+    echo "Running Rust checks..."
     just core lint
     just core check-deps
     cargo fmt --all -- --check
 fi
 
 if staged_matches '^bindings/java/'; then
-    echo "☕ Running Java checks..."
+    echo "Running Java checks..."
     just java lint
 fi
 
 if staged_matches '^bindings/python/'; then
-    echo "🐍 Running Python checks..."
+    echo "Running Python checks..."
     just python lint
 fi
 
 if staged_matches '^bindings/nodejs/' && test -f bindings/nodejs/justfile; then
-    echo "🟢 Running Node.js checks..."
+    echo "Running Node.js checks..."
     just nodejs lint
 fi
 
 if staged_matches '^bindings/php/' && test -f bindings/php/justfile; then
-    echo "🐘 Running PHP checks..."
+    echo "Running PHP checks..."
     just php lint
 fi
 
 if staged_matches '^bindings/dotnet/' && test -f bindings/dotnet/justfile; then
-    echo "🟣 Running .NET checks..."
+    echo "Running .NET checks..."
     just dotnet lint
 fi
 
 if staged_matches '^bindings/ruby/' && test -f bindings/ruby/justfile; then
-    echo "💎 Running Ruby checks..."
+    echo "Running Ruby checks..."
     just ruby lint
 fi
 
