@@ -7,12 +7,30 @@ body:
     attributes:
       value: >
         #### Before reporting a bug, please check that the issue hasn't already been addressed in the existing and past issues.
+
+  - type: dropdown
+    attributes:
+      label: Affected binding / component
+      description: Which part of bernard-ledit is affected?
+      options:
+        - Rust core
+        - Python binding
+        - .NET binding
+        - Java binding
+        - Node.js binding
+        - PHP binding
+        - Ruby binding
+        - Build / CI
+        - Other
+    validations:
+      required: true
+
   - type: textarea
     attributes:
       label: Bug description
       description: |
         A clear and concise description of what the bug is.
-        
+
         Please explain the result you observed and the behavior you were expecting.
       placeholder: |
         A clear and concise description of what the bug is.
@@ -23,35 +41,48 @@ body:
     attributes:
       label: Code snippet to reproduce the bug
       description: |
-        Sample code to reproduce the problem.
-        
+        Minimal code to reproduce the problem.
+
         Please wrap your code snippet with ```` ```triple quotes blocks``` ```` for readability.
       placeholder: |
-        ```python
-        Sample code to reproduce the problem
+        ```rust
+        // or python / js / etc.
+        // minimal reproduction
         ```
     validations:
       required: true
+
   - type: textarea
     attributes:
-      label: Error traceback
+      label: Error message / traceback
       description: |
-        The error message you received running the code snippet, with the full traceback.
-        
-        Please wrap your error message with ```` ```triple quotes blocks``` ```` for readability.
+        The full error message or traceback you received.
+
+        Please wrap it with ```` ```triple quotes blocks``` ```` for readability.
       placeholder: |
         ```
-        The error message you got, with the full traceback.
+        error or traceback here
         ```
     validations:
       required: true
+
   - type: textarea
     attributes:
       label: Environment
       description: |
-        Please provide the version of our software you are running and environment details (OS, Git branch/tag/commit SHA, python/pip version, installed packages + versions)
+        Please fill in the following:
+        - **bernard-ledit version** (e.g. `0.4.0`):
+        - **Language + version** (e.g. Python 3.12, Rust 1.88, Node 20):
+        - **OS** (e.g. Ubuntu 24.04, macOS 15, Windows 11):
+        - **Install method** (e.g. `pip install bernard-ledit`, built from source):
+      placeholder: |
+        - bernard-ledit version:
+        - Language + version:
+        - OS:
+        - Install method:
     validations:
       required: true
+
   - type: markdown
     attributes:
       value: >

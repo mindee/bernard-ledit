@@ -7,3 +7,6 @@
 **/.venv/
 **/venv/
 **/*.pyd
+bernard_ledit/libpdfium.so
+bernard_ledit/libpdfium.dylib
+bernard_ledit/pdfium.dll

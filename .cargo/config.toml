@@ -11,3 +11,8 @@ rustflags = [
     "-C", "link-arg=-undefined",
     "-C", "link-arg=dynamic_lookup",
 ]
+
+# pdfium's renderer is not thread-safe; run all tests sequentially to avoid
+# heap corruption (SIGABRT) when multiple tests exercise pdfium concurrently.
+[env]
+RUST_TEST_THREADS = "1"

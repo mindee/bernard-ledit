@@ -24,5 +24,8 @@ macro_rules! test_data_bytes {
 
 /// Geometry module.
 pub mod geometry;
+/// Image module.
+#[cfg(feature = "image")]
+pub mod image;
 /// PDF module.
 pub mod pdf;

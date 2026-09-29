@@ -15,6 +15,7 @@ pub struct Bitmap {
 impl Bitmap {
     /// Construct from a pdfium bitmap.
     /// # Panics
+    ///
     /// Panics if the `PDFium` bitmap has a negative width or height.
     #[must_use = "this returns a newly constructed `Bitmap` without side effects; dropping it wastes allocation"]
     pub fn from_pdfium(pb: &PdfBitmap) -> Self {
@@ -82,14 +83,16 @@ mod tests {
         assert!(
             local_bitmap
                 .rgba
-                .chunks_exact(4)
-                .all(|pixel| pixel == [255, 0, 0, 255]),
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .all(|pixel| pixel == &[255, 0, 0, 255]),
             "Bitmap data contained unexpected bytes (expected RGBA red: [255, 0, 0, 255])"
         );
     }
 
     /// Input: a single BGRA pixel (0, 128, 255, 200).
-    /// pdfium-render's `as_rgba_bytes()` should swap B and R → (255, 128, 0, 200).
+    /// pdfium-render's `as_rgba_bytes()` should swap B and R -> (255, 128, 0, 200).
     #[test]
     fn test_from_pdfium_bgra_to_rgba_channel_order() {
         pdfium();
