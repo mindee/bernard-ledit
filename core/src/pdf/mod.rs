@@ -26,15 +26,12 @@ use pdfium_render::prelude::*;
 
 static PDFIUM: OnceLock<Pdfium> = OnceLock::new();
 
-/// pdfium uses global state during rendering (`FPDF_RenderPageBitmap`) and is
-/// not thread-safe by default. Serialise all render calls behind this lock so
-/// concurrent threads (Python `threading`, Rust async runtimes, etc.) cannot
-/// race inside pdfium internals.
-pub(crate) static PDFIUM_RENDER_LOCK: Mutex<()> = Mutex::new(());
+/// pdfium and mozjpeg both aren't thread-safe.
+pub(crate) static NATIVE_LOCK: Mutex<()> = Mutex::new(());
 
 /// Initializes the `PDFium` library.
 /// # Errors
-/// * `PdfiumError` - If `PDFium` library binding fails.
+/// * `PdfiumError` If `PDFium` library binding fails.
 pub fn initialize(library_path: &str) -> Result<(), PdfError> {
     if PDFIUM.get().is_some() {
         return Ok(());

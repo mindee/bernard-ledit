@@ -221,7 +221,7 @@ impl Document {
             ));
         }
 
-        let _lock = crate::pdf::PDFIUM_RENDER_LOCK
+        let _lock = crate::pdf::NATIVE_LOCK
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         let page = self.inner.pages().get(page_index.into())?;

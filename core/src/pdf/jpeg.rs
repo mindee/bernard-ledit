@@ -5,8 +5,7 @@
 //! do so ourselves.
 //!
 //! # Overview
-//! Embeds a JPEG byte stream into a single-page PDF **without decoding pixels**
-//! by using the PDF `/Filter /DCTDecode` mechanism.
+//! Embeds a JPEG byte stream into a single-page PDF.
 //!
 //! # Limitations
 //!
@@ -17,18 +16,11 @@
 //! pre-rotate the pixel data before calling these helpers.
 
 use crate::pdf::error::{ImageError, PdfBuilderError};
-use std::sync::Mutex;
-
-/// mozjpeg's C internals are not fully thread-safe during `Compress` initialisation
-/// (global allocator hooks can race). Serialise all encoding calls behind a process-wide
-/// lock so concurrent Rust threads (e.g. test harness) don't corrupt the heap.
-static MOZJPEG_LOCK: Mutex<()> = Mutex::new(());
 
 /// Encodes raw RGB8 pixels as a JPEG using mozjpeg.
 ///
-/// Uses libjpeg-compatible quantization tables. When `optimize` is `true`,
-/// optimized (adaptive) Huffman tables are computed, matching PIL's
-/// `optimize=True` behaviour and producing significantly smaller files.
+/// More or less matches pillow's way of compressing JPEGs.
+/// The caller must hold [`crate::pdf::NATIVE_LOCK`].
 ///
 /// # Errors
 /// Returns an `io::Error` if the mozjpeg encoder fails.
@@ -39,9 +31,6 @@ pub(crate) fn encode_jpeg_mozjpeg(
     quality: u8,
     optimize: bool,
 ) -> std::io::Result<Vec<u8>> {
-    let _lock = MOZJPEG_LOCK
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let mut comp = mozjpeg::Compress::new(mozjpeg::ColorSpace::JCS_RGB);
     comp.set_size(width as usize, height as usize);
     comp.set_quality(f32::from(quality));
@@ -52,7 +41,7 @@ pub(crate) fn encode_jpeg_mozjpeg(
 }
 
 /// Parse the first JPEG SOF (Start Of Frame) marker to extract image dimensions
-/// and component count. The pixel data is never decoded.
+/// and component count.
 pub(super) fn jpeg_info(data: &[u8]) -> Result<(u32, u32, u8), PdfBuilderError> {
     let err = || PdfBuilderError::Image(ImageError::InvalidJpeg);
 
@@ -86,10 +75,7 @@ pub(super) fn jpeg_info(data: &[u8]) -> Result<(u32, u32, u8), PdfBuilderError> 
             continue;
         }
 
-        // SOS (Start of Scan, 0xDA) is followed by entropy-coded image data
-        // that cannot be skipped using the segment length field. A valid JPEG
-        // always places SOF before SOS, so encountering SOS first means the
-        // stream is malformed for our purposes.
+        // Encountering SOS first means the stream is malformed for our purposes.
         if marker == 0xDA {
             return Err(err());
         }
@@ -108,9 +94,8 @@ pub(super) fn jpeg_info(data: &[u8]) -> Result<(u32, u32, u8), PdfBuilderError> 
     Err(err())
 }
 
-/// Build a minimal valid PDF that embeds `jpeg_bytes` directly using
-/// `/Filter /DCTDecode`. No pixel decode or re-encode takes place.
-/// The result is approximately `jpeg_bytes.len() + 500 bytes`.
+/// Build a minimal valid PDF that embeds `jpeg_bytes` directly using `/Filter /DCTDecode` from a
+/// given page width and height.
 pub(crate) fn build_jpeg_pdf(
     jpeg_bytes: &[u8],
     page_width: f64,
@@ -192,8 +177,7 @@ pub(crate) fn build_jpeg_pdf(
     Ok(pdf)
 }
 
-/// An adapter that builds a PDF using the JPEG's intrinsic dimensions
-/// for the page width and height (mapping 1 pixel to 1 PDF point).
+/// An adapter that builds a PDF using the JPEG's dimensions.
 pub(crate) fn build_jpeg_pdf_auto_size(jpeg_bytes: &[u8]) -> Result<Vec<u8>, PdfBuilderError> {
     let (width, height, _components) = jpeg_info(jpeg_bytes)?;
 
@@ -206,8 +190,7 @@ mod tests {
 
     // ── helpers ──────────────────────────────────────────────────────────────
 
-    /// Build the smallest byte sequence that makes `jpeg_info` happy:
-    /// SOI + SOF0 + 8-byte payload.
+    /// Builds the smallest possible allowed JPEG.
     fn make_minimal_jpeg(width: u16, height: u16, components: u8) -> Vec<u8> {
         let mut data = vec![
             0xFF, 0xD8, // SOI
@@ -221,8 +204,7 @@ mod tests {
         data
     }
 
-    /// Prepend a dummy APP0 segment (FF E0, length=6, four zero bytes) before
-    /// the SOF, so we exercise the "skip unknown segment" path.
+    /// Creates an unknown segment.
     fn make_jpeg_with_app0(width: u16, height: u16, components: u8) -> Vec<u8> {
         let mut data = vec![
             0xFF, 0xD8, // SOI
@@ -259,7 +241,7 @@ mod tests {
         assert_eq!(jpeg_info(&jpeg).unwrap(), (200, 100, 4));
     }
 
-    /// SOF1 (extended sequential DCT) must also be recognised.
+    /// SOF1 (extended sequential DCT) must also be recognized.
     #[test]
     fn jpeg_info_sof1_marker() {
         let mut jpeg = make_minimal_jpeg(32, 32, 3);
@@ -267,7 +249,7 @@ mod tests {
         assert_eq!(jpeg_info(&jpeg).unwrap(), (32, 32, 3));
     }
 
-    /// SOF2 (progressive DCT) must also be recognised.
+    /// SOF2 (progressive DCT) must also be recognized.
     #[test]
     fn jpeg_info_sof2_marker() {
         let mut jpeg = make_minimal_jpeg(32, 32, 3);
@@ -275,8 +257,7 @@ mod tests {
         assert_eq!(jpeg_info(&jpeg).unwrap(), (32, 32, 3));
     }
 
-    /// DHT (0xC4) is excluded from the SOF range; it must be skipped as a
-    /// regular length-prefixed segment so the parser continues to the real SOF.
+    /// DHT (0xC4) is excluded from the SOF range; it must be skipped.
     #[test]
     fn jpeg_info_dht_skipped_before_sof() {
         let mut data = vec![
@@ -302,7 +283,7 @@ mod tests {
         assert_eq!(jpeg_info(&data).unwrap(), (8, 8, 3));
     }
 
-    /// APP0 segment (unknown to the parser) must be skipped via its length.
+    /// APP0 segment (unknown to the parser) must be skipped.
     #[test]
     fn jpeg_info_app0_before_sof() {
         let jpeg = make_jpeg_with_app0(320, 240, 3);
