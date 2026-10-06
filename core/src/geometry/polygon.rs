@@ -50,7 +50,7 @@ impl Polygon {
                     weighted_sum_y += weight * tri_centroid_y;
                 }
                 if total_weight.abs() < f64::EPSILON {
-                    // Unfortunately, we'll hit the 9 quadrillionth-precision inaccuracy here 😩
+                    // Unfortunately, we'll hit the 9 quadrillionth-precision inaccuracy here :(
                     #[allow(clippy::cast_precision_loss)]
                     let count = pts.len() as f64;
                     let (sum_x, sum_y) = pts

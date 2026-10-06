@@ -135,7 +135,7 @@ impl Document {
     ///
     /// `width` and `height` are the PDF page dimensions in points.
     ///
-    /// The JPEG bytes are embedded **as-is** using `/Filter /DCTDecode` — no pixel
+    /// The JPEG bytes are embedded **as-is** using `/Filter /DCTDecode` with no pixel
     /// decode or re-encode occurs. The resulting PDF is approximately
     /// `jpeg_bytes.len() + 500 bytes` of PDF framing overhead.
     ///

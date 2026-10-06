@@ -25,3 +25,6 @@ ext-php-rs = { version = "0.15", features = ["closure"] }
 
 [lints]
 workspace = true
+
+[features]
+static-pdfium = ["bernard-ledit/static-pdfium"]
