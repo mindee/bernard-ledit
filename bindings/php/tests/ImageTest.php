@@ -7,6 +7,7 @@ use function BernardLedit\Image\guessFormat;
 use function BernardLedit\Image\compress;
 use BernardLedit\Image\Image;
 use BernardLedit\Image\ImageException;
+use BernardLedit\Pdf\PdfDocument;
 
 final class ImageTest extends TestCase
 {
@@ -192,6 +193,24 @@ final class ImageTest extends TestCase
         self::assertSame("\xFF\xD8\xFF", substr($jpeg, 0, 3));
         self::assertSame(100, $w);
         self::assertSame(50, $h);
+    }
+
+    public function testMozjpegAndPdfiumJpegRoundtrip(): void
+    {
+        $png = self::makePng(64, 48);
+        [$jpeg] = compress($png, 90);
+        $doc = PdfDocument::create();
+        $doc->appendJpegPage($jpeg);
+        $reloaded = new PdfDocument($doc->save());
+
+        // Exercise PDFium's JPEG decoder and mozjpeg's encoder in the same process.
+        $bitmap = $reloaded->getPage(0)->render();
+        self::assertSame([64, 48], decode($bitmap->toPngBytes())->size());
+        self::assertGreaterThan(4, strlen(count_chars($bitmap->toBytes(), 3)));
+        $renderedJpeg = $reloaded->rasterizePage(0, 90);
+        self::assertSame('JPEG', guessFormat($renderedJpeg));
+        self::assertSame([64, 48], decode($renderedJpeg)->size());
+        self::assertSame($jpeg, compress($png, 90)[0]);
     }
 
     public function testCompressDoesNotUpscale(): void
