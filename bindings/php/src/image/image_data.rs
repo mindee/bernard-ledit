@@ -3,9 +3,9 @@ use bernard_ledit::image::{
     Filter, Image as CoreImage, format_name, guess_format as core_guess, parse_output_format,
 };
 use ext_php_rs::types::Zval;
+use ext_php_rs::zend::ce;
 use ext_php_rs::{binary::Binary, binary_slice::BinarySlice, prelude::*};
 use std::str::FromStr;
-use ext_php_rs::zend::ce;
 
 #[php_class]
 #[php(name = "BernardLedit\\Image\\Image")]
@@ -134,9 +134,11 @@ pub fn compress(
     let mut z = Zval::new();
     z.set_binary(bytes);
     out.push(z);
-    let w_i32 = i32::try_from(w).map_err(|e| PhpException::new(e.to_string(), 0, ce::value_error()))?;
+    let w_i32 =
+        i32::try_from(w).map_err(|e| PhpException::new(e.to_string(), 0, ce::value_error()))?;
     out.push(Zval::from(w_i32));
-    let h_i32 = i32::try_from(h).map_err(|e| PhpException::new(e.to_string(), 0, ce::value_error()))?;
+    let h_i32 =
+        i32::try_from(h).map_err(|e| PhpException::new(e.to_string(), 0, ce::value_error()))?;
     out.push(Zval::from(h_i32));
     Ok(out)
 }

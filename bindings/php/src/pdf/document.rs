@@ -151,7 +151,7 @@ impl PdfDocument {
             d.add_text(page_idx.into(), contiguous_chars.as_ref())
                 .map_err(|e| map_pdf_err(&e))
         })
-            .flatten()
+        .flatten()
     }
 
     /// Check if the document has any text.
