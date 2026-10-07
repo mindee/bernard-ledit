@@ -55,12 +55,14 @@ final class PdfDocumentTest extends TestCase
         self::assertSame(0, $page->index());
     }
 
-    public function testGetPageOutOfBoundsThrowsValueError(): void
+    public function testGetPageOutOfBoundsThrowsPdfiumException(): void
     {
+        // Document::page() bounds-checks via pdfium_render's own `.pages().get()`, which bubbles
+        // up through `?` as PdfError::Pdfium(_) (NOT this crate's own PageIndexOutOfBounds
+        // variant — that one is only constructed by import_pages()'s manual bounds check below).
+        // Pdfium(_)/Other(_) map to PdfiumException; see bindings/php/src/pdf/error.rs.
         $doc = new PdfDocument(self::pdf('blank_1.pdf'));
-        // PageIndexOutOfBounds / PageCountOutOfBounds are mapped to \ValueError (PHP has no
-        // IndexError); see bindings/php/src/pdf/error.rs.
-        $this->expectException(\ValueError::class);
+        $this->expectException(PdfiumException::class);
         $doc->getPage(99);
     }
 
@@ -197,10 +199,12 @@ final class PdfDocumentTest extends TestCase
         self::assertSame("\xFF\xD8", substr($jpeg, 0, 2));
     }
 
-    public function testRasterizePageOutOfBoundsThrowsValueError(): void
+    public function testRasterizePageOutOfBoundsThrowsPdfiumException(): void
     {
+        // Same pdfium_render bounds-check path as getPage() above: out-of-range page_index goes
+        // through `.pages().get()` -> PdfError::Pdfium(_) -> PdfiumException, not \ValueError.
         $doc = new PdfDocument(self::pdf('blank_1.pdf'));
-        $this->expectException(\ValueError::class);
+        $this->expectException(PdfiumException::class);
         $doc->rasterizePage(99, 85);
     }
 
