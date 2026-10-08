@@ -50,8 +50,8 @@ jobs:
 
       - name: Run workspace tests (Linux)
         if: matrix.os == 'ubuntu-latest'
-        run: cargo nextest run --workspace --all-features --no-tests=pass
+        run: cargo nextest run --workspace --features bernard-ledit/full --no-tests=pass
 
       - name: Run core tests
         if: matrix.os != 'ubuntu-latest'
-        run: cargo nextest run -p bernard-ledit --all-features --no-tests=pass
+        run: cargo nextest run -p bernard-ledit --features full --no-tests=pass
