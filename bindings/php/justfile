@@ -102,7 +102,12 @@ test-static: build-static
 
 # Regenerates the PHP stub file (bernard_ledit.stubs.php) for IDEs/phpstan from the compiled extension
 stubs: build
-    cargo php stubs --manifest-path Cargo.toml -o bernard_ledit.stubs.php
+    bash tools/stubs/generate.sh "$(realpath {{ext_debug}})" "$PWD/bernard_ledit.stubs.php"
+
+# Regenerate and check the committed IDE/PHPStan API snapshot.
+stubs-check: stubs
+    git ls-files --error-unmatch bernard_ledit.stubs.php > /dev/null
+    git diff --exit-code -- bernard_ledit.stubs.php
 
 # Runs cargo clippy on the PHP bindings crate
 lint:
@@ -131,5 +136,4 @@ ci: format-check lint build test
 
 # Cleans build artifacts local to this binding (run root `just clean` for the shared cargo target)
 clean:
-    rm -f bernard_ledit.stubs.php
     rm -rf vendor/

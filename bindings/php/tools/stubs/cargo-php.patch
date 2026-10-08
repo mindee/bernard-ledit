@@ -1,0 +1,37 @@
+--- a/allowed_bindings.rs
++++ b/allowed_bindings.rs
+@@ -106,6 +106,14 @@
+     zend_hash_str_del,
+     zend_hash_str_find,
+     zend_hash_str_update,
++    zend_hash_add_or_update,
++    zend_hash_update,
++    zend_hash_update_ind,
++    zend_hash_add,
++    zend_hash_add_new,
++    zend_hash_find,
++    zend_hash_del,
++    zend_hash_del_ind,
+     zend_internal_arg_info,
+     zend_is_callable,
+     zend_is_callable_ex,
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -71,7 +71,7 @@
+ version = "0.12"
+ 
+ [dependencies.ext-php-rs]
+-version = "0.15"
++version = "=0.15.15"
+ features = ["runtime"]
+ default-features = false
+ 
+@@ -89,3 +89,8 @@
+ 
+ [lints.rust]
+ missing_docs = "warn"
++
++[workspace]
++
++[patch.crates-io]
++ext-php-rs = { path = "../ext-php-rs-0.15.15" }

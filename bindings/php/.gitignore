@@ -5,6 +5,3 @@
 # PHPUnit result/coverage cache (regenerated on every run; path/schema from phpunit.xml)
 .phpunit.result.cache
 .phpunit.cache/
-
-# Generated stub file (`just stubs`; removed by `just clean`)
-bernard_ledit.stubs.php

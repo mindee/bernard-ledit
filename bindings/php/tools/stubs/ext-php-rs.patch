@@ -1,0 +1,46 @@
+--- a/src/describe/stub.rs
++++ b/src/describe/stub.rs
+@@ -477,7 +477,8 @@
+         let params_str = self
+             .params
+             .iter()
+-            .map(|p| param_to_stub(p, &type_overrides))
++            .enumerate()
++            .map(|(i, p)| positioned_param_to_stub(p, &self.params[i + 1..], &type_overrides))
+             .collect::<Result<StdVec<_>, FmtError>>()?
+             .join(", ");
+ 
+@@ -498,6 +499,23 @@
+     }
+ }
+ 
++fn positioned_param_to_stub(
++    param: &Parameter,
++    following: &[Parameter],
++    type_overrides: &HashMap<String, String>,
++) -> Result<String, FmtError> {
++    let mut rendered = param_to_stub(param, type_overrides)?;
++    let precedes_required = following.iter().any(|p| {
++        !p.nullable && !p.variadic && matches!(p.default, Option::None)
++    });
++    if precedes_required {
++        if let Some(default_start) = rendered.find(" = ") {
++            rendered.truncate(default_start);
++        }
++    }
++    Ok(rendered)
++}
++
+ /// Render a parameter to stub format, with optional type overrides from rustdoc.
+ ///
+ /// When a parameter's Rust type is `Zval` (which maps to `mixed` in PHP), the
+@@ -802,7 +820,8 @@
+         let params_str = self
+             .params
+             .iter()
+-            .map(|p| param_to_stub(p, &type_overrides))
++            .enumerate()
++            .map(|(i, p)| positioned_param_to_stub(p, &self.params[i + 1..], &type_overrides))
+             .collect::<Result<StdVec<_>, FmtError>>()?
+             .join(", ");
+ 
