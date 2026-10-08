@@ -136,9 +136,7 @@ pub fn compress(
     Ok(out)
 }
 
-/// Registers the functions in this module.
-/// Note: this is present in this file because #[`php_function`] macro generates a non-public
-/// internal function which the module can't otherwise use.
+/// Registers the internal functions in this module.
 pub fn register_functions(builder: ModuleBuilder) -> ModuleBuilder {
     builder
         .function(wrap_function!(decode))

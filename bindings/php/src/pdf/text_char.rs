@@ -144,9 +144,8 @@ impl From<&PhpTextChar> for RustTextChar {
     }
 }
 
-// NOTE: these tests intentionally stay in plain-Rust territory (no `#[php_impl]`-generated
-// methods are exercised). ext-php-rs classes rely on a live Zend engine for anything that
-// touches FFI.
+/// These tests intentionally stay in plain-Rust because ext-php-rs classes rely on a live Zend
+/// engine for anything that touches FFI.
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -61,8 +61,6 @@ final class PdfPageTest extends TestCase
 
     public function testRenderDefaultScaleIsOne(): void
     {
-        // The default scale is applied via #[php(defaults(scale = 1.0))] in page.rs; calling
-        // render() with no argument must not throw an "argument count" ArgumentCountError.
         $doc = new PdfDocument(self::pdf('blank_1.pdf'));
         $page = $doc->getPage(0);
 
@@ -91,9 +89,6 @@ final class PdfPageTest extends TestCase
         $page = $doc->getPage(0);
         $doc->close();
 
-        // PdfPage re-opens the page under the document's lock on every call (see
-        // with_page() in page.rs); once the parent PdfDocument is closed, every PdfPage method
-        // must fail instead of silently operating on stale state.
         $this->expectException(\Exception::class);
         $page->size();
     }

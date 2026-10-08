@@ -57,10 +57,6 @@ final class PdfDocumentTest extends TestCase
 
     public function testGetPageOutOfBoundsThrowsPdfiumException(): void
     {
-        // Document::page() bounds-checks via pdfium_render's own `.pages().get()`, which bubbles
-        // up through `?` as PdfError::Pdfium(_) (NOT this crate's own PageIndexOutOfBounds
-        // variant — that one is only constructed by import_pages()'s manual bounds check below).
-        // Pdfium(_)/Other(_) map to PdfiumException; see bindings/php/src/pdf/error.rs.
         $doc = new PdfDocument(self::pdf('blank_1.pdf'));
         $this->expectException(PdfiumException::class);
         $doc->getPage(99);
@@ -201,8 +197,6 @@ final class PdfDocumentTest extends TestCase
 
     public function testRasterizePageOutOfBoundsThrowsPdfiumException(): void
     {
-        // Same pdfium_render bounds-check path as getPage() above: out-of-range page_index goes
-        // through `.pages().get()` -> PdfError::Pdfium(_) -> PdfiumException, not \ValueError.
         $doc = new PdfDocument(self::pdf('blank_1.pdf'));
         $this->expectException(PdfiumException::class);
         $doc->rasterizePage(99, 85);
@@ -231,11 +225,6 @@ final class PdfDocumentTest extends TestCase
         self::assertCount(1, $chars);
         self::assertInstanceOf(\PhpTextChar::class, $chars[0]);
         self::assertSame('A', (string) $chars[0]);
-        // NOTE: PhpTextChar exposes no typed getters (no width/font_name/font_size accessor
-        // methods) — only __toString() (the character itself) and __debugInfo() (stringified
-        // debug fields). This is a real feature gap vs. the Python bindings' PyTextChar, which
-        // exposes every field via #[pyo3(get)]. See the chars()-returns-structured-data finding
-        // in local_test/php-bindings-review.md. We can only assert on the debug-info string here.
         $debug = $chars[0]->__debugInfo();
         self::assertSame('Helvetica', $debug['font_name']);
     }
