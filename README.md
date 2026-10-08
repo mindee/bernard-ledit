@@ -186,7 +186,7 @@ print(len(poly))         # 4
 
 | Tool                                                       | Purpose                              |
 |------------------------------------------------------------|--------------------------------------|
-| Rust ≥ 1.88 (`rust-toolchain.toml` pins the exact version) | Core + all bindings                  |
+| Rust 1.99.0 (pinned in `rust-toolchain.toml`)              | Core + all bindings                  |
 | [just](https://github.com/casey/just)                      | Task runner                          |
 | [maturin](https://github.com/PyO3/maturin)                 | Build Python wheels                  |
 | A C compiler + cmake                                       | mozjpeg (bundled, built from source) |

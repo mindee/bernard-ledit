@@ -28,10 +28,6 @@ pub fn map_image_err(e: &ImageError) -> PhpException {
 }
 
 /// Unknown format error.
-///
-/// Exception for a format that pdfium/the `image` crate recognized at the byte level but that
-/// this binding has no display name for (see `format_name`). Named helper instead of a
-/// throwaway `ImageError::UnknownFormat` at each call site.
 #[must_use]
 pub fn unknown_format_err() -> PhpException {
     map_image_err(&ImageError::UnknownFormat)

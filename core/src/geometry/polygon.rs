@@ -21,6 +21,8 @@ impl Polygon {
     /// Weighted centroid of a polygon.
     /// Implemented from: <https://math.stackexchange.com/questions/90463/how-can-i-calculate-the-centroid-of-polygon>
     #[must_use]
+    // Clippy-suggested optimizations make this unbelievably ugly.
+    #[allow(clippy::suboptimal_flops, clippy::imprecise_flops)]
     pub fn centroid(&self) -> Option<Point> {
         let pts = self.0.as_slice();
         match pts {
@@ -38,8 +40,6 @@ impl Polygon {
                     let tri_centroid_x = (p0.x + pi1.x + pi2.x) / 3.0;
                     let tri_centroid_y = (p0.y + pi1.y + pi2.y) / 3.0;
 
-                    // Clippy-suggested optimizations make this unbelievably ugly.
-                    #[allow(clippy::suboptimal_flops, clippy::imprecise_flops)]
                     let weight = 0.5
                         * (p0.x * (pi1.y - pi2.y)
                             + pi1.x * (pi2.y - p0.y)

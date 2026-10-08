@@ -370,7 +370,7 @@ mod tests {
         let page_count = doc.page_count().unwrap();
         let mut buf = Vec::new();
         doc.save(&mut buf).unwrap();
-        assert!(!buf.is_empty());
+        assert_ne!(buf.len(), 0);
         let reloaded = Document::from_bytes(buf).unwrap();
         assert_eq!(reloaded.page_count().unwrap(), page_count);
     }

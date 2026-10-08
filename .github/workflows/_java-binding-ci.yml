@@ -39,7 +39,7 @@ jobs:
       - uses: extractions/setup-just@v4
 
       - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.99.0
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2

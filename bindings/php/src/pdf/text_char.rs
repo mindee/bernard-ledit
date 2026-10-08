@@ -110,12 +110,7 @@ impl From<RustTextChar> for PhpTextChar {
             stroke_color: value.stroke_color,
             fill_color: value.fill_color,
             font_flags: value.font_flags,
-            bounds: (
-                value.bounds[0],
-                value.bounds[1],
-                value.bounds[2],
-                value.bounds[3],
-            ),
+            bounds: value.bounds.into(),
         }
     }
 }
@@ -130,12 +125,7 @@ impl From<&RustTextChar> for PhpTextChar {
             fill_color: value.fill_color,
             font_flags: value.font_flags,
             font_name: value.font_name.clone(),
-            bounds: (
-                value.bounds[0],
-                value.bounds[1],
-                value.bounds[2],
-                value.bounds[3],
-            ),
+            bounds: value.bounds.into(),
         }
     }
 }
@@ -186,15 +176,7 @@ mod tests {
         assert_eq!(php_char.stroke_color, rust_char.stroke_color);
         assert_eq!(php_char.fill_color, rust_char.fill_color);
         assert_eq!(php_char.font_flags, rust_char.font_flags);
-        assert_eq!(
-            php_char.bounds,
-            (
-                rust_char.bounds[0],
-                rust_char.bounds[1],
-                rust_char.bounds[2],
-                rust_char.bounds[3]
-            )
-        );
+        assert_eq!(php_char.bounds, rust_char.bounds.into());
     }
 
     #[test]

@@ -107,14 +107,7 @@ pub fn guess_format(data: BinarySlice<u8>) -> PhpResult<&'static str> {
     format_name(fmt).ok_or_else(unknown_format_err)
 }
 
-/// Mirrors the python implementation:
-///
-/// `BernardLedit\Image\compress(
-///   string $data,
-///   int $quality = 85,
-///   ?int $maxWidth = null,
-///   ?int $maxHeight = null
-/// ): array{0:string,1:int,2:int}`
+/// Compresses an image mirroring the reference PIL implementation.
 /// # Errors
 /// Returns an error if the compression operation fails, or if the resulting dimensions
 /// don't fit in a 32-bit integer.

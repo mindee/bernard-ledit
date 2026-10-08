@@ -53,7 +53,7 @@ jobs:
       - uses: extractions/setup-just@v4
 
       - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.99.0
 
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.9

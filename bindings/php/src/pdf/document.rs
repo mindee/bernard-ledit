@@ -161,7 +161,7 @@ impl PdfDocument {
         self.with_doc(|d| d.has_text().map_err(|e| map_pdf_err(&e)))?
     }
 
-    /// Check if the document has any content.
+    /// Returns true if the document has no content.
     /// # Errors
     /// Returns a PHP Exception if the check fails.
     pub fn has_no_content(&self) -> PhpResult<bool> {

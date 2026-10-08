@@ -78,14 +78,7 @@ namespace BernardLedit\Image {
     }
 
     /**
-     * Mirrors the python implementation:
-     *
-     * `BernardLedit\Image\compress(
-     *   string $data,
-     *   int $quality = 85,
-     *   ?int $maxWidth = null,
-     *   ?int $maxHeight = null
-     * ): array{0:string,1:int,2:int}`
+     * Compresses an image mirroring the reference PIL implementation.
      *
      * @param string $data
      * @param int $quality
@@ -189,7 +182,7 @@ namespace BernardLedit\Pdf {
         public function getPage(int $index): \BernardLedit\Pdf\PdfPage {}
 
         /**
-         * Check if the document has any content.
+         * Returns true if the document has no content.
          *
          * @return bool
          * @throws \Exception Returns a PHP Exception if the check fails.
