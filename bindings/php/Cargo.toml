@@ -18,10 +18,10 @@ crate-type = ["cdylib"]
 
 [dependencies]
 bernard-ledit = { path = "../../core", features = ["full"] }
-ext-php-rs = "=0.15.15"
+ext-php-rs = "=0.16.1"
 
 [build-dependencies]
-ext-php-rs = { version = "=0.15.15", features = ["closure"] }
+ext-php-rs = { version = "=0.16.1", features = ["closure"] }
 
 [lints]
 workspace = true

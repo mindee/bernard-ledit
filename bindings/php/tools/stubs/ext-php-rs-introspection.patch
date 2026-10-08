@@ -1,5 +1,5 @@
---- a/src/describe/stub.rs
-+++ b/src/describe/stub.rs
+--- a/src/stub.rs
++++ b/src/stub.rs
 @@ -477,7 +477,8 @@
          let params_str = self
              .params
@@ -34,7 +34,7 @@
  /// Render a parameter to stub format, with optional type overrides from rustdoc.
  ///
  /// When a parameter's Rust type is `Zval` (which maps to `mixed` in PHP), the
-@@ -802,7 +820,8 @@
+@@ -794,7 +812,8 @@
          let params_str = self
              .params
              .iter()

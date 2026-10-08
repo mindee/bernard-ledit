@@ -55,7 +55,7 @@ impl PdfPage {
     /// Renders the page.
     /// # Errors
     /// Returns a PHP Exception if the `PdfDocument` is inaccessible.
-    #[php(defaults(scale = 1.0))]
+    #[php(defaults(scale = 1.0_f32))]
     pub fn render(&self, scale: f32) -> PhpResult<PhpPdfBitmap> {
         self.with_page(|p| p.render(scale)).map(PhpPdfBitmap::from)
     }

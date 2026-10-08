@@ -31,16 +31,16 @@ if [[ ! -x "$generator" || ! -f "$cache/fingerprint" || "$(cat "$cache/fingerpri
     local crate="$1" checksum="$2"
     curl --fail --location --silent --show-error \
       "https://static.crates.io/crates/${crate%-*}/$crate.crate" -o "$work/$crate.crate"
-    printf '%s  %s\n' "$checksum" "$work/$crate.crate" | sha256sum --check --status
+    printf '%s  %s\n' "$checksum" "$work/$crate.crate" | sha256sum --check --quiet
     tar -xzf "$work/$crate.crate" -C "$work"
   }
-  fetch cargo-php-0.1.21 a0d3a0dede6122899ec33316c597840ac88a4bbf75d8a541495d0d3e7e44653b
-  fetch ext-php-rs-0.15.15 abe62f25cd053f5f95dc7bbf94e5b41818ea3cf39b36cc25de8ca6b4de68a0eb
-  patch --batch --fuzz=0 -d "$work/cargo-php-0.1.21" -p1 < "$tools/cargo-php.patch"
-  patch --batch --fuzz=0 -d "$work/ext-php-rs-0.15.15" -p1 < "$tools/ext-php-rs.patch"
-  cp "$tools/Cargo.lock" "$work/cargo-php-0.1.21/Cargo.lock"
+  fetch cargo-php-0.2.1 756e642e0e50a78333d744a9d47fa8956aa621d3ef1b7916c4593d35a170ddd5
+  fetch ext-php-rs-introspection-0.2.1 efa29f09b08e644d5dc1e76a318f758afc9dccbe92ccf84b4778e0433a78eecc
+  patch --batch --fuzz=0 -d "$work/cargo-php-0.2.1" -p1 < "$tools/cargo-php.patch"
+  patch --batch --fuzz=0 -d "$work/ext-php-rs-introspection-0.2.1" -p1 < "$tools/ext-php-rs-introspection.patch"
+  cp "$tools/Cargo.lock" "$work/cargo-php-0.2.1/Cargo.lock"
   CARGO_TARGET_DIR="$cache/build" cargo install --locked --force \
-    --path "$work/cargo-php-0.1.21" --root "$cache/install"
+    --path "$work/cargo-php-0.2.1" --root "$cache/install"
   printf '%s\n' "$fingerprint" > "$cache/fingerprint"
 fi
 

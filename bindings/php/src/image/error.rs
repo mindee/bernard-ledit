@@ -20,7 +20,7 @@ pub fn map_image_err(e: &ImageError) -> PhpException {
         | ImageError::InvalidDimensions { .. } => {
             PhpException::new(e.to_string(), 0, ce::value_error())
         }
-        ImageError::Io(_) => PhpException::default(e.to_string()),
+        ImageError::Io(_) => PhpException::from_message(e.to_string()),
         ImageError::Decode(_) | ImageError::Encode(_) => {
             PhpException::from_class::<ImageException>(e.to_string())
         }

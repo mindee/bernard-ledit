@@ -5,13 +5,18 @@ pub mod error;
 pub mod page;
 pub mod text_char;
 
-use ext_php_rs::{flags::IniEntryPermission, prelude::*, zend::IniEntryDef};
+use ext_php_rs::{
+    flags::IniEntryPermission,
+    prelude::*,
+    zend::{IniEntryDef, IniEntryDefs},
+};
+use std::ffi::CStr;
 use std::sync::OnceLock;
 
 #[cfg(not(feature = "static-pdfium"))]
 use ext_php_rs::zend::ExecutorGlobals;
 
-pub const INI_PDFIUM_PATH: &str = "bernard_ledit.pdfium_path";
+pub const INI_PDFIUM_PATH: &CStr = c"bernard_ledit.pdfium_path";
 
 /// Register classes and ini entries.
 pub fn register(module: ModuleBuilder) -> ModuleBuilder {
@@ -25,14 +30,11 @@ pub fn register(module: ModuleBuilder) -> ModuleBuilder {
 
 /// Called from MINIT (`lib.rs::startup`).
 pub fn register_ini(mod_num: i32) {
-    IniEntryDef::register(
-        vec![IniEntryDef::new(
-            INI_PDFIUM_PATH.to_owned(),
-            String::new(),
-            &IniEntryPermission::System,
-        )],
-        mod_num,
-    );
+    static INI_ENTRIES: IniEntryDefs<2> = IniEntryDefs::new([
+        IniEntryDef::new(INI_PDFIUM_PATH, c"", IniEntryPermission::System),
+        IniEntryDef::end(),
+    ]);
+    IniEntryDef::register(INI_ENTRIES.as_slice(), mod_num);
 }
 
 /// Ensures pdfium is bound.
@@ -56,7 +58,7 @@ fn bind_pdfium() -> Result<(), bernard_ledit::pdf::PdfError> {
     use bernard_ledit::pdf::{PdfError, initialize};
     let ini = ExecutorGlobals::get().ini_values();
     let from_ini = ini
-        .get(INI_PDFIUM_PATH)
+        .get(INI_PDFIUM_PATH.to_str().unwrap())
         .cloned()
         .flatten()
         .filter(|s| !s.is_empty());

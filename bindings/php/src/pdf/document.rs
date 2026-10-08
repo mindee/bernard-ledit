@@ -33,7 +33,7 @@ impl PdfDocument {
     pub fn from_file(path: &str) -> PhpResult<Self> {
         super::ensure_pdfium()?;
         let bytes = std::fs::read(path)
-            .map_err(|e| PhpException::default(format!("Failed to read {path}: {e}")))?;
+            .map_err(|e| PhpException::from_message(format!("Failed to read {path}: {e}")))?;
         let doc = Document::from_bytes(bytes).map_err(|e| map_pdf_err(&e))?;
         Ok(Self::wrap(doc))
     }
