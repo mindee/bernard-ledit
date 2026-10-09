@@ -54,9 +54,8 @@ impl Image {
     /// Resizes an image using dimensions and a filter.
     /// # Errors
     /// Returns an error if the resizing operation fails.
-    pub fn resize(&self, width: u32, height: u32, filter: Option<&str>) -> PhpResult<Self> {
-        let filter =
-            Filter::from_str(filter.unwrap_or("lanczos")).map_err(|e| map_image_err(&e))?;
+    pub fn resize(&self, width: u32, height: u32) -> PhpResult<Self> {
+        let filter = Filter::from_str("lanczos").map_err(|e| map_image_err(&e))?;
         self.inner
             .resize(width, height, filter.0)
             .map(|inner| Self { inner })

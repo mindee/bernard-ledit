@@ -49,11 +49,10 @@ namespace BernardLedit\Image {
          *
          * @param int $width
          * @param int $height
-         * @param string|null $filter
          * @return \BernardLedit\Image\Image
          * @throws \Exception Returns an error if the resizing operation fails.
          */
-        public function resize(int $width, int $height, ?string $filter = null): \BernardLedit\Image\Image {}
+        public function resize(int $width, int $height): \BernardLedit\Image\Image {}
 
         /**
          * `[width, height]`

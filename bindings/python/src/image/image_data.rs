@@ -36,9 +36,9 @@ impl PyImage {
         Ok(cropped_image)
     }
 
-    #[pyo3(signature = (width, height, filter = "lanczos"))]
-    fn resize(&self, width: u32, height: u32, filter: &str) -> PyResult<Self> {
-        let filter_value = Filter::from_str(filter).map_err(|e| format_image_err(&e))?;
+    #[pyo3(signature = (width, height))]
+    fn resize(&self, width: u32, height: u32) -> PyResult<Self> {
+        let filter_value = Filter::from_str("lanczos").map_err(|e| format_image_err(&e))?;
         let resized_image = self
             .inner
             .resize(width, height, filter_value.0)

@@ -5,8 +5,9 @@ set shell := ["bash", "-c"]
 default:
     @just --list
 
-ext_debug := "../../target/debug/libbernard_ledit_php.so"
-ext_release := "../../target/release/libbernard_ledit_php.so"
+ext_name := if os() == "macos" { "libbernard_ledit_php.dylib" } else if os() == "windows" { "bernard_ledit_php.dll" } else { "libbernard_ledit_php.so" }
+ext_debug := "../../target/debug/" + ext_name
+ext_release := "../../target/release/" + ext_name
 
 # `-n` (below) isolates these recipes from the system php.ini, but PHPUnit (and some of our
 # own composer tooling) needs these common bundled extensions re-added explicitly since `-n`
