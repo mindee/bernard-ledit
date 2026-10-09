@@ -87,9 +87,16 @@ jobs:
           restore-keys: |
             composer-${{ runner.os }}-php${{ matrix.php }}-${{ matrix.thread_safety }}-
             composer-${{ runner.os }}-
+      - name: Build PHP Extension
+        run: make build-php-extension  # or your build command
+
+      - name: Load PHP Extension
+        run: |
+          echo "extension=$(find . -name '*.so' | head -1)" >> $(php -r 'echo php_ini_loaded_file();')
 
       - name: Install Composer dependencies
         working-directory: bindings/php
         run: composer install --prefer-dist --no-progress
+
       - name: Run PHP binding tests
         run: just php test # TODO: change this with test-static when binaries are available somewhere accessible.
