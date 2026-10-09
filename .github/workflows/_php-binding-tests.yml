@@ -92,7 +92,9 @@ jobs:
 
       - name: Load PHP Extension
         run: |
-          echo "extension=$(find . -name '*.so' | head -1)" >> $(php -r 'echo php_ini_loaded_file();')
+          EXT="$(realpath target/debug/libbernard_ledit_php.so)"
+          INI="$(php -r 'echo php_ini_loaded_file();')"
+          echo "extension=${EXT}" >> "${INI}"
 
       - name: Install Composer dependencies
         working-directory: bindings/php
