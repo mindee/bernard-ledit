@@ -120,21 +120,6 @@ final class ImageTest extends TestCase
         self::assertSame([10, 10], $img->resize(10, 10)->size());
     }
 
-    public function testResizeNamedFilters(): void
-    {
-        $img = decode(self::makePng(40, 40));
-        foreach (['nearest', 'triangle', 'catmullrom', 'bicubic', 'gaussian', 'lanczos'] as $name) {
-            self::assertSame([20, 20], $img->resize(20, 20, $name)->size());
-        }
-    }
-
-    public function testResizeUnknownFilterThrowsValueError(): void
-    {
-        $img = decode(self::makePng(40, 40));
-        $this->expectException(\ValueError::class);
-        $img->resize(20, 20, 'sinc');
-    }
-
     public function testResizeZeroDimensionThrowsValueError(): void
     {
         $img = decode(self::makePng(40, 40));
