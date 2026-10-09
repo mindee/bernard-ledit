@@ -2,7 +2,8 @@ name: Hack test release
 
 on:
   workflow_call:
-
+permissions:
+  contents: read
 jobs:
   hack-test-release:
     name: Hack release tests (Linux)

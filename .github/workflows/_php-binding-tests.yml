@@ -22,6 +22,10 @@ on:
           - "8.4"
           - "8.5"
           - "All"
+
+permissions:
+  contents: read
+
 jobs:
   php-binding-tests:
     name: Test PHP binding (${{ matrix.os }}, PHP ${{ matrix.php }})

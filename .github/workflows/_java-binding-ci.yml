@@ -20,6 +20,8 @@ on:
           - "17"
           - "21"
           - "All"
+permissions:
+  contents: read
 
 jobs:
   java-binding-tests:

@@ -3,6 +3,9 @@ name: Unit tests
 on:
   workflow_call:
 
+permissions:
+  contents: read
+
 jobs:
   unit-tests:
     name: Test (${{ matrix.os }})
@@ -32,8 +35,8 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         uses: awalsh128/cache-apt-pkgs-action@v1
         with:
-          packages: php-dev libclang-dev
-          version: 1.0
+          packages: php-dev libphp-embed libclang-dev
+          version: 1.1
 
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@1.99.0
@@ -50,7 +53,10 @@ jobs:
 
       - name: Run workspace tests (Linux)
         if: matrix.os == 'ubuntu-latest'
-        run: cargo nextest run --workspace --features bernard-ledit/full --no-tests=pass
+        run: |
+          PHP_MM=$(php-config --version | cut -d. -f1,2)
+          export RUSTFLAGS="-C link-arg=-lphp${PHP_MM}"
+          cargo nextest run --workspace --features bernard-ledit/full --no-tests=pass
 
       - name: Run core tests
         if: matrix.os != 'ubuntu-latest'
