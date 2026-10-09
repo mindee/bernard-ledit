@@ -51,6 +51,17 @@ jobs:
         with:
           tool: cargo-nextest
 
+      - name: Make libphp discoverable (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          LIB="$(find /usr/lib /usr/local/lib -name 'libphp*.so*' 2>/dev/null | sort | head -1)"
+          echo "Found: ${LIB}"
+          DIR="$(dirname "${LIB}")"
+          if [ ! -e "${DIR}/libphp.so" ]; then
+            sudo ln -s "${LIB}" "${DIR}/libphp.so"
+          fi
+          echo "LD_LIBRARY_PATH=${DIR}:${LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+
       - name: Run workspace tests (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
