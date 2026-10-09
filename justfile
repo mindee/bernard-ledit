@@ -9,6 +9,8 @@ default:
 mod java "bindings/java/justfile"
 # Python binding commands
 mod python "bindings/python/justfile"
+# PHP binding commands
+mod php "bindings/php/justfile"
 # Rust core commands
 mod rust "rust.just"
 # Rust core commands
@@ -42,3 +44,4 @@ clean:
 clean-all: clean
     @just java clean
     @just python clean
+    @just php clean

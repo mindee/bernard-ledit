@@ -1,0 +1,100 @@
+name: PHP binding tests
+
+on:
+  workflow_call:
+    inputs:
+      php-versions:
+        required: true
+        type: string
+        description: "A JSON-formatted string array of PHP versions to test"
+
+  workflow_dispatch:
+    inputs:
+      php_version:
+        description: "Select a PHP version to test (or all)"
+        type: choice
+        required: true
+        default: "8.1"
+        options:
+          - "8.1"
+          - "8.2"
+          - "8.3"
+          - "8.4"
+          - "8.5"
+          - "All"
+
+permissions:
+  contents: read
+
+jobs:
+  php-binding-tests:
+    name: Test PHP binding (${{ matrix.os }}, PHP ${{ matrix.php }})
+    runs-on: ${{ matrix.os }}
+    env:
+      CARGO_INCREMENTAL: 0
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+        php: ${{ fromJSON(github.event_name == 'workflow_dispatch' && (inputs.php_version == 'All' && '["8.1", "8.2", "8.3", "8.4", "8.5"]' || format('["{0}"]', inputs.php_version)) || inputs['php-versions']) }}
+        thread_safety: [ "zts", "nts" ]
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Cache PDFium binary
+        uses: actions/cache@v6
+        with:
+          path: core/.pdfium_cache
+          key: pdfium-${{ runner.os }}-${{ hashFiles('core/build.rs') }}
+          restore-keys: |
+            pdfium-${{ runner.os }}-
+      - uses: extractions/setup-just@v4
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@1.99.0
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: php-binding-${{ matrix.os }}-php${{ matrix.php }}-${{ matrix.thread_safety }}
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: composer:v2
+        env:
+          phpts: ${{ matrix.thread_safety }}
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        shell: bash
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-php${{ matrix.php }}-${{ matrix.thread_safety }}-${{ hashFiles('bindings/php/composer.json') }}
+          restore-keys: |
+            composer-${{ runner.os }}-php${{ matrix.php }}-${{ matrix.thread_safety }}-
+            composer-${{ runner.os }}-
+      - name: Build PHP Extension
+        run: just php build
+
+      - name: Load PHP Extension
+        run: |
+          EXT="$(realpath target/debug/libbernard_ledit_php.so)"
+          INI="$(php -r 'echo php_ini_loaded_file();')"
+          echo "extension=${EXT}" >> "${INI}"
+
+      - name: Install Composer dependencies
+        working-directory: bindings/php
+        run: composer install --prefer-dist --no-progress
+
+      - name: Run PHP binding tests
+        run: just php test # TODO: change this with test-static when binaries are available somewhere accessible.

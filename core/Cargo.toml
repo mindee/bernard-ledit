@@ -24,6 +24,7 @@ default = []
 pdf = []
 image = []
 full = ["pdf", "image"]
+static-pdfium = ["pdf", "pdfium-render/static", "pdfium-render/libstdc++"]
 
 [dependencies]
 serde = { version = "1.0.228", features = ["derive"] }

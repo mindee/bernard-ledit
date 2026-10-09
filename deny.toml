@@ -46,7 +46,7 @@ skip = [
     { name = "libloading" },
     { name = "nom" },
     { name = "r-efi" },
-    { name = "shlex" },
+    { name = "syn" },
     { name = "winnow" },
     { name = "windows-sys" },
 ]

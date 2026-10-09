@@ -8,6 +8,11 @@ const PDFIUM_RELEASE: &str = "chromium/7825";
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
 
+    if env::var_os("CARGO_FEATURE_STATIC_PDFIUM").is_some() {
+        println!("cargo:rerun-if-env-changed=PDFIUM_STATIC_LIB_PATH");
+        return;
+    }
+
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let target = env::var("TARGET").unwrap();
 

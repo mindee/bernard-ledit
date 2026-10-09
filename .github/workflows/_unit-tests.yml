@@ -3,9 +3,12 @@ name: Unit tests
 on:
   workflow_call:
 
+permissions:
+  contents: read
+
 jobs:
   unit-tests:
-    name: Test (${{ matrix.os }}, Rust ${{ matrix.rust }})
+    name: Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     env:
       CARGO_INCREMENTAL: 0
@@ -14,7 +17,6 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        rust: [stable, "1.88.0"]
 
     steps:
       - uses: actions/checkout@v6
@@ -33,28 +35,40 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         uses: awalsh128/cache-apt-pkgs-action@v1
         with:
-          packages: php-dev libclang-dev
-          version: 1.0
+          packages: php-dev libphp-embed libclang-dev
+          version: 1.1
 
       - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ matrix.rust }}
+        uses: dtolnay/rust-toolchain@1.99.0
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ matrix.os }}-${{ matrix.rust }}
+          key: ${{ matrix.os }}
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-nextest
 
+      - name: Make libphp discoverable (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          LIB="$(find /usr/lib /usr/local/lib -name 'libphp*.so*' 2>/dev/null | sort | head -1)"
+          echo "Found: ${LIB}"
+          DIR="$(dirname "${LIB}")"
+          if [ ! -e "${DIR}/libphp.so" ]; then
+            sudo ln -s "${LIB}" "${DIR}/libphp.so"
+          fi
+          echo "LD_LIBRARY_PATH=${DIR}:${LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+
       - name: Run workspace tests (Linux)
         if: matrix.os == 'ubuntu-latest'
-        run: cargo nextest run --workspace --all-features --no-tests=pass
+        run: |
+          PHP_MM=$(php-config --version | cut -d. -f1,2)
+          export RUSTFLAGS="-C link-arg=-lphp${PHP_MM}"
+          cargo nextest run --workspace --features bernard-ledit/full --no-tests=pass
 
       - name: Run core tests
         if: matrix.os != 'ubuntu-latest'
-        run: cargo nextest run -p bernard-ledit --all-features --no-tests=pass
+        run: cargo nextest run -p bernard-ledit --features full --no-tests=pass

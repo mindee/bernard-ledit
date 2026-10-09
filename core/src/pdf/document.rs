@@ -135,7 +135,7 @@ impl Document {
     ///
     /// `width` and `height` are the PDF page dimensions in points.
     ///
-    /// The JPEG bytes are embedded **as-is** using `/Filter /DCTDecode` — no pixel
+    /// The JPEG bytes are embedded **as-is** using `/Filter /DCTDecode` so no pixel
     /// decode or re-encode occurs. The resulting PDF is approximately
     /// `jpeg_bytes.len() + 500 bytes` of PDF framing overhead.
     ///
@@ -370,7 +370,7 @@ mod tests {
         let page_count = doc.page_count().unwrap();
         let mut buf = Vec::new();
         doc.save(&mut buf).unwrap();
-        assert!(!buf.is_empty());
+        assert_ne!(buf.len(), 0);
         let reloaded = Document::from_bytes(buf).unwrap();
         assert_eq!(reloaded.page_count().unwrap(), page_count);
     }

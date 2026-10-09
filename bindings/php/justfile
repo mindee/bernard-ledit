@@ -1,0 +1,138 @@
+set shell := ["bash", "-c"]
+
+# List the default tasks
+[private]
+default:
+    @just --list
+
+ext_debug := "../../target/debug/libbernard_ledit_php.so"
+ext_release := "../../target/release/libbernard_ledit_php.so"
+
+# `-n` (below) isolates these recipes from the system php.ini, but PHPUnit (and some of our
+# own composer tooling) needs these common bundled extensions re-added explicitly since `-n`
+# would otherwise disable them too. These are shared .so modules on Fedora/Nobara; filter/json/
+# libxml are compiled in and don't need re-adding.
+php_test_exts := "-d extension=dom -d extension=mbstring -d extension=tokenizer -d extension=ctype -d extension=xmlwriter"
+
+# Builds the PHP extension (debug, dynamic pdfium) - fast inner dev loop
+build:
+    cargo build -p bernard-ledit-php
+
+# Builds the PHP extension in release mode (dynamic pdfium)
+build-release:
+    cargo build -p bernard-ledit-php --release
+
+# Builds the PHP extension in release mode with pdfium statically linked.
+# Requires PDFIUM_STATIC_LIB_PATH=<dir containing libpdfium.a> (see php-bindings-solo-plan.md §7).
+build-static:
+    cargo build -p bernard-ledit-php --release --features static-pdfium
+
+# Resolves the dynamically-linked libpdfium.so used by build/build-release, building core if missing.
+# Not used by build-static, which has no sibling libpdfium.* to find.
+[private]
+pdfium-path:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    find_pdfium() { find ../../core/.pdfium_cache -name "libpdfium.so" 2>/dev/null | head -n 1; }
+    PDFIUM_FILE=$(find_pdfium)
+    if [ -z "$PDFIUM_FILE" ]; then
+        just -f ../../justfile core build >&2
+        PDFIUM_FILE=$(find_pdfium)
+    fi
+    if [ -z "$PDFIUM_FILE" ]; then
+        echo "Could not locate libpdfium.so under core/.pdfium_cache" >&2
+        exit 1
+    fi
+    realpath "$PDFIUM_FILE"
+
+# Runs the debug build against a php script/flags with pdfium pre-wired.
+# Usage: just run tests/smoke.php   (for one-liners with special shell chars, use run-code instead)
+run *ARGS: build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export PDFIUM_PATH="$(just pdfium-path)"
+    php -n {{php_test_exts}} -d extension={{ext_debug}} {{ARGS}}
+
+# Runs a single PHP expression (via `php -r`) against the debug build. Safely quotes CODE for you,
+# so parens/quotes in the snippet don't need manual shell-escaping.
+# Usage: just run-code 'var_dump(extension_loaded("bernard-ledit-php"));'
+run-code CODE: build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export PDFIUM_PATH="$(just pdfium-path)"
+    php -n {{php_test_exts}} -d extension={{ext_debug}} -r {{quote(CODE)}}
+
+# Checks the module loads at all - the first thing to run when something seems broken.
+# The module registers as `bernard_ledit` (see src/lib.rs).
+smoke: build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export PDFIUM_PATH="$(just pdfium-path)"
+    php -n {{php_test_exts}} -d extension={{ext_debug}} -m | grep -i bernard.ledit
+
+# Dumps the reflected classes/methods/functions of the compiled module - faster than reading stubs.
+# Auto-detects the loaded module name since it currently differs from the final `bernard_ledit`
+# (see the `smoke` note above).
+reflect: build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export PDFIUM_PATH="$(just pdfium-path)"
+    MODULE=$(php -n {{php_test_exts}} -d extension={{ext_debug}} -m | grep -i bernard.ledit | head -n 1)
+    php -n {{php_test_exts}} -d extension={{ext_debug}} --re "$MODULE"
+
+# Runs phpunit (bindings/php test suite) against the debug build; installs composer deps on first run.
+# NB: this is the binding-level suite (bindings/php/tests), not the mindee-api-php SDK suite.
+test: build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ -d vendor ] || composer install
+    export PDFIUM_PATH="$(just pdfium-path)"
+    php -n {{php_test_exts}} -d extension={{ext_debug}} vendor/bin/phpunit
+
+# Runs phpunit against the static-pdfium release build with NO PDFIUM_PATH set and no libpdfium.so
+# on disk - the only test that actually proves static linking works (ldd/dlopen checks lie, see
+# php-bindings-solo-plan.md §7.2). Run this before trusting build-static.
+test-static: build-static
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ -d vendor ] || composer install
+    unset PDFIUM_PATH
+    php -n {{php_test_exts}} -d extension={{ext_release}} vendor/bin/phpunit
+
+# Regenerates the PHP stub file (bernard_ledit.stubs.php) for IDEs/phpstan from the compiled extension
+stubs: build
+    bash tools/stubs/generate.sh "$(realpath {{ext_debug}})" "$PWD/bernard_ledit.stubs.php"
+
+# Regenerate and check the committed IDE/PHPStan API snapshot.
+stubs-check: stubs
+    git ls-files --error-unmatch bernard_ledit.stubs.php > /dev/null
+    git diff --exit-code -- bernard_ledit.stubs.php
+
+# Runs cargo clippy on the PHP bindings crate
+lint:
+    cargo clippy -p bernard-ledit-php --all-targets --all-features -- -D warnings
+
+# Runs cargo fmt on the PHP bindings crate
+format:
+    cargo fmt -p bernard-ledit-php
+
+# Checks formatting without modifying files
+format-check:
+    cargo fmt -p bernard-ledit-php --check
+
+# Runs PHPStan against the generated stubs. No-op with a warning until phpstan is composer-required.
+phpstan: stubs
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -f vendor/bin/phpstan ]; then
+        vendor/bin/phpstan analyse
+    else
+        echo "phpstan not installed yet (composer require --dev phpstan/phpstan); skipping." >&2
+    fi
+
+# Combined CI check: format, lint, build, test
+ci: format-check lint build test
+
+# Cleans build artifacts local to this binding (run root `just clean` for the shared cargo target)
+clean:
+    rm -rf vendor/

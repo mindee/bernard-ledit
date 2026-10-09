@@ -155,7 +155,7 @@ impl PyPdfDocument {
         Ok(())
     }
 
-    /// Append a JPEG page to the document.
+    /// Append multiple JPEG pages to the document.
     #[allow(clippy::needless_pass_by_value)]
     fn append_multiple_jpeg_pages(&self, jpegs: Vec<Vec<u8>>) -> PyResult<()> {
         self.with_doc_mut(|d| {

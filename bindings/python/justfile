@@ -7,6 +7,7 @@ default:
 
 # Builds Python bindings
 build:
+    @command -v maturin > /dev/null || { echo "maturin not found. From the repo root, in your virtualenv: pip install -e 'bindings/python[dev]'" >&2; exit 1; }
     @echo "Cleaning up stale C-extensions..."
     rm -f bernard_ledit/*.so
     maturin develop --extras test,lint
