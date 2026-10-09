@@ -88,7 +88,7 @@ jobs:
             composer-${{ runner.os }}-php${{ matrix.php }}-${{ matrix.thread_safety }}-
             composer-${{ runner.os }}-
       - name: Build PHP Extension
-        run: make build-php-extension  # or your build command
+        run: just php build
 
       - name: Load PHP Extension
         run: |
