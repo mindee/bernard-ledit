@@ -66,7 +66,13 @@ fn bind_pdfium() -> Result<(), bernard_ledit::pdf::PdfError> {
     let candidates = [
         std::env::var("PDFIUM_PATH").ok(),
         from_ini,
-        ext_dir.map(|d| format!("{d}/libpdfium.so")),
+        ext_dir.map(|d| {
+            format!(
+                "{d}/{}pdfium{}",
+                std::env::consts::DLL_PREFIX,
+                std::env::consts::DLL_SUFFIX
+            )
+        }),
     ];
     let mut last = None;
     for path in candidates.into_iter().flatten() {

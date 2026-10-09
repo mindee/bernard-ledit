@@ -49,7 +49,7 @@ impl PdfPage {
     /// # Errors
     /// Returns a PHP Exception if the `PdfDocument` is inaccessible.
     pub fn text(&self) -> PhpResult<String> {
-        self.with_page(|p| Ok(p.chars()?.iter().map(|c| c.char).collect::<String>()))
+        self.with_page(|p| p.text())
     }
 
     /// Renders the page.

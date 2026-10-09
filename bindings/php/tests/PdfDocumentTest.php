@@ -214,7 +214,7 @@ final class PdfDocumentTest extends TestCase
     public function testAddTextUpdatesTextAndChars(): void
     {
         $doc = new PdfDocument(self::pdf('blank_1.pdf'));
-        $char = new \PhpTextChar('A', 'Arial', 12.0, 300, null, null, 0, [0.0, 0.0, 10.0, 10.0]);
+        $char = new \TextChar('A', 'Arial', 12.0, 300, null, null, 0, [0.0, 0.0, 10.0, 10.0]);
 
         $doc->addText(0, [$char]);
 
@@ -223,7 +223,7 @@ final class PdfDocumentTest extends TestCase
 
         $chars = $page->chars();
         self::assertCount(1, $chars);
-        self::assertInstanceOf(\PhpTextChar::class, $chars[0]);
+        self::assertInstanceOf(\TextChar::class, $chars[0]);
         self::assertSame('A', (string) $chars[0]);
         $debug = $chars[0]->__debugInfo();
         self::assertSame('Helvetica', $debug['font_name']);

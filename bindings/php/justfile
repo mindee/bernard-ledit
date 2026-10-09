@@ -14,7 +14,7 @@ ext_release := "../../target/release/libbernard_ledit_php.so"
 # libxml are compiled in and don't need re-adding.
 php_test_exts := "-d extension=dom -d extension=mbstring -d extension=tokenizer -d extension=ctype -d extension=xmlwriter"
 
-# Builds the PHP extension (debug, dynamic pdfium) — fast inner dev loop
+# Builds the PHP extension (debug, dynamic pdfium) - fast inner dev loop
 build:
     cargo build -p bernard-ledit-php
 
@@ -62,16 +62,15 @@ run-code CODE: build
     export PDFIUM_PATH="$(just pdfium-path)"
     php -n {{php_test_exts}} -d extension={{ext_debug}} -r {{quote(CODE)}}
 
-# Checks the module loads at all — the first thing to run when something seems broken.
-# NB: until lib.rs calls `.name("bernard_ledit")` (see php-bindings-plan.md §2.5 / review #2),
-# the module registers under its Cargo package name, `bernard-ledit-php`, not `bernard_ledit`.
+# Checks the module loads at all - the first thing to run when something seems broken.
+# The module registers as `bernard_ledit` (see src/lib.rs).
 smoke: build
     #!/usr/bin/env bash
     set -euo pipefail
     export PDFIUM_PATH="$(just pdfium-path)"
     php -n {{php_test_exts}} -d extension={{ext_debug}} -m | grep -i bernard.ledit
 
-# Dumps the reflected classes/methods/functions of the compiled module — faster than reading stubs.
+# Dumps the reflected classes/methods/functions of the compiled module - faster than reading stubs.
 # Auto-detects the loaded module name since it currently differs from the final `bernard_ledit`
 # (see the `smoke` note above).
 reflect: build
@@ -91,7 +90,7 @@ test: build
     php -n {{php_test_exts}} -d extension={{ext_debug}} vendor/bin/phpunit
 
 # Runs phpunit against the static-pdfium release build with NO PDFIUM_PATH set and no libpdfium.so
-# on disk — the only test that actually proves static linking works (ldd/dlopen checks lie, see
+# on disk - the only test that actually proves static linking works (ldd/dlopen checks lie, see
 # php-bindings-solo-plan.md §7.2). Run this before trusting build-static.
 test-static: build-static
     #!/usr/bin/env bash

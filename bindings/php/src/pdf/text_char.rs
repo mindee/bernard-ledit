@@ -1,9 +1,12 @@
 use bernard_ledit::pdf::TextChar as RustTextChar;
+use ext_php_rs::exception::{PhpException, PhpResult};
+use ext_php_rs::zend::ce;
 use ext_php_rs::{php_class, php_impl};
 use std::collections::HashMap;
 
 /// Text character representation.
 #[php_class]
+#[php(name = "TextChar")]
 #[derive(Debug, Clone)]
 pub struct PhpTextChar {
     /// Actual character.
@@ -23,25 +26,42 @@ pub struct PhpTextChar {
     /// Bounds of the character.
     bounds: (f32, f32, f32, f32),
 }
-
-/// Helper to safely convert a Vec into a fixed 4-byte array
-fn vec_to_array<T: Copy + Default>(vec: Option<Vec<T>>) -> Option<[T; 4]> {
-    vec.and_then(|v| v.try_into().ok())
+/// Convert an optional Vec into a fixed 4-element array.
+/// `None` stays `None`; a provided Vec of the wrong length is an error.
+fn vec_to_array<T: Copy>(vec: Option<Vec<T>>, name: &str) -> Result<Option<[T; 4]>, String> {
+    vec.map_or(Ok(None), |v| {
+        let len = v.len();
+        <[T; 4]>::try_from(v)
+            .map(Some)
+            .map_err(|_| format!("{name} must contain exactly 4 values, got {len}"))
+    })
 }
 
-/// Helper to safely convert a Vec into a fixed 4-tuple
-fn parse_bounds(bounds: Option<Vec<f32>>) -> (f32, f32, f32, f32) {
-    if let Some(v) = bounds
-        && v.len() >= 4
-    {
-        return (v[0], v[1], v[2], v[3]);
-    }
-    (0.0, 0.0, 0.0, 0.0)
+/// Convert optional bounds into a 4-tuple.
+/// `None` defaults to zeros; a provided Vec of the wrong length is an error.
+fn parse_bounds(bounds: Option<Vec<f32>>) -> Result<(f32, f32, f32, f32), String> {
+    bounds.map_or(Ok((0.0, 0.0, 0.0, 0.0)), |v| {
+        let len = v.len();
+        <[f32; 4]>::try_from(v)
+            .map(Into::into)
+            .map_err(|_| format!("bounds must contain exactly 4 values, got {len}"))
+    })
+}
+
+/// Convert an error message into a PHP Exception.
+fn value_error(msg: String) -> PhpException {
+    PhpException::new(msg, 0, ce::value_error())
 }
 
 #[php_impl]
 impl PhpTextChar {
-    #[must_use]
+    /// Create a new text character.
+    ///
+    /// # Errors
+    ///
+    /// Throws a `ValueError` if `stroke_color` or `fill_color` is provided
+    /// with a length other than 4, or if `bounds` is provided with a length
+    /// other than 4.
     #[allow(clippy::too_many_arguments)]
     #[allow(clippy::needless_pass_by_value)]
     pub fn __construct(
@@ -53,17 +73,17 @@ impl PhpTextChar {
         fill_color: Option<Vec<u8>>,
         font_flags: i32,
         bounds: Option<Vec<f32>>,
-    ) -> Self {
-        Self {
+    ) -> PhpResult<Self> {
+        Ok(Self {
             char: char.chars().next().unwrap_or(' '),
             font_name,
             font_size,
             font_weight,
-            stroke_color: vec_to_array(stroke_color),
-            fill_color: vec_to_array(fill_color),
+            stroke_color: vec_to_array(stroke_color, "stroke_color").map_err(value_error)?,
+            fill_color: vec_to_array(fill_color, "fill_color").map_err(value_error)?,
             font_flags,
-            bounds: parse_bounds(bounds),
-        }
+            bounds: parse_bounds(bounds).map_err(value_error)?,
+        })
     }
 
     /// Default debug info.
@@ -206,44 +226,48 @@ mod tests {
             assert!((a - b).abs() < f32::EPSILON);
         }
     }
-
     #[test]
     fn vec_to_array_converts_matching_length() {
         let v = Some(vec![10u8, 20, 30, 40]);
-        assert_eq!(vec_to_array(v), Some([10, 20, 30, 40]));
+        assert_eq!(vec_to_array(v, "c"), Ok(Some([10, 20, 30, 40])));
     }
 
     #[test]
     fn vec_to_array_rejects_wrong_length() {
-        assert_eq!(vec_to_array::<u8>(Some(vec![1, 2, 3])), None);
-        assert_eq!(vec_to_array::<u8>(Some(vec![1, 2, 3, 4, 5])), None);
+        assert!(vec_to_array::<u8>(Some(vec![1, 2, 3]), "c").is_err());
+        assert!(vec_to_array::<u8>(Some(vec![1, 2, 3, 4, 5]), "c").is_err());
+        assert!(vec_to_array::<u8>(Some(vec![]), "c").is_err());
     }
 
     #[test]
     fn vec_to_array_none_stays_none() {
-        assert_eq!(vec_to_array::<u8>(None), None);
+        assert_eq!(vec_to_array::<u8>(None, "c"), Ok(None));
     }
 
     #[test]
-    fn parse_bounds_extracts_first_four_values() {
+    fn vec_to_array_error_names_the_argument() {
+        let err = vec_to_array::<u8>(Some(vec![1, 2]), "stroke_color").unwrap_err();
+        assert!(err.contains("stroke_color") && err.contains('2'));
+    }
+
+    #[test]
+    fn parse_bounds_accepts_exactly_four_values() {
         assert_eq!(
             parse_bounds(Some(vec![1.0, 2.0, 3.0, 4.0])),
-            (1.0, 2.0, 3.0, 4.0)
+            Ok((1.0, 2.0, 3.0, 4.0))
         );
     }
 
     #[test]
-    fn parse_bounds_ignores_extra_values() {
-        assert_eq!(
-            parse_bounds(Some(vec![1.0, 2.0, 3.0, 4.0, 5.0])),
-            (1.0, 2.0, 3.0, 4.0)
-        );
+    fn parse_bounds_rejects_extra_or_missing_values() {
+        assert!(parse_bounds(Some(vec![1.0, 2.0, 3.0, 4.0, 5.0])).is_err());
+        assert!(parse_bounds(Some(vec![1.0, 2.0])).is_err());
+        assert!(parse_bounds(Some(vec![])).is_err());
     }
 
     #[test]
-    fn parse_bounds_defaults_to_zeros_when_missing_or_short() {
-        assert_eq!(parse_bounds(None), (0.0, 0.0, 0.0, 0.0));
-        assert_eq!(parse_bounds(Some(vec![1.0, 2.0])), (0.0, 0.0, 0.0, 0.0));
+    fn parse_bounds_none_defaults_to_zeros() {
+        assert_eq!(parse_bounds(None), Ok((0.0, 0.0, 0.0, 0.0)));
     }
 
     #[test]
@@ -258,7 +282,7 @@ mod tests {
             0,
             None,
         );
-        assert_eq!(php_char.char, 'A');
+        assert_eq!(php_char.unwrap().char, 'A');
     }
 
     #[test]
@@ -273,6 +297,6 @@ mod tests {
             0,
             None,
         );
-        assert_eq!(php_char.char, ' ');
+        assert_eq!(php_char.unwrap().char, ' ');
     }
 }

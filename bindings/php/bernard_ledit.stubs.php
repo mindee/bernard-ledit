@@ -281,10 +281,10 @@ namespace BernardLedit\Pdf {
          * Renders the page.
          *
          * @param float $scale
-         * @return \PhpPdfBitmap
+         * @return \PdfBitmap
          * @throws \Exception Returns a PHP Exception if the `PdfDocument` is inaccessible.
          */
-        public function render(float $scale = 1.0): \PhpPdfBitmap {}
+        public function render(float $scale = 1.0): \PdfBitmap {}
 
         /**
          * `[width, height]` in points.
@@ -309,7 +309,7 @@ namespace BernardLedit\Pdf {
 }
 
 namespace {
-    class PhpPdfBitmap {
+    class PdfBitmap {
         public function __construct() {}
 
         /**
@@ -359,8 +359,10 @@ namespace {
     /**
      * Text character representation.
      */
-    class PhpTextChar {
+    class TextChar {
         /**
+         * Create a new text character.
+         *
          * @param string $char
          * @param string $font_name
          * @param float $font_size
@@ -369,6 +371,9 @@ namespace {
          * @param array|null $fill_color
          * @param int $font_flags
          * @param array|null $bounds
+         * @throws \Exception Throws a `ValueError` if `stroke_color` or `fill_color` is provided
+         * @throws \Exception with a length other than 4, or if `bounds` is provided with a length
+         * @throws \Exception other than 4.
          */
         public function __construct(string $char, string $font_name, float $font_size, int $font_weight, ?array $stroke_color, ?array $fill_color, int $font_flags, ?array $bounds = null) {}
 

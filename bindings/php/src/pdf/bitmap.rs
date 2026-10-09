@@ -6,6 +6,7 @@ use ext_php_rs::{php_class, php_impl};
 use std::collections::HashMap;
 
 #[php_class]
+#[php(name = "PdfBitmap")]
 pub struct PhpPdfBitmap {
     pub(crate) inner: Bitmap,
 }

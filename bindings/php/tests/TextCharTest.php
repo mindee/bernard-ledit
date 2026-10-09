@@ -7,14 +7,14 @@ final class TextCharTest extends TestCase
 {
     public function testConstructWithMinimalArguments(): void
     {
-        $char = new \PhpTextChar('A', 'Arial', 12.0, 400, null, null, 0);
+        $char = new \TextChar('A', 'Arial', 12.0, 400, null, null, 0);
 
         self::assertSame('A', (string) $char);
     }
 
     public function testConstructWithAllArguments(): void
     {
-        $char = new \PhpTextChar(
+        $char = new \TextChar(
             'B',
             'Helvetica',
             14.5,
@@ -30,25 +30,25 @@ final class TextCharTest extends TestCase
 
     public function testToStringReturnsOnlyTheCharacter(): void
     {
-        $char = new \PhpTextChar('Z', 'Arial', 10.0, 400, null, null, 0);
+        $char = new \TextChar('Z', 'Arial', 10.0, 400, null, null, 0);
         self::assertSame('Z', (string) $char);
     }
 
     public function testMultiCharStringTruncatesToFirstCharacter(): void
     {
-        $char = new \PhpTextChar('AB', 'Arial', 10.0, 400, null, null, 0);
+        $char = new \TextChar('AB', 'Arial', 10.0, 400, null, null, 0);
         self::assertSame('A', (string) $char);
     }
 
     public function testEmptyStringDefaultsToSpace(): void
     {
-        $char = new \PhpTextChar('', 'Arial', 10.0, 400, null, null, 0);
+        $char = new \TextChar('', 'Arial', 10.0, 400, null, null, 0);
         self::assertSame(' ', (string) $char);
     }
 
     public function testDebugInfoContainsAllFields(): void
     {
-        $char = new \PhpTextChar(
+        $char = new \TextChar(
             'A',
             'Arial',
             12.0,
@@ -72,7 +72,7 @@ final class TextCharTest extends TestCase
 
     public function testNoTypedGettersAreExposed(): void
     {
-        $char = new \PhpTextChar('A', 'Arial', 12.0, 400, null, null, 0);
+        $char = new \TextChar('A', 'Arial', 12.0, 400, null, null, 0);
 
         self::assertFalse(method_exists($char, 'getFontName'));
         self::assertFalse(method_exists($char, 'getFontSize'));

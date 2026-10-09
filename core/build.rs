@@ -9,7 +9,7 @@ fn main() {
     println!("cargo:rerun-if-changed=build.rs");
 
     if env::var_os("CARGO_FEATURE_STATIC_PDFIUM").is_some() {
-        println!("cargo:rerun-if-changed=PDFIUM_STATIC_LIB_PATH");
+        println!("cargo:rerun-if-env-changed=PDFIUM_STATIC_LIB_PATH");
         return;
     }
 

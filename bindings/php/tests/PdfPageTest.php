@@ -54,7 +54,7 @@ final class PdfPageTest extends TestCase
         $doc = new PdfDocument(self::pdf('blank_1.pdf'));
         $bitmap = $doc->getPage(0)->render();
 
-        self::assertInstanceOf(\PhpPdfBitmap::class, $bitmap);
+        self::assertInstanceOf(\PdfBitmap::class, $bitmap);
         self::assertGreaterThan(0, $bitmap->width());
         self::assertGreaterThan(0, $bitmap->height());
     }
