@@ -50,10 +50,10 @@ fn crop_polygon(page: &Image, poly: &[(f32, f32)], idx: usize) -> Result<Image, 
         (lo.min(p.1), hi.max(p.1))
     });
 
-    let left = (min_x * w as f32).floor().clamp(0.0, w as f32) as u32;
-    let top = (min_y * h as f32).floor().clamp(0.0, h as f32) as u32;
-    let right = (max_x * w as f32).ceil().clamp(0.0, w as f32) as u32;
-    let bottom = (max_y * h as f32).ceil().clamp(0.0, h as f32) as u32;
+    let left = (min_x * w as f32).round().clamp(0.0, w as f32) as u32;
+    let top = (min_y * h as f32).round().clamp(0.0, h as f32) as u32;
+    let right = (max_x * w as f32).round().clamp(0.0, w as f32) as u32;
+    let bottom = (max_y * h as f32).round().clamp(0.0, h as f32) as u32;
     if right <= left || bottom <= top {
         return Err(ExtractError::EmptyPolygon(idx));
     }

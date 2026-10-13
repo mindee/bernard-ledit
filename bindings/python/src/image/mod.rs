@@ -15,7 +15,12 @@ pub fn register_submodule(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<image_data::PyImage>()?;
     m.add_function(wrap_pyfunction!(image_data::guess_format, &m)?)?;
     m.add_function(wrap_pyfunction!(image_data::compress, &m)?)?;
+    m.add_function(wrap_pyfunction!(extract::extract_polygons, &m)?)?;
     m.add("ImageError", parent.py().get_type::<error::PyImageError>())?;
+    m.add(
+        "ExtractError",
+        parent.py().get_type::<error::PyExtractError>(),
+    )?;
     parent.add_submodule(&m)?;
     Ok(())
 }

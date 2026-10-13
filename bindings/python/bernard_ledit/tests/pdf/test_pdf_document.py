@@ -259,10 +259,8 @@ def test_document_from_pathlib_path(test_data_dir):
 
 
 def test_document_from_nonexistent_path():
-    with pytest.raises(OSError, match="Failed to read file"):
+    with pytest.raises(OSError, match=r'Failed to read this_file_does_not_exist_xyz\.pdf:.*'):
         PdfDocument("this_file_does_not_exist_xyz.pdf")
-
-
 def test_document_has_no_content_true():
     doc = PdfDocument.new()
     assert doc.has_no_content() is True
