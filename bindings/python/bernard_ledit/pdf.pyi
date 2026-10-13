@@ -88,15 +88,15 @@ class PdfDocument:
     def save_to_file(self, path: str | os.PathLike) -> None: ...
     def has_text(self) -> bool: ...
     def compress(
-            self,
-            quality: int = 85,
-            optimize: bool = True,
-            dpi: float = 150.0,
-    ) -> PdfDocument | None: ...
-
-def compress(
-        data: bytes,
+        self,
         quality: int = 85,
         optimize: bool = True,
         dpi: float = 150.0,
+    ) -> PdfDocument | None: ...
+
+def compress(
+    data: bytes,
+    quality: int = 85,
+    optimize: bool = True,
+    dpi: float = 150.0,
 ) -> bytes: ...
