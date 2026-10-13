@@ -3,6 +3,7 @@ use pyo3::wrap_pyfunction;
 
 /// Image errors.
 pub mod error;
+mod extract;
 /// Raster image.
 pub mod image_data;
 
@@ -12,7 +13,6 @@ pub mod image_data;
 pub fn register_submodule(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(parent.py(), "image")?;
     m.add_class::<image_data::PyImage>()?;
-    m.add_function(wrap_pyfunction!(image_data::decode, &m)?)?;
     m.add_function(wrap_pyfunction!(image_data::guess_format, &m)?)?;
     m.add_function(wrap_pyfunction!(image_data::compress, &m)?)?;
     m.add("ImageError", parent.py().get_type::<error::PyImageError>())?;

@@ -7,6 +7,7 @@ from bernard_ledit.pdf import (
     PdfiumError,
     PdfPage,
     TextChar,
+    compress,
 )
 
 
@@ -293,3 +294,11 @@ def test_save_to_path(test_data_dir, tmp_path):
     with open(file_path, "rb") as f:
         saved = f.read()
         assert saved.startswith(b"%PDF-")
+
+
+def test_compress_text_pdf_is_noop(test_data_dir):
+    data = (test_data_dir / "file_types/pdf/multipage.pdf").read_bytes()
+    assert compress(data, quality=85) == data
+
+    with PdfDocument(data) as doc:
+        assert doc.compress() is None

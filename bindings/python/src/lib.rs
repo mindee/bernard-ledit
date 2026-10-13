@@ -4,6 +4,7 @@
 mod geometry;
 /// Image-related functionality.
 pub mod image;
+mod input;
 /// PDF-related functionality.
 pub mod pdf;
 

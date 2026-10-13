@@ -112,26 +112,32 @@ pub fn guess_format(data: BinarySlice<u8>) -> PhpResult<&'static str> {
 /// don't fit in a 32-bit integer.
 #[php_function]
 #[php(name = "BernardLedit\\Image\\compress")]
-#[php(defaults(quality = 85, max_width = None, max_height = None))]
+#[php(defaults(quality = 85, max_width = None, max_height = None, optimize = None))]
 #[allow(clippy::needless_pass_by_value)]
 pub fn compress(
     data: BinarySlice<u8>,
     quality: u8,
     max_width: Option<u32>,
     max_height: Option<u32>,
+    optimize: Option<bool>,
 ) -> PhpResult<Vec<Zval>> {
-    let (bytes, w, h) = bernard_ledit::image::compress(&data, quality, max_width, max_height)
-        .map_err(|e| map_image_err(&e))?;
+    let image = bernard_ledit::image::Image::decode(&data).map_err(|e| map_image_err(&e))?;
+    let (bytes, w, h) = image
+        .compress(quality, max_width, max_height, optimize.unwrap_or(true))
+        .map_err(|e| map_image_err(&e))?
+        .unwrap_or_else(|| {
+            let (w, h) = image.size();
+            (data.to_vec(), w, h)
+        });
     let mut out = Vec::with_capacity(3);
     let mut z = Zval::new();
     z.set_binary(bytes);
     out.push(z);
-    let w_i32 =
-        i32::try_from(w).map_err(|e| PhpException::new(e.to_string(), 0, ce::value_error()))?;
-    out.push(Zval::from(w_i32));
-    let h_i32 =
-        i32::try_from(h).map_err(|e| PhpException::new(e.to_string(), 0, ce::value_error()))?;
-    out.push(Zval::from(h_i32));
+    for dim in [w, h] {
+        let v = i32::try_from(dim)
+            .map_err(|e| PhpException::new(e.to_string(), 0, ce::value_error()))?;
+        out.push(Zval::from(v));
+    }
     Ok(out)
 }
 

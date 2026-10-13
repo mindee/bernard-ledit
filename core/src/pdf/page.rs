@@ -1,3 +1,4 @@
+use crate::image::Image;
 use crate::pdf::text_char::TextChar;
 use crate::pdf::{PdfError, bitmap::Bitmap};
 use pdfium_render::prelude::*;
@@ -24,6 +25,24 @@ impl<'a> Page<'a> {
     /// Returns a `PdfError` if the text can't be extracted.
     pub fn is_empty(&self) -> Result<bool, PdfError> {
         Ok(self.inner.objects().len() == 0 && self.inner.text()?.is_empty())
+    }
+
+    /// Strips the text off a page.
+    /// # Errors
+    /// Returns a `PdfError` if text suppression fails.
+    pub fn strip_text(&mut self) -> Result<(), PdfError> {
+        let objects = self.inner.objects_mut();
+        let text_indices: Vec<usize> = objects
+            .iter()
+            .enumerate()
+            .filter(|(_, obj)| obj.object_type() == PdfPageObjectType::Text)
+            .map(|(i, _)| i)
+            .collect();
+
+        for index in text_indices.into_iter().rev() {
+            objects.remove_object_at_index(index)?;
+        }
+        Ok(())
     }
 
     /// Extract all text from the page.
@@ -82,6 +101,18 @@ impl<'a> Page<'a> {
         self.inner.set_rotation(pdfium_rotation);
 
         Ok(())
+    }
+
+    /// Renders an image at a given scale.
+    /// # Errors
+    /// Returns [`PdfError`] if the image cannot be rendered.
+    pub fn render_image(&self, scale: f32) -> Result<Image, PdfError> {
+        let _lock = crate::pdf::NATIVE_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let cfg = PdfRenderConfig::new().scale_page_by_factor(scale);
+        let bitmap = self.inner.render_with_config(&cfg)?;
+        Ok(Image::from_dynamic(bitmap.as_image()?))
     }
 }
 
@@ -217,5 +248,18 @@ mod tests {
             .rotate(180)
             .expect("Rotation should be one of 0, 90, 180 or 270.");
         assert_eq!(page_0.rotation().unwrap(), 180);
+    }
+
+    #[test]
+    fn compress_scanned_page_keeps_page_size() {
+        pdfium();
+        let jpeg = test_data_bytes!("file_types/receipt.jpg");
+        let doc = Document::from_jpeg(jpeg, 200.0, 300.0).unwrap();
+        let out = doc
+            .compress(80, 150.0, true)
+            .unwrap()
+            .expect("scanned page should be recompressed");
+        let (w, h) = out.page(0).unwrap().size();
+        assert!((w - 200.0).abs() < 0.5 && (h - 300.0).abs() < 0.5);
     }
 }

@@ -21,7 +21,10 @@ pub fn map_image_err(e: &ImageError) -> PhpException {
             PhpException::new(e.to_string(), 0, ce::value_error())
         }
         ImageError::Io(_) => PhpException::from_message(e.to_string()),
-        ImageError::Decode(_) | ImageError::Encode(_) => {
+        ImageError::Decode(_)
+        | ImageError::Encode(_)
+        | ImageError::ProgressiveQualityTooLow { .. }
+        | ImageError::SizeIncreased { .. } => {
             PhpException::from_class::<ImageException>(e.to_string())
         }
     }

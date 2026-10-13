@@ -25,6 +25,7 @@ pub fn register_submodule(parent: &Bound<'_, PyModule>) -> PyResult<()> {
         "PdfiumError",
         parent.py().get_type::<error::PyPdfiumError>(),
     )?;
+    m.add_function(wrap_pyfunction!(document::compress, &m)?)?;
     parent.add_submodule(&m)?;
     Ok(())
 }

@@ -9,6 +9,12 @@ pub enum PdfBuilderError {
     /// An image-level error.
     #[error("Image processing error: {0}")]
     Image(#[from] ImageError),
+    /// Trying to access a page that does not exist.
+    #[error("page {0} does not exist (single images only have page 0)")]
+    PageOutOfRange(u16),
+    /// Polygon is empty or falls outside the page.
+    #[error("polygon {0} is empty or falls outside the page")]
+    EmptyPolygon(usize),
 }
 
 /// An error that can occur when working with PDF documents.

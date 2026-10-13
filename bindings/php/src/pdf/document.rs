@@ -177,6 +177,45 @@ impl PdfDocument {
         drop(g);
         Ok(())
     }
+    /// Recompresses pages that have no text layer (scans) as JPEG.
+    /// Returns `null` when there is nothing to gain (e.g. text-only documents).
+    /// # Errors
+    /// Returns a PHP Exception if rendering or encoding fails.
+    #[php(defaults(quality = 85, optimize = true, dpi = 150.0_f32))]
+    pub fn compress(&self, quality: u8, optimize: bool, dpi: f32) -> PhpResult<Option<Self>> {
+        let out = self
+            .with_doc(|d| d.compress(quality, dpi, optimize))?
+            .map_err(|e| map_pdf_err(&e))?;
+        Ok(out.map(Self::wrap))
+    }
+}
+
+/// Compresses PDF bytes. Returns the input unchanged if it can't be made smaller.
+/// # Errors
+/// Returns a PHP Exception if the PDF is invalid or compression fails.
+#[php_function]
+#[php(defaults(quality = 85, optimize = true, dpi = 150.0_f32))]
+#[allow(clippy::needless_pass_by_value)]
+pub fn compress_pdf(
+    data: BinarySlice<u8>,
+    quality: u8,
+    optimize: Option<bool>,
+    dpi: Option<f32>,
+) -> PhpResult<Binary<u8>> {
+    super::ensure_pdfium()?;
+    let doc = Document::from_bytes(data.to_vec()).map_err(|e| map_pdf_err(&e))?;
+    let Some(out) = doc
+        .compress(quality, dpi.unwrap_or(150.0), optimize.unwrap_or(true))
+        .map_err(|e| map_pdf_err(&e))?
+    else {
+        return Ok(Binary::new(data.to_vec()));
+    };
+    let bytes = out.as_bytes().map_err(|e| map_pdf_err(&e))?;
+    Ok(Binary::new(if bytes.len() < data.len() {
+        bytes
+    } else {
+        data.to_vec()
+    }))
 }
 
 /// PDF document wrapper object.

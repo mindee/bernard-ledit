@@ -44,6 +44,7 @@ skip = [
     { name = "getrandom" },
     { name = "itertools" },
     { name = "libloading" },
+    { name = "miniz_oxide" },
     { name = "nom" },
     { name = "r-efi" },
     { name = "syn" },

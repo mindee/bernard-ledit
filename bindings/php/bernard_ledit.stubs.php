@@ -83,11 +83,12 @@ namespace BernardLedit\Image {
      * @param int $quality
      * @param int|null $max_width
      * @param int|null $max_height
+     * @param bool|null $optimize
      * @return array
      * @throws \Exception Returns an error if the compression operation fails, or if the resulting dimensions
      * @throws \Exception don't fit in a 32-bit integer.
      */
-    function compress(string $data, int $quality = 85, ?int $max_width = null, ?int $max_height = null): array {}
+    function compress(string $data, int $quality = 85, ?int $max_width = null, ?int $max_height = null, ?bool $optimize = null): array {}
 
     /**
      * `BernardLedit\Image\decode(string $data): Image`
@@ -153,6 +154,18 @@ namespace BernardLedit\Pdf {
          * @throws \Exception Returns a PHP Exception if the close fails.
          */
         public function close(): void {}
+
+        /**
+         * Recompresses pages that have no text layer (scans) as JPEG.
+         * Returns `null` when there is nothing to gain (e.g. text-only documents).
+         *
+         * @param int $quality
+         * @param bool $optimize
+         * @param float $dpi
+         * @return \BernardLedit\Pdf\PdfDocument|null
+         * @throws \Exception Returns a PHP Exception if rendering or encoding fails.
+         */
+        public function compress(int $quality = 85, bool $optimize = true, float $dpi = 150.0): ?\BernardLedit\Pdf\PdfDocument {}
 
         /**
          * `PdfDocument::create()` empty document (new is reserved).

@@ -3,7 +3,7 @@ use std::env;
 use std::fs;
 use std::path::PathBuf;
 
-const PDFIUM_RELEASE: &str = "chromium/7825";
+const PDFIUM_RELEASE: &str = "chromium/8076";
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
