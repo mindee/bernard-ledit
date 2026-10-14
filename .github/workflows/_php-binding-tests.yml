@@ -52,10 +52,20 @@ jobs:
           key: pdfium-${{ runner.os }}-${{ hashFiles('core/build.rs') }}
           restore-keys: |
             pdfium-${{ runner.os }}-
+
       - uses: extractions/setup-just@v4
 
+      # Runs only on non-Windows runners (Ubuntu, macOS)
       - name: Set up Rust toolchain
+        if: runner.os != 'Windows'
         uses: dtolnay/rust-toolchain@1.99.0
+
+      # Runs only on Windows runners
+      - name: Setup Rust
+        if: runner.os == 'Windows'
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt, clippy
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
@@ -83,6 +93,7 @@ jobs:
           restore-keys: |
             composer-${{ runner.os }}-php${{ matrix.php }}-${{ matrix.thread_safety }}-
             composer-${{ runner.os }}-
+
       - name: Build PHP Extension
         run: just php build
 
