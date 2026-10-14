@@ -86,15 +86,8 @@ jobs:
       - name: Build PHP Extension
         run: just php build
 
-      - name: Load PHP Extension
-        run: |
-          EXT="$(realpath target/debug/libbernard_ledit_php.so)"
-          INI="$(php -r 'echo php_ini_loaded_file();')"
-          echo "extension=${EXT}" >> "${INI}"
+      - name: Build PHP Extension
+        run: just php build
 
-      - name: Install Composer dependencies
-        working-directory: bindings/php
-        run: composer install --prefer-dist --no-progress
-
-      - name: Run PHP binding tests
-        run: just php test # TODO: change this with test-static when binaries are available somewhere accessible.
+      - name: Smoke test
+        run: just php smoke # TODO: change this with test-static when binaries are available somewhere accessible.
