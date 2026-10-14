@@ -50,9 +50,8 @@ jobs:
         uses: actions/cache@v6
         with:
           path: core/.pdfium_cache
-          key: pdfium-${{ runner.os }}-${{ hashFiles('core/build.rs') }}
-          restore-keys: |
-            pdfium-${{ runner.os }}-
+          key: pdfium-v1-${{ runner.os }}-${{ hashFiles('core/build.rs', 'core/Cargo.toml') }}
+
       - uses: extractions/setup-just@v4
 
       - name: Set up Rust toolchain
