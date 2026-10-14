@@ -242,7 +242,7 @@ All pdfium rendering and mozjpeg encoding calls are serialized behind process-wi
 The Python GIL additionally protects single-threaded callers.
 
 **Safe:** single-threaded Python, Python `threading` (GIL held in Rust), separate `multiprocessing` workers.  
-**Avoid:** `os.fork()` after a `PdfDocument` has been opened in the parent process.
+**Avoid:** `os.fork()` after a `PhpPdfDocument` has been opened in the parent process.
 
 ---
 

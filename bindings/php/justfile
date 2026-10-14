@@ -83,12 +83,12 @@ reflect: build
 
 # Runs phpunit (bindings/php test suite) against the debug build; installs composer deps on first run.
 # NB: this is the binding-level suite (bindings/php/tests), not the mindee-api-php SDK suite.
-test: build
+test *ARGS: build
     #!/usr/bin/env bash
     set -euo pipefail
     [ -d vendor ] || composer install
     export PDFIUM_PATH="$(just pdfium-path)"
-    php -n {{php_test_exts}} -d extension={{ext_debug}} vendor/bin/phpunit
+    php -n {{php_test_exts}} -d extension={{ext_debug}} vendor/bin/phpunit {{ARGS}}
 
 # Runs phpunit against the static-pdfium release build with NO PDFIUM_PATH set and no libpdfium.so
 # on disk - the only test that actually proves static linking works (ldd/dlopen checks lie, see

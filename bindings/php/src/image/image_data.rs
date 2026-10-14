@@ -1,6 +1,6 @@
-use super::error::{map_image_err, unknown_format_err};
+use super::error::{format_image_extract_err, map_image_err, unknown_format_err};
 use bernard_ledit::image::{
-    Filter, Image as CoreImage, format_name, guess_format as core_guess, parse_output_format,
+    Filter, Image, format_name, guess_format as core_guess, parse_output_format,
 };
 use ext_php_rs::types::Zval;
 use ext_php_rs::zend::ce;
@@ -9,13 +9,30 @@ use std::str::FromStr;
 
 #[php_class]
 #[php(name = "BernardLedit\\Image\\Image")]
-pub struct Image {
-    inner: CoreImage,
+pub struct PhpImage {
+    inner: Image,
+}
+
+/// Core image conversion.
+impl From<Image> for PhpImage {
+    fn from(inner: Image) -> Self {
+        Self { inner }
+    }
 }
 
 #[php_impl]
-impl Image {
-    /// `[width, height]`
+impl PhpImage {
+    /// Decodes an image from its encoded bytes: `new Image(string $data)`.
+    /// # Errors
+    /// Throws if the data is not a supported image format.
+    /// Throws if the image cannot be decoded.
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn __construct(data: BinarySlice<u8>) -> PhpResult<Self> {
+        let inner = Image::decode(&data).map_err(|e| map_image_err(&e))?;
+        Ok(Self { inner })
+    }
+
+    /// Dimensions as `[width, height]`.
     #[must_use]
     pub fn size(&self) -> Vec<u32> {
         let (w, h) = self.inner.size();
@@ -76,9 +93,9 @@ impl Image {
     }
 }
 
-impl Image {
+impl PhpImage {
     /// Creates a PHP image from a core lib image.
-    pub(crate) const fn from_core(inner: CoreImage) -> Self {
+    pub(crate) const fn from_core(inner: Image) -> Self {
         Self { inner }
     }
 }
@@ -89,9 +106,9 @@ impl Image {
 #[php_function]
 #[php(name = "BernardLedit\\Image\\decode")]
 #[allow(clippy::needless_pass_by_value)]
-pub fn decode(data: BinarySlice<u8>) -> PhpResult<Image> {
-    CoreImage::decode(&data)
-        .map(Image::from_core)
+pub fn decode(data: BinarySlice<u8>) -> PhpResult<PhpImage> {
+    Image::decode(&data)
+        .map(PhpImage::from_core)
         .map_err(|e| map_image_err(&e))
 }
 
@@ -121,7 +138,7 @@ pub fn compress(
     max_height: Option<u32>,
     optimize: Option<bool>,
 ) -> PhpResult<Vec<Zval>> {
-    let image = bernard_ledit::image::Image::decode(&data).map_err(|e| map_image_err(&e))?;
+    let image = Image::decode(&data).map_err(|e| map_image_err(&e))?;
     let (bytes, w, h) = image
         .compress(quality, max_width, max_height, optimize.unwrap_or(true))
         .map_err(|e| map_image_err(&e))?
@@ -141,10 +158,47 @@ pub fn compress(
     Ok(out)
 }
 
+/// Extracts polygons from an image.
+/// # Errors
+/// Return an error if the image cannot be decoded or if the polygons cannot be extracted.
+#[php_function]
+#[php(defaults(dpi = 72.0))]
+#[php(name = "BernardLedit\\Image\\extractPolygons")]
+#[allow(clippy::needless_pass_by_value)]
+#[allow(
+    clippy::cast_possible_truncation,
+    reason = "Core takes in f32, PHP needs f34"
+)]
+pub fn extract_polygons(
+    data: BinarySlice<u8>,
+    page_id: u16,
+    polygons: Vec<Vec<Vec<f64>>>,
+    dpi: f64,
+) -> PhpResult<Vec<PhpImage>> {
+    let polygons_f32: Vec<Vec<(f32, f32)>> = polygons
+        .into_iter()
+        .map(|polygon| {
+            polygon
+                .into_iter()
+                .map(|point| (point[0] as f32, point[1] as f32))
+                .collect()
+        })
+        .collect();
+    bernard_ledit::image::extract::extract_polygons(
+        &data,
+        page_id,
+        polygons_f32.as_slice(),
+        dpi as f32,
+    )
+    .map(|v| v.into_iter().map(PhpImage::from_core).collect())
+    .map_err(|e| format_image_extract_err(&e))
+}
+
 /// Registers the internal functions in this module.
 pub fn register_functions(builder: ModuleBuilder) -> ModuleBuilder {
     builder
         .function(wrap_function!(decode))
         .function(wrap_function!(guess_format))
         .function(wrap_function!(compress))
+        .function(wrap_function!(extract_polygons))
 }

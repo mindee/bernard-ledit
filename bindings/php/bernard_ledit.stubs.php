@@ -4,7 +4,14 @@
 
 namespace BernardLedit\Image {
     class Image {
-        public function __construct() {}
+        /**
+         * Decodes an image from its encoded bytes: `new Image(string $data)`.
+         *
+         * @param string $data
+         * @throws \Exception Throws if the data is not a supported image format.
+         * @throws \Exception Throws if the image cannot be decoded.
+         */
+        public function __construct(string $data) {}
 
         /**
          * Crops a rendered page's image from a given bounding box.
@@ -55,7 +62,7 @@ namespace BernardLedit\Image {
         public function resize(int $width, int $height): \BernardLedit\Image\Image {}
 
         /**
-         * `[width, height]`
+         * Dimensions as `[width, height]`.
          *
          * @return array
          */
@@ -73,6 +80,13 @@ namespace BernardLedit\Image {
      * `BernardLedit\Image\ImageException extends \Exception` Decode and encode failures.
      */
     class ImageException extends \Exception {
+        public function __construct() {}
+    }
+
+    /**
+     * `BernardLedit\Image\ImageExtractException extends \Exception` Decode and encode failures.
+     */
+    class ImageExtractException extends \Exception {
         public function __construct() {}
     }
 
@@ -98,6 +112,18 @@ namespace BernardLedit\Image {
      * @throws \Exception Returns an error if the decoding operation fails.
      */
     function decode(string $data): \BernardLedit\Image\Image {}
+
+    /**
+     * Extracts polygons from an image.
+     *
+     * @param string $data
+     * @param int $page_id
+     * @param array $polygons
+     * @param float $dpi
+     * @return array
+     * @throws \Exception Return an error if the image cannot be decoded or if the polygons cannot be extracted.
+     */
+    function extractPolygons(string $data, int $page_id, array $polygons, float $dpi = 72.0): array {}
 
     /**
      * `BernardLedit\Image\guessFormat(string $data): string`
@@ -263,6 +289,10 @@ namespace BernardLedit\Pdf {
         public function text(): string {}
     }
 
+    class PdfExtractException extends \Exception {
+        public function __construct() {}
+    }
+
     class PdfPage {
         public function __construct() {}
 
@@ -318,6 +348,20 @@ namespace BernardLedit\Pdf {
     class PdfiumException extends \Exception {
         public function __construct() {}
     }
+
+    /**
+     * Builds one new document per group of 0-indexed page numbers.
+     * `data` is a PDF or an image (treated as a one-page document).
+     *
+     * @param string $data
+     * @param array $page_indexes
+     * @return array
+     * @throws \Exception Throws if no groups are given.
+     * @throws \Exception Throws if a group is empty.
+     * @throws \Exception Throws if a page index is out of range.
+     * @throws \Exception Throws if the data is neither a valid PDF nor a supported image.
+     */
+    function extractDocuments(string $data, array $page_indexes): array {}
 }
 
 namespace {

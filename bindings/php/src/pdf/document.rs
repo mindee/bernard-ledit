@@ -2,6 +2,7 @@ use super::{
     error::{closed_err, map_pdf_err},
     page::PdfPage,
 };
+use crate::pdf::error::format_pdf_extract_err;
 use crate::pdf::text_char::PhpTextChar;
 use bernard_ledit::pdf::{Document, TextChar};
 use ext_php_rs::{binary::Binary, binary_slice::BinarySlice, prelude::*, zend::ce};
@@ -11,12 +12,12 @@ pub(crate) type SharedDoc = Arc<Mutex<Option<Document>>>;
 
 #[php_class]
 #[php(name = "BernardLedit\\Pdf\\PdfDocument")]
-pub struct PdfDocument {
+pub struct PhpPdfDocument {
     pub(crate) inner: SharedDoc,
 }
 
 #[php_impl]
-impl PdfDocument {
+impl PhpPdfDocument {
     /// Create a new instance from bytes: `new PdfDocument(string $bytes)`.
     /// # Errors
     /// Returns a PHP Exception if the creation fails.
@@ -70,7 +71,7 @@ impl PdfDocument {
     #[allow(clippy::significant_drop_tightening)]
     #[allow(clippy::needless_pass_by_value)]
     #[allow(clippy::use_self)]
-    pub fn import_pages(&self, src: &PdfDocument, indexes: Vec<u16>) -> PhpResult<()> {
+    pub fn import_pages(&self, src: &PhpPdfDocument, indexes: Vec<u16>) -> PhpResult<()> {
         if Arc::ptr_eq(&self.inner, &src.inner) {
             return Err(PhpException::new(
                 "Cannot import pages from a document into itself".into(),
@@ -181,45 +182,21 @@ impl PdfDocument {
     /// Returns `null` when there is nothing to gain (e.g. text-only documents).
     /// # Errors
     /// Returns a PHP Exception if rendering or encoding fails.
-    #[php(defaults(quality = 85, optimize = true, dpi = 150.0_f32))]
-    pub fn compress(&self, quality: u8, optimize: bool, dpi: f32) -> PhpResult<Option<Self>> {
+    #[php(defaults(quality = 85, optimize = true, dpi = 150.0))]
+    #[allow(
+        clippy::cast_possible_truncation,
+        reason = "Core takes in f32, PHP needs f34"
+    )]
+    pub fn compress(&self, quality: u8, optimize: bool, dpi: f64) -> PhpResult<Option<Self>> {
         let out = self
-            .with_doc(|d| d.compress(quality, dpi, optimize))?
+            .with_doc(|d| d.compress(quality, dpi as f32, optimize))?
             .map_err(|e| map_pdf_err(&e))?;
         Ok(out.map(Self::wrap))
     }
 }
 
-/// Compresses PDF bytes. Returns the input unchanged if it can't be made smaller.
-/// # Errors
-/// Returns a PHP Exception if the PDF is invalid or compression fails.
-#[php_function]
-#[php(defaults(quality = 85, optimize = true, dpi = 150.0_f32))]
-#[allow(clippy::needless_pass_by_value)]
-pub fn compress_pdf(
-    data: BinarySlice<u8>,
-    quality: u8,
-    optimize: Option<bool>,
-    dpi: Option<f32>,
-) -> PhpResult<Binary<u8>> {
-    super::ensure_pdfium()?;
-    let doc = Document::from_bytes(data.to_vec()).map_err(|e| map_pdf_err(&e))?;
-    let Some(out) = doc
-        .compress(quality, dpi.unwrap_or(150.0), optimize.unwrap_or(true))
-        .map_err(|e| map_pdf_err(&e))?
-    else {
-        return Ok(Binary::new(data.to_vec()));
-    };
-    let bytes = out.as_bytes().map_err(|e| map_pdf_err(&e))?;
-    Ok(Binary::new(if bytes.len() < data.len() {
-        bytes
-    } else {
-        data.to_vec()
-    }))
-}
-
-/// PDF document wrapper object.
-impl PdfDocument {
+/// PDF document wrapper object, not included in the PHP API.
+impl PhpPdfDocument {
     fn wrap(doc: Document) -> Self {
         Self {
             inner: Arc::new(Mutex::new(Some(doc))),
@@ -239,4 +216,68 @@ impl PdfDocument {
         let d = g.as_mut().ok_or_else(closed_err)?;
         Ok(f(d))
     }
+}
+
+/// Compresses PDF bytes. Returns the input unchanged if it can't be made smaller.
+/// # Errors
+/// Returns a PHP Exception if the PDF is invalid or compression fails.
+#[php_function]
+#[php(defaults(quality = 85, optimize = true, dpi = 150.0))]
+#[allow(clippy::needless_pass_by_value)]
+#[allow(
+    clippy::cast_possible_truncation,
+    reason = "Core takes in f32, PHP needs f34"
+)]
+pub fn compress_pdf(
+    data: BinarySlice<u8>,
+    quality: u8,
+    optimize: Option<bool>,
+    dpi: Option<f64>,
+) -> PhpResult<Binary<u8>> {
+    super::ensure_pdfium()?;
+    let doc = Document::from_bytes(data.to_vec()).map_err(|e| map_pdf_err(&e))?;
+    let Some(out) = doc
+        .compress(
+            quality,
+            dpi.unwrap_or(150.0) as f32,
+            optimize.unwrap_or(true),
+        )
+        .map_err(|e| map_pdf_err(&e))?
+    else {
+        return Ok(Binary::new(data.to_vec()));
+    };
+    let bytes = out.as_bytes().map_err(|e| map_pdf_err(&e))?;
+    Ok(Binary::new(if bytes.len() < data.len() {
+        bytes
+    } else {
+        data.to_vec()
+    }))
+}
+
+/// Builds one new document per group of 0-indexed page numbers.
+/// `data` is a PDF or an image (treated as a one-page document).
+/// # Errors
+/// Throws if no groups are given.
+/// Throws if a group is empty.
+/// Throws if a page index is out of range.
+/// Throws if the data is neither a valid PDF nor a supported image.
+#[php_function]
+#[php(name = "BernardLedit\\Pdf\\extractDocuments")]
+#[allow(clippy::needless_pass_by_value)]
+#[allow(
+    clippy::cast_possible_truncation,
+    reason = "Core takes in f32, PHP needs f34"
+)]
+pub fn extract_documents(
+    data: BinarySlice<u8>,
+    page_indexes: Vec<Vec<u16>>,
+) -> PhpResult<Vec<PhpPdfDocument>> {
+    bernard_ledit::pdf::extract::extract_documents(&data, &page_indexes)
+        .map(|docs| docs.into_iter().map(PhpPdfDocument::wrap).collect())
+        .map_err(|e| format_pdf_extract_err(&e))
+}
+
+/// Registers the internal functions in this module.
+pub fn register_functions(builder: ModuleBuilder) -> ModuleBuilder {
+    builder.function(wrap_function!(extract_documents))
 }

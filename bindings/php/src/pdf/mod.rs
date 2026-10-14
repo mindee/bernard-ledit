@@ -20,12 +20,14 @@ pub const INI_PDFIUM_PATH: &CStr = c"bernard_ledit.pdfium_path";
 
 /// Register classes and ini entries.
 pub fn register(module: ModuleBuilder) -> ModuleBuilder {
-    module
+    let module = module
         .class::<error::PdfiumException>()
-        .class::<document::PdfDocument>()
+        .class::<error::PdfExtractException>()
+        .class::<document::PhpPdfDocument>()
         .class::<page::PdfPage>()
         .class::<bitmap::PhpPdfBitmap>()
-        .class::<text_char::PhpTextChar>()
+        .class::<text_char::PhpTextChar>();
+    document::register_functions(module)
 }
 
 /// Called from MINIT (`lib.rs::startup`).
