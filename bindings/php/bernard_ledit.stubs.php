@@ -447,4 +447,16 @@ namespace {
          */
         public function __toString(): string {}
     }
+
+    /**
+     * Compresses PDF bytes. Returns the input unchanged if it can't be made smaller.
+     *
+     * @param string $data
+     * @param int $quality
+     * @param bool|null $optimize
+     * @param float|null $dpi
+     * @return string
+     * @throws \Exception Returns a PHP Exception if the PDF is invalid or compression fails.
+     */
+    function compress(string $data, int $quality = 85, ?bool $optimize = true, ?float $dpi = 150.0): string {}
 }

@@ -228,7 +228,7 @@ impl PhpPdfDocument {
     clippy::cast_possible_truncation,
     reason = "Core takes in f32, PHP needs f34"
 )]
-pub fn compress_pdf(
+pub fn compress(
     data: BinarySlice<u8>,
     quality: u8,
     optimize: Option<bool>,
@@ -279,5 +279,7 @@ pub fn extract_documents(
 
 /// Registers the internal functions in this module.
 pub fn register_functions(builder: ModuleBuilder) -> ModuleBuilder {
-    builder.function(wrap_function!(extract_documents))
+    builder
+        .function(wrap_function!(compress))
+        .function(wrap_function!(extract_documents))
 }
