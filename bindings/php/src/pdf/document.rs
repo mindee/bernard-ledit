@@ -222,6 +222,7 @@ impl PhpPdfDocument {
 /// # Errors
 /// Returns a PHP Exception if the PDF is invalid or compression fails.
 #[php_function]
+#[php(name = "BernardLedit\\Pdf\\compress")]
 #[php(defaults(quality = 85, optimize = true, dpi = 150.0))]
 #[allow(clippy::needless_pass_by_value)]
 #[allow(
