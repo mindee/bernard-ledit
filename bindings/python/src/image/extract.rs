@@ -1,4 +1,4 @@
-use crate::image::error::format_extract_err;
+use crate::image::error::format_image_extract_err;
 use crate::image::image_data::PyImage;
 use crate::input::BinaryInput;
 use pyo3::{PyResult, pyfunction};
@@ -17,7 +17,7 @@ pub fn extract_polygons(
     let bytes = data.into_vec()?;
     bernard_ledit::image::extract::extract_polygons(&bytes, page_id, &polygons, dpi)
         .map(|v| v.into_iter().map(PyImage::from_core).collect())
-        .map_err(|e| format_extract_err(&e))
+        .map_err(|e| format_image_extract_err(&e))
 }
 
 #[cfg(test)]

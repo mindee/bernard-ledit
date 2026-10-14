@@ -18,8 +18,8 @@ pub fn register_submodule(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(extract::extract_polygons, &m)?)?;
     m.add("ImageError", parent.py().get_type::<error::PyImageError>())?;
     m.add(
-        "ExtractError",
-        parent.py().get_type::<error::PyExtractError>(),
+        "ImageExtractError",
+        parent.py().get_type::<error::PyImageExtractError>(),
     )?;
     parent.add_submodule(&m)?;
     Ok(())

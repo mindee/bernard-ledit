@@ -240,6 +240,14 @@ impl PyPdfDocument {
     }
 }
 
+impl From<Document> for PyPdfDocument {
+    fn from(doc: Document) -> Self {
+        Self {
+            inner: Mutex::new(Some(doc)),
+        }
+    }
+}
+
 impl PyPdfDocument {
     pub(crate) fn with_doc<R>(&self, f: impl FnOnce(&Document) -> R) -> PyResult<R> {
         let g = self.inner.lock().map_err(|_| closed_err())?;

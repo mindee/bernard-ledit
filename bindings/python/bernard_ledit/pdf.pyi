@@ -4,6 +4,7 @@ from types import TracebackType
 from typing import BinaryIO
 
 class PdfiumError(Exception): ...
+class PdfExtractError(Exception): ...
 
 class PageSize:
     @property
@@ -95,8 +96,11 @@ class PdfDocument:
     ) -> PdfDocument | None: ...
 
 def compress(
-    data: bytes,
+    data: bytes | BinaryIO,
     quality: int = 85,
     optimize: bool = True,
     dpi: float = 150.0,
 ) -> bytes: ...
+def extract_documents(
+    data: bytes | BinaryIO, page_indexes: list[list[int]]
+) -> list[PdfDocument]: ...

@@ -80,7 +80,7 @@ pub enum ImageError {
 
 /// Errors related to image extraction.
 #[derive(Debug, thiserror::Error)]
-pub enum ExtractError {
+pub enum ImageExtractError {
     /// Errors related to image extraction in PDFs.
     #[error(transparent)]
     Pdf(#[from] PdfError),

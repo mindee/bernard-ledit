@@ -6,6 +6,8 @@ pub mod bitmap;
 pub mod document;
 /// PDF Error module.
 pub mod error;
+/// PDF Extraction module.
+pub mod extract;
 /// Font resolution module.
 pub mod font_resolver;
 /// JPEG embedding module.

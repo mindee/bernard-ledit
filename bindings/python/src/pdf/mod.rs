@@ -6,6 +6,7 @@ pub mod bitmap;
 pub mod document;
 /// PDF errors.
 pub mod error;
+mod extract;
 /// PDF page.
 pub mod page;
 /// Text character.
@@ -25,7 +26,12 @@ pub fn register_submodule(parent: &Bound<'_, PyModule>) -> PyResult<()> {
         "PdfiumError",
         parent.py().get_type::<error::PyPdfiumError>(),
     )?;
+    m.add(
+        "PdfExtractionError",
+        parent.py().get_type::<error::PyPdfExtractionError>(),
+    )?;
     m.add_function(wrap_pyfunction!(document::compress, &m)?)?;
+    m.add_function(wrap_pyfunction!(extract::extract_documents, &m)?)?;
     parent.add_submodule(&m)?;
     Ok(())
 }
