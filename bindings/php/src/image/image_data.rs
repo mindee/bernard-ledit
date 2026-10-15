@@ -123,7 +123,7 @@ pub fn guess_format(data: BinarySlice<u8>) -> PhpResult<&'static str> {
     format_name(fmt).ok_or_else(unknown_format_err)
 }
 
-/// Compresses an image mirroring the reference PIL implementation.
+/// Compresses an image.
 /// # Errors
 /// Returns an error if the compression operation fails, or if the resulting dimensions
 /// don't fit in a 32-bit integer.

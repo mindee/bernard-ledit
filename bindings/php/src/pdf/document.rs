@@ -18,7 +18,7 @@ pub struct PhpPdfDocument {
 
 #[php_impl]
 impl PhpPdfDocument {
-    /// Create a new instance from bytes: `new PdfDocument(string $bytes)`.
+    /// Create a new instance from bytes.
     /// # Errors
     /// Returns a PHP Exception if the creation fails.
     #[allow(clippy::needless_pass_by_value)]
@@ -54,7 +54,7 @@ impl PhpPdfDocument {
         self.with_doc(|d| d.page_count().map_err(|e| map_pdf_err(&e)))?
     }
 
-    /// Validates the index now (opens & drops the page), returns a lightweight handle.
+    /// Return the specified page.
     /// # Errors
     /// Returns a PHP Exception if the page cannot be retrieved.
     pub fn get_page(&self, index: u16) -> PhpResult<PdfPage> {
