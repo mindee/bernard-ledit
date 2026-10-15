@@ -28,17 +28,6 @@ impl PhpPdfDocument {
         Ok(Self::wrap(doc))
     }
 
-    /// Create an instance from file `PdfDocument::fromFile(string $path)`.
-    /// # Errors
-    /// Returns a PHP Exception if the creation fails.
-    pub fn from_file(path: &str) -> PhpResult<Self> {
-        super::ensure_pdfium()?;
-        let bytes = std::fs::read(path)
-            .map_err(|e| PhpException::from_message(format!("Failed to read {path}: {e}")))?;
-        let doc = Document::from_bytes(bytes).map_err(|e| map_pdf_err(&e))?;
-        Ok(Self::wrap(doc))
-    }
-
     /// `PdfDocument::create()` empty document (new is reserved).
     /// # Errors
     /// Returns a PHP Exception if the creation fails.
@@ -93,13 +82,6 @@ impl PhpPdfDocument {
         let mut out: Vec<u8> = Vec::new();
         self.with_doc(|d| d.save(&mut out).map_err(|e| map_pdf_err(&e)))??;
         Ok(Binary::new(out))
-    }
-
-    /// Saves to a file.
-    /// # Errors
-    /// Returns a PHP Exception if the save fails.
-    pub fn save_to_file(&self, path: &str) -> PhpResult<()> {
-        self.with_doc(|d| d.save_to_file(path).map_err(|e| map_pdf_err(&e)))?
     }
 
     /// Rasterizes a page from a given index.

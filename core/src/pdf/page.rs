@@ -32,16 +32,31 @@ impl<'a> Page<'a> {
     /// Returns a `PdfError` if text suppression fails.
     pub fn strip_text(&mut self) -> Result<(), PdfError> {
         let objects = self.inner.objects_mut();
+
         let text_indices: Vec<usize> = objects
             .iter()
             .enumerate()
             .filter(|(_, obj)| obj.object_type() == PdfPageObjectType::Text)
             .map(|(i, _)| i)
             .collect();
-
         for index in text_indices.into_iter().rev() {
             objects.remove_object_at_index(index)?;
         }
+
+        let form_indices: Vec<usize> = objects
+            .iter()
+            .enumerate()
+            .filter(|(_, obj)| obj.object_type() == PdfPageObjectType::XObjectForm)
+            .map(|(i, _)| i)
+            .collect();
+        for index in form_indices {
+            let mut obj = objects.get(index)?;
+            if let Some(form) = obj.as_x_object_form_object_mut() {
+                strip_text_from_form(form)?;
+            }
+        }
+
+        self.inner.regenerate_content()?;
         Ok(())
     }
 
@@ -125,6 +140,25 @@ pub const fn get_rotation(rotation: PdfPageRenderRotation) -> u32 {
         PdfPageRenderRotation::Degrees180 => 180,
         PdfPageRenderRotation::Degrees270 => 270,
     }
+}
+
+/// Recursively removes text objects from a form and every form nested in it.
+fn strip_text_from_form(form: &mut PdfPageXObjectFormObject) -> Result<(), PdfError> {
+    for index in (0..form.len()).rev() {
+        let mut child = form.get(index)?;
+        match child.object_type() {
+            PdfPageObjectType::Text => {
+                form.remove_object_at_index(index)?;
+            }
+            PdfPageObjectType::XObjectForm => {
+                if let Some(inner) = child.as_x_object_form_object_mut() {
+                    strip_text_from_form(inner)?;
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

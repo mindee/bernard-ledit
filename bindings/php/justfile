@@ -28,20 +28,31 @@ build-release:
 build-static:
     cargo build -p bernard-ledit-php --release --features static-pdfium
 
+pdfium_release := replace(trim(read("../../core/pdfium-release")), "/", "_")
+pdfium_target := if os() == "macos" {
+    if arch() == "aarch64" { "mac-arm64" } else { "mac-x64" }
+} else if os() == "windows" {
+    "win-x64"
+} else {
+    if arch() == "aarch64" { "linux-arm64" } else { "linux-x64" }
+}
+
 # Resolves the dynamically-linked libpdfium.so used by build/build-release, building core if missing.
 # Not used by build-static, which has no sibling libpdfium.* to find.
 [private]
 pdfium-path:
     #!/usr/bin/env bash
+
     set -euo pipefail
+    case "{{os()}}" in
+        macos)   lib_name="libpdfium.dylib" ;;
+        windows) lib_name="pdfium.dll" ;;
+        *)       lib_name="libpdfium.so" ;;
+    esac
+    dir="../../core/.pdfium_cache/{{pdfium_release}}/{{pdfium_target}}"
     find_pdfium() {
-        local lib_name
-        case "{{os()}}" in
-            macos) lib_name="libpdfium.dylib" ;;
-            windows) lib_name="pdfium.dll" ;;
-            *) lib_name="libpdfium.so" ;;
-        esac
-        find ../../core/.pdfium_cache -name "$lib_name" 2>/dev/null | head -n 1
+        [ -d "$dir" ] || return 0
+        find "$dir" -name "$lib_name" 2>/dev/null | head -n 1 || true
     }
     PDFIUM_FILE=$(find_pdfium)
     if [ -z "$PDFIUM_FILE" ]; then
@@ -49,7 +60,7 @@ pdfium-path:
         PDFIUM_FILE=$(find_pdfium)
     fi
     if [ -z "$PDFIUM_FILE" ]; then
-        echo "Could not locate libpdfium.so under core/.pdfium_cache" >&2
+        echo "Could not locate $lib_name for {{pdfium_release}}/{{pdfium_target}} under core/.pdfium_cache" >&2
         exit 1
     fi
     realpath "$PDFIUM_FILE"

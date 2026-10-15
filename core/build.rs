@@ -3,11 +3,15 @@ use std::env;
 use std::fs;
 use std::path::PathBuf;
 
-const PDFIUM_RELEASE: &str = "chromium/8076";
-
 fn main() {
-    println!("cargo:rerun-if-changed=build.rs");
-
+    println!("cargo:rerun-if-changed=pdfium-release");
+    let manifest = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+    let release_file = std::path::Path::new(&manifest).join("pdfium-release");
+    println!("cargo:rerun-if-changed={}", release_file.display());
+    let release = std::fs::read_to_string(&release_file)
+        .unwrap_or_else(|e| panic!("cannot read {}: {e}", release_file.display()))
+        .trim()
+        .to_owned();
     if env::var_os("CARGO_FEATURE_STATIC_PDFIUM").is_some() {
         println!("cargo:rerun-if-env-changed=PDFIUM_STATIC_LIB_PATH");
         return;
@@ -28,10 +32,11 @@ fn main() {
     };
 
     let download_url = format!(
-        "https://github.com/bblanchon/pdfium-binaries/releases/download/{PDFIUM_RELEASE}/pdfium-{os_arch}.tgz"
+        "https://github.com/bblanchon/pdfium-binaries/releases/download/{}/pdfium-{os_arch}.tgz",
+        release.replace('/', "%2F")
     );
 
-    let safe_release_name = PDFIUM_RELEASE.replace('/', "_");
+    let safe_release_name = release.replace('/', "_");
     let cache_dir = manifest_dir
         .join(".pdfium_cache")
         .join(safe_release_name)
