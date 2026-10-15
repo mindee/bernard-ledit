@@ -15,7 +15,6 @@ ext_name := if os() == "macos" { "libbernard_ledit_php.dylib" } else if os() == 
 ext_debug := "../../target/debug/" + ext_name
 ext_release := "../../target/release/" + ext_name
 
-php_ext_dir := `php -r 'echo ini_get("extension_dir");'`
 php_test_exts := "-d extension=dom -d extension=xml -d extension=mbstring -d extension=tokenizer -d extension=ctype -d extension=xmlwriter"
 
 # Builds the PHP extension (debug, dynamic pdfium) - fast inner dev loop
