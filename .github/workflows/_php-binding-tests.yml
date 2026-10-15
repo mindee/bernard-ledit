@@ -103,6 +103,10 @@ jobs:
           arch: x64
           toolset: 14.29
 
+      - name: Remove MSYS GNU link.exe (Windows)
+        if: runner.os == 'Windows'
+        run: rm "C:\Program Files\Git\usr\bin\link.exe"
+
       - name: Build PHP Extension
         run: just php build
 
