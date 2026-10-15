@@ -202,15 +202,6 @@ namespace BernardLedit\Pdf {
         public static function create(): \BernardLedit\Pdf\PdfDocument {}
 
         /**
-         * Create an instance from file `PdfDocument::fromFile(string $path)`.
-         *
-         * @param string $path
-         * @return \BernardLedit\Pdf\PdfDocument
-         * @throws \Exception Returns a PHP Exception if the creation fails.
-         */
-        public static function fromFile(string $path): \BernardLedit\Pdf\PdfDocument {}
-
-        /**
          * Return the specified page.
          *
          * @param int $index
@@ -270,15 +261,6 @@ namespace BernardLedit\Pdf {
          * @throws \Exception Returns a PHP Exception if the save fails.
          */
         public function save(): string {}
-
-        /**
-         * Saves to a file.
-         *
-         * @param string $path
-         * @return void
-         * @throws \Exception Returns a PHP Exception if the save fails.
-         */
-        public function saveToFile(string $path): void {}
 
         /**
          * Retrieves the entire text from a document as a string.

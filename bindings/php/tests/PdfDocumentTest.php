@@ -22,17 +22,8 @@ final class PdfDocumentTest extends TestCase
 
     public function testFromFile(): void
     {
-        $doc = PdfDocument::fromFile(self::FIXTURES . '/pdf/blank_1.pdf');
+        $doc = new PdfDocument(file_get_contents(self::FIXTURES . '/pdf/blank_1.pdf'));
         self::assertSame(1, $doc->pageCount());
-    }
-
-    public function testFromFileNonexistentThrows(): void
-    {
-        // PdfDocument::fromFile() wraps the underlying std::fs::read() I/O error and maps it
-        // through PhpException::default(), i.e. a plain \Exception (no dedicated IO exception
-        // class exists in this binding yet).
-        $this->expectException(\Exception::class);
-        PdfDocument::fromFile('/nonexistent/path/does-not-exist.pdf');
     }
 
     public function testConstructFromInvalidBytesThrowsPdfiumException(): void
@@ -107,7 +98,7 @@ final class PdfDocumentTest extends TestCase
         self::assertNotFalse($path);
 
         try {
-            $doc->saveToFile($path);
+            file_put_contents($path, $doc->save());
             $bytes = file_get_contents($path);
             self::assertStringStartsWith('%PDF-', $bytes);
 
