@@ -367,7 +367,7 @@ impl Document {
         let len = self.page_count()?;
         let mut needs_work = Vec::new();
         for i in 0..len {
-            if self.page(i)?.chars()?.is_empty() {
+            if self.inner.pages().get(i.into())?.text()?.is_empty() {
                 needs_work.push(i);
             }
         }

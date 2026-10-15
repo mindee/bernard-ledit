@@ -99,5 +99,5 @@ jobs:
       - name: Build PHP Extension
         run: just php build
 
-      - name: Smoke test
-        run: just php smoke # TODO: change this with test-static when binaries are available somewhere accessible.
+      - name: Unit test
+        run: just php test # TODO: change this with test-static when binaries are available somewhere accessible.
