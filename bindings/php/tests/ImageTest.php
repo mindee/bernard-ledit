@@ -9,9 +9,11 @@ use BernardLedit\Image\Image;
 use BernardLedit\Image\ImageException;
 use BernardLedit\Pdf\PdfDocument;
 
+require_once __DIR__ . '/config.php';
+
 final class ImageTest extends TestCase
 {
-    private const FIXTURES = __DIR__ . '/../../../tests/data/file_types';
+    private const FIXTURES = TEST_ROOT_PATH . '/file_types';
 
     private static function fixture(string $name): string
     {

@@ -15,8 +15,8 @@ def stars(page) -> int:
 
 
 def test_extract_groups_page_counts(multipage):
-    docs = extract_documents(multipage, [[0], [1, 2]])
-    assert [len(d) for d in docs] == [1, 2]
+    extracted_documents = extract_documents(multipage, [[0], [1, 2]])
+    assert [len(document) for document in extracted_documents] == [1, 2]
 
 
 def test_extract_keeps_requested_pages_in_order(multipage):

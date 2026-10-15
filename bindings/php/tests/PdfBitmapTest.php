@@ -4,9 +4,11 @@ declare(strict_types=1);
 use PHPUnit\Framework\TestCase;
 use BernardLedit\Pdf\PdfDocument;
 
+require_once __DIR__ . '/config.php';
+
 final class PdfBitmapTest extends TestCase
 {
-    private const FIXTURES = __DIR__ . '/../../../tests/data/file_types';
+    private const FIXTURES = TEST_ROOT_PATH . '/file_types';
 
     private static function renderedBitmap(): \PdfBitmap
     {

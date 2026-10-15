@@ -96,11 +96,11 @@ class PdfDocument:
     ) -> PdfDocument | None: ...
 
 def compress(
-    data: bytes | BinaryIO,
+    data: PdfInput,
     quality: int = 85,
     optimize: bool = True,
     dpi: float = 150.0,
 ) -> bytes: ...
 def extract_documents(
-    data: bytes | BinaryIO, page_indexes: list[list[int]]
+    data: PdfInput, page_indexes: list[list[int]]
 ) -> list[PdfDocument]: ...

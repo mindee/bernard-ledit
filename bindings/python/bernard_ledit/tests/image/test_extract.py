@@ -20,11 +20,11 @@ def test_extract_full_page_polygon_keeps_size(receipt):
 
 
 def test_extract_quarter_polygon_is_half_size(receipt):
-    w, h = Image(receipt).size
+    width, height = Image(receipt).size
     (img,) = extract_polygons(receipt, 0, [TOP_LEFT_QUARTER])
     cw, ch = img.size
-    assert abs(cw - w / 2) <= 1
-    assert abs(ch - h / 2) <= 1
+    assert abs(cw - width / 2) <= 1
+    assert abs(ch - height / 2) <= 1
 
 
 def test_extract_returns_one_image_per_polygon(receipt):
@@ -40,8 +40,8 @@ def test_extract_accepts_file_like(receipt):
 def test_extract_from_pdf_page_is_jpeg(test_data_dir):
     data = (test_data_dir / "file_types/pdf/multipage.pdf").read_bytes()
     (img,) = extract_polygons(data, 0, [FULL])
-    w, h = img.size
-    assert w > 0 and h > 0
+    width, height = img.size
+    assert width > 0 and height > 0
     assert img.format == "JPEG"
 
 

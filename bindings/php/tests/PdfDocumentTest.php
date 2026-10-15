@@ -5,9 +5,11 @@ use PHPUnit\Framework\TestCase;
 use BernardLedit\Pdf\PdfDocument;
 use BernardLedit\Pdf\PdfiumException;
 
+require_once __DIR__ . '/config.php';
+
 final class PdfDocumentTest extends TestCase
 {
-    private const FIXTURES = __DIR__ . '/../../../tests/data/file_types';
+    private const FIXTURES = TEST_ROOT_PATH . '/file_types';
 
     private static function pdf(string $name): string
     {

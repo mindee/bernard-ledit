@@ -6,13 +6,15 @@ namespace BernardLedit\Tests;
 use BernardLedit\Pdf\PdfDocument;
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__ . '/config.php';
+
 use function BernardLedit\Pdf\extractDocuments;
 
 final class ExtractDocumentsTest extends TestCase
 {
     private function data(string $name): string
     {
-        return file_get_contents(__DIR__ . '/../../../tests/data/file_types/' . $name);
+        return file_get_contents(TEST_ROOT_PATH . '/file_types/' . $name);
     }
 
     public function testGroupPageCounts(): void

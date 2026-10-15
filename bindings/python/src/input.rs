@@ -24,19 +24,22 @@ impl BinaryInput<'_> {
 /// PDF input wrapper.
 #[derive(FromPyObject)]
 pub enum PdfInput<'py> {
+    /// Raw bytes.
+    Bytes(Bound<'py, PyBytes>),
     /// Path to a file on disk.
     Path(PathBuf),
-    /// Raw bytes or a file-like object.
-    Data(BinaryInput<'py>),
+    /// A Python file-like object.
+    FileLike(Bound<'py, PyAny>),
 }
 
 impl PdfInput<'_> {
     pub fn into_vec(self) -> PyResult<Vec<u8>> {
         match self {
+            Self::Bytes(b) => BinaryInput::Bytes(b).into_vec(),
             Self::Path(p) => std::fs::read(&p).map_err(|e| {
                 pyo3::exceptions::PyIOError::new_err(format!("Failed to read {}: {e}", p.display()))
             }),
-            Self::Data(data) => data.into_vec(),
+            Self::FileLike(f) => BinaryInput::FileLike(f).into_vec(),
         }
     }
 }

@@ -49,8 +49,8 @@ def test_compress_png_shrinks(png_bytes):
 
 def test_compress_with_bounds_always_resizes(jpg_bytes):
     out = compress(jpg_bytes, max_width=100, max_height=100)
-    w, h = Image(out).size
-    assert w <= 100 and h <= 100
+    width, height = Image(out).size
+    assert width <= 100 and height <= 100
 
 
 def test_compress_accepts_file_like(jpg_bytes):
@@ -70,8 +70,8 @@ def test_compress_garbage_errors():
 def test_decode_records_format(request, fixture, expected):
     img = Image(request.getfixturevalue(fixture))
     assert img.format == expected
-    w, h = img.size
-    assert w > 0 and h > 0
+    width, height = img.size
+    assert width > 0 and height > 0
 
 
 def test_constructor_accepts_file_like(jpg_bytes):
@@ -90,8 +90,8 @@ def test_constructor_empty_errors():
 
 def test_repr(jpg_bytes):
     img = Image(jpg_bytes)
-    w, h = img.size
-    assert repr(img) == f"Image({w}x{h}, format:JPEG)"
+    width, height = img.size
+    assert repr(img) == f"Image({width}x{height}, format:JPEG)"
 
 
 # --- crop ------------------------------------------------------------------------
@@ -99,9 +99,9 @@ def test_repr(jpg_bytes):
 
 def test_crop_valid_box(png_bytes):
     img = Image(png_bytes)
-    w, h = img.size
-    cropped = img.crop(0, 0, w // 2, h // 2)
-    assert cropped.size == (w // 2, h // 2)
+    width, height = img.size
+    cropped = img.crop(0, 0, width // 2, height // 2)
+    assert cropped.size == (width // 2, height // 2)
 
 
 def test_crop_preserves_format(png_bytes):
@@ -117,9 +117,9 @@ def test_crop_does_not_modify_original(png_bytes):
 
 def test_crop_out_of_bounds_errors(png_bytes):
     img = Image(png_bytes)
-    w, h = img.size
+    width, height = img.size
     with pytest.raises(ImageError):
-        img.crop(0, 0, w + 1, h)
+        img.crop(0, 0, width + 1, height)
 
 
 def test_crop_inverted_box_errors(png_bytes):
@@ -146,18 +146,21 @@ def test_resize_exact_dimensions(jpg_bytes):
 
 
 def test_resize_can_upscale(jpg_bytes):
-    w, h = Image(jpg_bytes).size
-    assert Image(jpg_bytes).resize(w * 2, h * 2).size == (w * 2, h * 2)
+    width, height = Image(jpg_bytes).size
+    assert Image(jpg_bytes).resize(width * 2, height * 2).size == (
+        width * 2,
+        height * 2,
+    )
 
 
 def test_resize_preserves_format(png_bytes):
     assert Image(png_bytes).resize(10, 10).format == "PNG"
 
 
-@pytest.mark.parametrize("w, h", [(0, 20), (20, 0), (0, 0)])
-def test_resize_zero_dimension_errors(jpg_bytes, w, h):
+@pytest.mark.parametrize("width, height", [(0, 20), (20, 0), (0, 0)])
+def test_resize_zero_dimension_errors(jpg_bytes, width, height):
     with pytest.raises(ImageError):
-        Image(jpg_bytes).resize(w, h)
+        Image(jpg_bytes).resize(width, height)
 
 
 def test_encode_jpeg_magic_bytes(png_bytes):

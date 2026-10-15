@@ -64,6 +64,10 @@ jobs:
           fi
           echo "LD_LIBRARY_PATH=${DIR}:${LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
 
-      - name: Run workspace tests
-        run: |
-          just core test
+      - name: Run workspace tests (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: cargo nextest run --workspace
+
+      - name: Run core tests (macOS & Windows)
+        if: matrix.os != 'ubuntu-latest'
+        run: just core test
