@@ -375,8 +375,7 @@ namespace BernardLedit\Pdf {
      * @param string $data
      * @param int $maximum_offset
      * @return string
-     * @throws \Exception Throws a ValueError if there is no marker.
-     * @throws \Exception Throws a ValueError if the marker sits at or past `$maximumOffset`.
+     * @throws \Exception Throws a [`ValueError`] if there is no marker before `$maximumOffset`.
      */
     function fixPdf(string $data, int $maximum_offset = 500): string {}
 }
