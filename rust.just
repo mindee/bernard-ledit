@@ -41,7 +41,9 @@ hack-test-release:
 
 # Test the core Rust library
 test:
-    cargo test -p bernard-ledit --features full
+    cargo test --no-run --workspace \
+      --exclude bernard-ledit-php \
+      --exclude bernard-ledit-python
 
 # Runs Cargo formatting and Clippy on all Rust code
 lint: format-check clippy check-deps hack-check

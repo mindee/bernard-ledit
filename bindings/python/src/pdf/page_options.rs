@@ -1,4 +1,4 @@
-use crate::input::BinaryInput;
+use crate::input::PdfInput;
 use crate::pdf::document::PyPdfDocument;
 use crate::pdf::error::{format_page_options_err, format_pdf_err};
 use bernard_ledit::pdf::Document;
@@ -9,7 +9,7 @@ use pyo3::{PyResult, pyfunction};
 #[pyfunction]
 #[allow(clippy::needless_pass_by_value)]
 pub fn apply_page_options(
-    data: BinaryInput<'_>,
+    data: PdfInput<'_>,
     operation: &str,
     on_min_pages: usize,
     page_indexes: Vec<i32>,

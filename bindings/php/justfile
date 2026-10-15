@@ -5,12 +5,18 @@ set shell := ["bash", "-c"]
 default:
     @just --list
 
+[private]
+php-ext-dir:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    php -r 'echo ini_get("extension_dir");'
+
 ext_name := if os() == "macos" { "libbernard_ledit_php.dylib" } else if os() == "windows" { "bernard_ledit_php.dll" } else { "libbernard_ledit_php.so" }
 ext_debug := "../../target/debug/" + ext_name
 ext_release := "../../target/release/" + ext_name
 
 php_ext_dir := `php -r 'echo ini_get("extension_dir");'`
-php_test_exts := "-d extension_dir=" + quote(php_ext_dir) + " -d extension=dom -d extension=xml -d extension=mbstring -d extension=tokenizer -d extension=ctype -d extension=xmlwriter"
+php_test_exts := "-d extension=dom -d extension=xml -d extension=mbstring -d extension=tokenizer -d extension=ctype -d extension=xmlwriter"
 
 # Builds the PHP extension (debug, dynamic pdfium) - fast inner dev loop
 build:
@@ -68,7 +74,8 @@ run *ARGS: build
     #!/usr/bin/env bash
     set -euo pipefail
     export PDFIUM_PATH="$(just pdfium-path)"
-    php -n {{php_test_exts}} -d extension={{ext_debug}} {{ARGS}}
+    export EXT_DIR="$(just php-ext-dir)"
+    php -n -d extension_dir="$EXT_DIR" {{php_test_exts}} -d extension={{ext_debug}} {{ARGS}}
 
 # Runs a single PHP expression (via `php -r`) against the debug build. Safely quotes CODE for you,
 # so parens/quotes in the snippet don't need manual shell-escaping.
@@ -77,7 +84,8 @@ run-code CODE: build
     #!/usr/bin/env bash
     set -euo pipefail
     export PDFIUM_PATH="$(just pdfium-path)"
-    php -n {{php_test_exts}} -d extension={{ext_debug}} -r {{quote(CODE)}}
+    export EXT_DIR="$(just php-ext-dir)"
+    php -n -d extension_dir="$EXT_DIR" {{php_test_exts}} -d extension={{ext_debug}} -r {{quote(CODE)}}
 
 # Checks the module loads at all - the first thing to run when something seems broken.
 # The module registers as `bernard_ledit` (see src/lib.rs).
@@ -85,7 +93,8 @@ smoke: build
     #!/usr/bin/env bash
     set -euo pipefail
     export PDFIUM_PATH="$(just pdfium-path)"
-    php -n {{php_test_exts}} -d extension={{ext_debug}} -m | grep -i bernard.ledit
+    export EXT_DIR="$(just php-ext-dir)"
+    php -n -d extension_dir="$EXT_DIR" {{php_test_exts}} -d extension={{ext_debug}} -m | grep -i bernard.ledit
 
 # Dumps the reflected classes/methods/functions of the compiled module - faster than reading stubs.
 # Auto-detects the loaded module name since it currently differs from the final `bernard_ledit`
@@ -94,8 +103,9 @@ reflect: build
     #!/usr/bin/env bash
     set -euo pipefail
     export PDFIUM_PATH="$(just pdfium-path)"
-    MODULE=$(php -n {{php_test_exts}} -d extension={{ext_debug}} -m | grep -i bernard.ledit | head -n 1)
-    php -n {{php_test_exts}} -d extension={{ext_debug}} --re "$MODULE"
+    export EXT_DIR="$(just php-ext-dir)"
+    MODULE=$(php -n -d extension_dir="$EXT_DIR" {{php_test_exts}} -d extension={{ext_debug}} -m | grep -i bernard.ledit | head -n 1)
+    php -n -d extension_dir="$EXT_DIR" {{php_test_exts}} -d extension={{ext_debug}} --re "$MODULE"
 
 # Runs phpunit (bindings/php test suite) against the debug build; installs composer deps on first run.
 # NB: this is the binding-level suite (bindings/php/tests), not the mindee-api-php SDK suite.
@@ -104,7 +114,8 @@ test *ARGS: build
     set -euo pipefail
     [ -d vendor ] || composer install
     export PDFIUM_PATH="$(just pdfium-path)"
-    php -n {{php_test_exts}} -d extension={{ext_debug}} vendor/bin/phpunit {{ARGS}}
+    export EXT_DIR="$(just php-ext-dir)"
+    php -n -d extension_dir="$EXT_DIR" {{php_test_exts}} -d extension={{ext_debug}} vendor/bin/phpunit {{ARGS}}
 
 # Runs phpunit against the static-pdfium release build with NO PDFIUM_PATH set and no libpdfium.so
 # on disk - the only test that actually proves static linking works (ldd/dlopen checks lie, see
@@ -114,7 +125,8 @@ test-static: build-static
     set -euo pipefail
     [ -d vendor ] || composer install
     unset PDFIUM_PATH
-    php -n {{php_test_exts}} -d extension={{ext_release}} vendor/bin/phpunit
+    export EXT_DIR="$(just php-ext-dir)"
+    php -n -d extension_dir="$EXT_DIR" {{php_test_exts}} -d extension={{ext_release}} vendor/bin/phpunit
 
 # Regenerates the PHP stub file (bernard_ledit.stubs.php) for IDEs/phpstan from the compiled extension
 stubs: build

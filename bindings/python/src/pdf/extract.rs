@@ -1,4 +1,4 @@
-use crate::input::BinaryInput;
+use crate::input::PdfInput;
 use crate::pdf::document::PyPdfDocument;
 use crate::pdf::error::format_pdf_extract_err;
 use pyo3::{PyResult, pyfunction};
@@ -7,7 +7,7 @@ use pyo3::{PyResult, pyfunction};
 #[pyo3(signature = (data, page_indexes))]
 #[allow(clippy::needless_pass_by_value)]
 pub fn extract_from_page_ranges(
-    data: BinaryInput<'_>,
+    data: PdfInput<'_>,
     page_indexes: Vec<Vec<u16>>,
 ) -> PyResult<Vec<PyPdfDocument>> {
     let bytes = data.into_vec()?;

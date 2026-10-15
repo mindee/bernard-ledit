@@ -32,6 +32,14 @@ pub fn register_submodule(parent: &Bound<'_, PyModule>) -> PyResult<()> {
         "PdfExtractionError",
         parent.py().get_type::<error::PyPdfExtractionError>(),
     )?;
+    m.add(
+        "PdfFixError",
+        parent.py().get_type::<error::PyPdfFixError>(),
+    )?;
+    m.add(
+        "PageOptionsError",
+        parent.py().get_type::<error::PyPageOptionsError>(),
+    )?;
     m.add_function(wrap_pyfunction!(document::compress, &m)?)?;
     m.add_function(wrap_pyfunction!(extract::extract_from_page_ranges, &m)?)?;
     m.add_function(wrap_pyfunction!(fix::fix_pdf, &m)?)?;
