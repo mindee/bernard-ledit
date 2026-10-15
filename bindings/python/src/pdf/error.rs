@@ -1,7 +1,7 @@
-use crate::image::error::{PyImageError, PyImageExtractError};
+use crate::image::error::{PyImageExtractError, format_image_err};
 use bernard_ledit::pdf::PdfError;
 use bernard_ledit::pdf::error::PdfExtractError;
-use pyo3::exceptions::PyException;
+use pyo3::exceptions::{PyException, PyValueError};
 use pyo3::{PyErr, create_exception};
 
 create_exception!(
@@ -14,8 +14,8 @@ create_exception!(
 create_exception!(
     bernard_ledit.pdf,
     PyPdfExtractionError,
-    PyException,
-    "This error represents a PDF processing failure."
+    PyValueError,
+    "This error represents a PDF extraction failure."
 );
 
 /// Returns a closed `PdfDocument` error
@@ -43,12 +43,12 @@ pub fn format_pdf_err(e: &PdfError) -> PyErr {
 #[must_use = "PdfExtractError is formatted into a PyException"]
 pub fn format_pdf_extract_err(e: &PdfExtractError) -> PyErr {
     match e {
-        PdfExtractError::Pdf(_) => PyPdfExtractionError::new_err(e.to_string()),
-        PdfExtractError::Image(_) => PyImageError::new_err(e.to_string()),
+        PdfExtractError::Pdf(inner) => format_pdf_err(inner),
+        PdfExtractError::Image(inner) => format_image_err(inner),
         PdfExtractError::ImageExtract(_) => PyImageExtractError::new_err(e.to_string()),
         PdfExtractError::Builder(_) => PyPdfiumError::new_err(e.to_string()),
         PdfExtractError::EmptyGroup(_) | PdfExtractError::NoGroups => {
-            PyPdfiumError::new_err(e.to_string())
+            PyPdfExtractionError::new_err(e.to_string())
         }
     }
 }

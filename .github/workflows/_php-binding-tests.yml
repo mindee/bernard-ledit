@@ -32,7 +32,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       CARGO_INCREMENTAL: 0
-      RUSTUP_TOOLCHAIN: ${{ matrix.os == 'windows-latest' && 'nightly' || '1.99.0' }}
+      RUSTUP_TOOLCHAIN: ${{ matrix.os == 'windows-latest' && 'nightly-YYYY-MM-DD' || '1.99.0' }}
 
     strategy:
       fail-fast: false
@@ -94,9 +94,6 @@ jobs:
           restore-keys: |
             composer-${{ runner.os }}-php${{ matrix.php }}-${{ matrix.thread_safety }}-
             composer-${{ runner.os }}-
-
-      - name: Build PHP Extension
-        run: just php build
 
       - name: Build PHP Extension
         run: just php build

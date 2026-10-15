@@ -34,7 +34,15 @@ build-static:
 pdfium-path:
     #!/usr/bin/env bash
     set -euo pipefail
-    find_pdfium() { find ../../core/.pdfium_cache -name "libpdfium.so" 2>/dev/null | head -n 1; }
+    find_pdfium() {
+        local lib_name
+        case "{{os()}}" in
+            macos) lib_name="libpdfium.dylib" ;;
+            windows) lib_name="pdfium.dll" ;;
+            *) lib_name="libpdfium.so" ;;
+        esac
+        find ../../core/.pdfium_cache -name "$lib_name" 2>/dev/null | head -n 1
+    }
     PDFIUM_FILE=$(find_pdfium)
     if [ -z "$PDFIUM_FILE" ]; then
         just -f ../../justfile core build >&2

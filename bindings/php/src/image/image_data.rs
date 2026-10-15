@@ -175,6 +175,13 @@ pub fn extract_polygons(
     polygons: Vec<Vec<Vec<f64>>>,
     dpi: f64,
 ) -> PhpResult<Vec<PhpImage>> {
+    if polygons.iter().flatten().any(|point| point.len() != 2) {
+        return Err(PhpException::new(
+            "Each polygon point must contain exactly two coordinates".into(),
+            0,
+            ce::value_error(),
+        ));
+    }
     let polygons_f32: Vec<Vec<(f32, f32)>> = polygons
         .into_iter()
         .map(|polygon| {
@@ -184,6 +191,10 @@ pub fn extract_polygons(
                 .collect()
         })
         .collect();
+
+    if data.starts_with(b"%PDF-") {
+        crate::pdf::ensure_pdfium()?;
+    }
     bernard_ledit::image::extract::extract_polygons(
         &data,
         page_id,

@@ -273,6 +273,7 @@ pub fn extract_documents(
     data: BinarySlice<u8>,
     page_indexes: Vec<Vec<u16>>,
 ) -> PhpResult<Vec<PhpPdfDocument>> {
+    super::ensure_pdfium()?;
     bernard_ledit::pdf::extract::extract_documents(&data, &page_indexes)
         .map(|docs| docs.into_iter().map(PhpPdfDocument::wrap).collect())
         .map_err(|e| format_pdf_extract_err(&e))
