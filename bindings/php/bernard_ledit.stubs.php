@@ -91,7 +91,7 @@ namespace BernardLedit\Image {
     }
 
     /**
-     * Compresses an image mirroring the reference PIL implementation.
+     * Compresses an image.
      *
      * @param string $data
      * @param int $quality
@@ -138,7 +138,7 @@ namespace BernardLedit\Image {
 namespace BernardLedit\Pdf {
     class PdfDocument {
         /**
-         * Create a new instance from bytes: `new PdfDocument(string $bytes)`.
+         * Create a new instance from bytes.
          *
          * @param string $data
          * @throws \Exception Returns a PHP Exception if the creation fails.
@@ -211,7 +211,7 @@ namespace BernardLedit\Pdf {
         public static function fromFile(string $path): \BernardLedit\Pdf\PdfDocument {}
 
         /**
-         * Validates the index now (opens & drops the page), returns a lightweight handle.
+         * Return the specified page.
          *
          * @param int $index
          * @return \BernardLedit\Pdf\PdfPage
