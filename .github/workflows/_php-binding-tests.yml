@@ -96,6 +96,13 @@ jobs:
             composer-${{ runner.os }}-php${{ matrix.php }}-${{ matrix.thread_safety }}-
             composer-${{ runner.os }}-
 
+      - name: Pin MSVC toolset to match PHP build (Windows)
+        if: runner.os == 'Windows' && contains(fromJSON('["8.1", "8.2", "8.3"]'), matrix.php)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+          toolset: 14.29
+
       - name: Build PHP Extension
         run: just php build
 
