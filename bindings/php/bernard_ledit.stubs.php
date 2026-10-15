@@ -359,7 +359,7 @@ namespace BernardLedit\Pdf {
      * @return string
      * @throws \Exception Returns a PHP Exception if the PDF is invalid or compression fails.
      */
-    function compress(string $data, int $quality = 85, ?bool $optimize = true, ?float $dpi = 150.0): string {}
+    function compress(string $data, int $quality = 85, ?bool $optimize = null, ?float $dpi = null): string {}
 
     /**
      * Builds one new document per group of 0-indexed page numbers.

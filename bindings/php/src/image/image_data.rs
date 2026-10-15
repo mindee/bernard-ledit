@@ -167,7 +167,7 @@ pub fn compress(
 #[allow(clippy::needless_pass_by_value)]
 #[allow(
     clippy::cast_possible_truncation,
-    reason = "Core takes in f32, PHP needs f34"
+    reason = "Core takes in f32, PHP needs f64"
 )]
 pub fn extract_polygons(
     data: BinarySlice<u8>,

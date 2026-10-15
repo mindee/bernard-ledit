@@ -185,7 +185,7 @@ impl PhpPdfDocument {
     #[php(defaults(quality = 85, optimize = true, dpi = 150.0))]
     #[allow(
         clippy::cast_possible_truncation,
-        reason = "Core takes in f32, PHP needs f34"
+        reason = "Core takes in f32, PHP needs f64"
     )]
     pub fn compress(&self, quality: u8, optimize: bool, dpi: f64) -> PhpResult<Option<Self>> {
         let out = self
@@ -223,11 +223,11 @@ impl PhpPdfDocument {
 /// Returns a PHP Exception if the PDF is invalid or compression fails.
 #[php_function]
 #[php(name = "BernardLedit\\Pdf\\compress")]
-#[php(defaults(quality = 85, optimize = true, dpi = 150.0))]
+#[php(defaults(quality = 85, optimize = None, dpi = None))]
 #[allow(clippy::needless_pass_by_value)]
 #[allow(
     clippy::cast_possible_truncation,
-    reason = "Core takes in f32, PHP needs f34"
+    reason = "Core takes in f32, PHP needs f64"
 )]
 pub fn compress(
     data: BinarySlice<u8>,
@@ -267,7 +267,7 @@ pub fn compress(
 #[allow(clippy::needless_pass_by_value)]
 #[allow(
     clippy::cast_possible_truncation,
-    reason = "Core takes in f32, PHP needs f34"
+    reason = "Core takes in f32, PHP needs f64"
 )]
 pub fn extract_documents(
     data: BinarySlice<u8>,
