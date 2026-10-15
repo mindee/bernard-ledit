@@ -8,7 +8,7 @@ use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/config.php';
 
-use function BernardLedit\Pdf\extractDocuments;
+use function BernardLedit\Pdf\extractFromPageRanges;
 
 final class ExtractDocumentsTest extends TestCase
 {
@@ -19,7 +19,7 @@ final class ExtractDocumentsTest extends TestCase
 
     public function testGroupPageCounts(): void
     {
-        $docs = extractDocuments($this->data('pdf/multipage.pdf'), [[0], [1, 2]]);
+        $docs = extractFromPageRanges($this->data('pdf/multipage.pdf'), [[0], [1, 2]]);
         $this->assertCount(2, $docs);
         $this->assertSame(1, $docs[0]->pageCount());
         $this->assertSame(2, $docs[1]->pageCount());
@@ -27,7 +27,7 @@ final class ExtractDocumentsTest extends TestCase
 
     public function testOutputRoundtrips(): void
     {
-        [$doc] = extractDocuments($this->data('pdf/multipage.pdf'), [[0, 1]]);
+        [$doc] = extractFromPageRanges($this->data('pdf/multipage.pdf'), [[0, 1]]);
         $bytes = $doc->save();
         $this->assertStringStartsWith('%PDF-', $bytes);
         $this->assertSame(2, (new PdfDocument($bytes))->pageCount());
@@ -35,14 +35,14 @@ final class ExtractDocumentsTest extends TestCase
 
     public function testExtractedDocumentHasText(): void
     {
-        [$doc] = extractDocuments($this->data('pdf/multipage.pdf'), [[2]]);
+        [$doc] = extractFromPageRanges($this->data('pdf/multipage.pdf'), [[2]]);
         $this->assertTrue($doc->hasText());
     }
 
     public function testFromImageIsOnePageDocument(): void
     {
         foreach (['receipt.jpg', 'receipt.png'] as $file) {
-            [$doc] = extractDocuments($this->data($file), [[0]]);
+            [$doc] = extractFromPageRanges($this->data($file), [[0]]);
             $this->assertSame(1, $doc->pageCount(), $file);
         }
     }
@@ -50,24 +50,24 @@ final class ExtractDocumentsTest extends TestCase
     public function testNoGroupsThrows(): void
     {
         $this->expectException(\ValueError::class);
-        extractDocuments($this->data('pdf/multipage.pdf'), []);
+        extractFromPageRanges($this->data('pdf/multipage.pdf'), []);
     }
 
     public function testEmptyGroupThrows(): void
     {
         $this->expectException(\ValueError::class);
-        extractDocuments($this->data('pdf/multipage.pdf'), [[0], []]);
+        extractFromPageRanges($this->data('pdf/multipage.pdf'), [[0], []]);
     }
 
     public function testIndexOutOfRangeThrows(): void
     {
         $this->expectException(\Throwable::class); // PageIndexOutOfBounds goes through map_pdf_err
-        extractDocuments($this->data('pdf/multipage.pdf'), [[12]]);
+        extractFromPageRanges($this->data('pdf/multipage.pdf'), [[12]]);
     }
 
     public function testGarbageThrows(): void
     {
         $this->expectException(\Throwable::class);
-        extractDocuments('garbage', [[0]]);
+        extractFromPageRanges('garbage', [[0]]);
     }
 }

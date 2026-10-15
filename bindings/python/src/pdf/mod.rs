@@ -7,8 +7,10 @@ pub mod document;
 /// PDF errors.
 pub mod error;
 mod extract;
+mod fix;
 /// PDF page.
 pub mod page;
+mod page_options;
 /// Text character.
 pub mod text_char;
 
@@ -31,7 +33,9 @@ pub fn register_submodule(parent: &Bound<'_, PyModule>) -> PyResult<()> {
         parent.py().get_type::<error::PyPdfExtractionError>(),
     )?;
     m.add_function(wrap_pyfunction!(document::compress, &m)?)?;
-    m.add_function(wrap_pyfunction!(extract::extract_documents, &m)?)?;
+    m.add_function(wrap_pyfunction!(extract::extract_from_page_ranges, &m)?)?;
+    m.add_function(wrap_pyfunction!(fix::fix_pdf, &m)?)?;
+    m.add_function(wrap_pyfunction!(page_options::apply_page_options, &m)?)?;
     parent.add_submodule(&m)?;
     Ok(())
 }

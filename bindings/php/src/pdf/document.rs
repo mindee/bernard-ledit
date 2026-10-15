@@ -179,7 +179,8 @@ impl PhpPdfDocument {
 
 /// PDF document wrapper object, not included in the PHP API.
 impl PhpPdfDocument {
-    fn wrap(doc: Document) -> Self {
+    #[must_use]
+    pub fn wrap(doc: Document) -> Self {
         Self {
             inner: Arc::new(Mutex::new(Some(doc))),
         }
@@ -245,18 +246,18 @@ pub fn compress(
 /// Throws if a page index is out of range.
 /// Throws if the data is neither a valid PDF nor a supported image.
 #[php_function]
-#[php(name = "BernardLedit\\Pdf\\extractDocuments")]
+#[php(name = "BernardLedit\\Pdf\\extractFromPageRanges")]
 #[allow(clippy::needless_pass_by_value)]
 #[allow(
     clippy::cast_possible_truncation,
     reason = "Core takes in f32, PHP needs f64"
 )]
-pub fn extract_documents(
+pub fn extract_from_page_ranges(
     data: BinarySlice<u8>,
     page_indexes: Vec<Vec<u16>>,
 ) -> PhpResult<Vec<PhpPdfDocument>> {
     super::ensure_pdfium()?;
-    bernard_ledit::pdf::extract::extract_documents(&data, &page_indexes)
+    bernard_ledit::pdf::extract::extract_from_page_ranges(&data, &page_indexes)
         .map(|docs| docs.into_iter().map(PhpPdfDocument::wrap).collect())
         .map_err(|e| format_pdf_extract_err(&e))
 }
@@ -265,5 +266,5 @@ pub fn extract_documents(
 pub fn register_functions(builder: ModuleBuilder) -> ModuleBuilder {
     builder
         .function(wrap_function!(compress))
-        .function(wrap_function!(extract_documents))
+        .function(wrap_function!(extract_from_page_ranges))
 }

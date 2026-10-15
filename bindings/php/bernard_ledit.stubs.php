@@ -123,7 +123,7 @@ namespace BernardLedit\Image {
      * @return array
      * @throws \Exception Return an error if the image cannot be decoded or if the polygons cannot be extracted.
      */
-    function extractPolygons(string $data, int $page_id, array $polygons, float $dpi = 72.0): array {}
+    function extractFromPolygons(string $data, int $page_id, array $polygons, float $dpi = 72.0): array {}
 
     /**
      * `BernardLedit\Image\guessFormat(string $data): string`
@@ -332,6 +332,18 @@ namespace BernardLedit\Pdf {
     }
 
     /**
+     * Keeps or removes pages. Negative indexes count from the end.///
+     *
+     * @param string $data
+     * @param string $operation
+     * @param int $on_min_pages
+     * @param array $page_indexes
+     * @return array
+     * @throws \Exception Throws a [`ValueError`] if one or more of the provided values is incorrect.
+     */
+    function applyPageOptions(string $data, string $operation, int $on_min_pages, array $page_indexes): array {}
+
+    /**
      * Compresses PDF bytes. Returns the input unchanged if it can't be made smaller.
      *
      * @param string $data
@@ -355,7 +367,18 @@ namespace BernardLedit\Pdf {
      * @throws \Exception Throws if a page index is out of range.
      * @throws \Exception Throws if the data is neither a valid PDF nor a supported image.
      */
-    function extractDocuments(string $data, array $page_indexes): array {}
+    function extractFromPageRanges(string $data, array $page_indexes): array {}
+
+    /**
+     * Drops every byte before the first `%PDF-` marker.
+     *
+     * @param string $data
+     * @param int $maximum_offset
+     * @return string
+     * @throws \Exception Throws a ValueError if there is no marker.
+     * @throws \Exception Throws a ValueError if the marker sits at or past `$maximumOffset`.
+     */
+    function fixPdf(string $data, int $maximum_offset = 500): string {}
 }
 
 namespace {

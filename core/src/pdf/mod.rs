@@ -8,12 +8,16 @@ pub mod document;
 pub mod error;
 /// PDF Extraction module.
 pub mod extract;
+/// PDF fixing utility.
+pub mod fix;
 /// Font resolution module.
 pub mod font_resolver;
 /// JPEG embedding module.
 pub mod jpeg;
 /// PDF Page module.
 pub mod page;
+/// Page options to apply to a PDF.
+pub mod page_options;
 /// Text character module.
 pub mod text_char;
 

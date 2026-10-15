@@ -37,7 +37,7 @@ def compress(
     max_height: int | None = None,
     optimize: bool = True,
 ) -> bytes: ...
-def extract_polygons(
+def extract_from_polygons(
     data: bytes | BinaryIO,
     page_id: int,
     polygons: list[list[tuple[float, float]]],

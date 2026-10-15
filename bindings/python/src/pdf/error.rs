@@ -1,6 +1,7 @@
 use crate::image::error::{PyImageExtractError, format_image_err};
 use bernard_ledit::pdf::PdfError;
 use bernard_ledit::pdf::error::PdfExtractError;
+use bernard_ledit::pdf::page_options::PageOptionsError;
 use pyo3::exceptions::{PyException, PyValueError};
 use pyo3::{PyErr, create_exception};
 
@@ -50,5 +51,27 @@ pub fn format_pdf_extract_err(e: &PdfExtractError) -> PyErr {
         PdfExtractError::EmptyGroup(_) | PdfExtractError::NoGroups => {
             PyPdfExtractionError::new_err(e.to_string())
         }
+    }
+}
+
+create_exception!(
+    bernard_ledit.pdf,
+    PyPdfFixError,
+    PyValueError,
+    "PDF could not be fixed."
+);
+create_exception!(
+    bernard_ledit.pdf,
+    PyPageOptionsError,
+    PyValueError,
+    "Invalid page options."
+);
+
+/// Formats a `PageOptionsError` as a `PyException`
+#[must_use = "PageOptionsError is formatted into a PyException"]
+pub fn format_page_options_err(e: &PageOptionsError) -> PyErr {
+    match e {
+        PageOptionsError::Pdf(inner) => format_pdf_err(inner),
+        _ => PyPageOptionsError::new_err(e.to_string()),
     }
 }

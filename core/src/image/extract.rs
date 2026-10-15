@@ -6,7 +6,7 @@ use ::image::ImageFormat;
 /// Crops one `Image` per polygon from page `page_id` of a PDF or image.
 /// # Errors
 /// Returns an [`ImageExtractError`] if the polygon is empty or if the polygon is out of bounds.
-pub fn extract_polygons(
+pub fn extract_from_polygons(
     data: &[u8],
     page_id: u16,
     polygons: &[Vec<(f32, f32)>],

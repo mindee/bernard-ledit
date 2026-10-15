@@ -163,13 +163,13 @@ pub fn compress(
 /// Return an error if the image cannot be decoded or if the polygons cannot be extracted.
 #[php_function]
 #[php(defaults(dpi = 72.0))]
-#[php(name = "BernardLedit\\Image\\extractPolygons")]
+#[php(name = "BernardLedit\\Image\\extractFromPolygons")]
 #[allow(clippy::needless_pass_by_value)]
 #[allow(
     clippy::cast_possible_truncation,
     reason = "Core takes in f32, PHP needs f64"
 )]
-pub fn extract_polygons(
+pub fn extract_from_polygons(
     data: BinarySlice<u8>,
     page_id: u16,
     polygons: Vec<Vec<Vec<f64>>>,
@@ -195,7 +195,7 @@ pub fn extract_polygons(
     if data.starts_with(b"%PDF-") {
         crate::pdf::ensure_pdfium()?;
     }
-    bernard_ledit::image::extract::extract_polygons(
+    bernard_ledit::image::extract::extract_from_polygons(
         &data,
         page_id,
         polygons_f32.as_slice(),
@@ -211,5 +211,5 @@ pub fn register_functions(builder: ModuleBuilder) -> ModuleBuilder {
         .function(wrap_function!(decode))
         .function(wrap_function!(guess_format))
         .function(wrap_function!(compress))
-        .function(wrap_function!(extract_polygons))
+        .function(wrap_function!(extract_from_polygons))
 }

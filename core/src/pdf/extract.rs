@@ -7,7 +7,7 @@ use ::image::ImageFormat;
 /// # Errors
 /// Returns a [`PdfExtractError`] if the data cannot be decoded as a PDF, if the groups are empty,
 /// or if any group is empty.
-pub fn extract_documents(
+pub fn extract_from_page_ranges(
     data: &[u8],
     groups: &[Vec<u16>],
 ) -> Result<Vec<Document>, PdfExtractError> {
@@ -51,7 +51,7 @@ mod tests {
         let data = b"%PDF-1.4...";
         let groups: &[Vec<u16>] = &[];
 
-        let result = extract_documents(data, groups);
+        let result = extract_from_page_ranges(data, groups);
 
         assert!(matches!(result, Err(PdfExtractError::NoGroups)));
     }
@@ -61,7 +61,7 @@ mod tests {
         let data = b"%PDF-1.4...";
         let groups = vec![vec![0, 1], vec![], vec![2]];
 
-        let result = extract_documents(data, &groups);
+        let result = extract_from_page_ranges(data, &groups);
 
         assert!(matches!(result, Err(PdfExtractError::EmptyGroup(1))));
     }
