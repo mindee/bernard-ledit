@@ -8,6 +8,7 @@ use std::io::Cursor;
 pub struct Image {
     inner: DynamicImage,
     format: Option<ImageFormat>,
+    source_len: Option<usize>,
 }
 
 /// Thin wrapper for resize filters, so the string->enum parse lives in core.
@@ -122,6 +123,13 @@ impl std::str::FromStr for Filter {
 }
 
 impl Image {
+    /// Creates a new image from raw data.
+    /// # Errors
+    /// Returns an error if the image data is invalid or the format is not supported.
+    pub fn new(data: &[u8]) -> Result<Self, ImageError> {
+        Self::decode(data)
+    }
+
     /// Decode any supported raster and records the sniffed format.
     /// # Errors
     /// Returns an error if the image data is invalid or the format is not supported.
@@ -129,6 +137,7 @@ impl Image {
         let inner = ImageReader::new(Cursor::new(data))
             .with_guessed_format()
             .map_err(|e| ImageError::Decode(e.to_string()))?;
+        let source_len = Some(data.len());
         let format = inner.format();
         let decoded = inner
             .decode()
@@ -136,7 +145,25 @@ impl Image {
         Ok(Self {
             inner: decoded,
             format,
+            source_len,
         })
+    }
+
+    /// Return bytes as an u8 vec.
+    /// # Errors
+    /// Returns a [`PdfError`] if saving the document fails.
+    pub fn to_bytes(&self) -> Result<Vec<u8>, ImageError> {
+        Ok(self.inner.as_bytes().to_vec())
+    }
+
+    /// Creates an `ImageData` from a `DynamicImage`.
+    pub(crate) fn from_dynamic(inner: DynamicImage) -> Self {
+        let source_len = Some(inner.as_bytes().len());
+        Self {
+            inner,
+            format: None,
+            source_len,
+        }
     }
 
     /// (width, height).
@@ -172,6 +199,7 @@ impl Image {
         Ok(Self {
             inner: cropped_inner,
             format: self.format,
+            source_len: self.source_len,
         })
     }
 
@@ -187,6 +215,7 @@ impl Image {
         Ok(Self {
             inner: resized_inner,
             format: self.format,
+            source_len: self.source_len,
         })
     }
 
@@ -195,7 +224,6 @@ impl Image {
     /// Accepts any raster [`ImageFormat`] or [`OutputFormat::Pdf`]. Choosing PDF
     /// produces a single-page document that embeds the image as a JPEG, so no
     /// separate trip through the `pdf` module is needed.
-    /// TODO: `optimize` is accepted at the language layer but ignored.
     /// # Errors
     /// Returns `ImageError::Encode` if encoding fails or `ImageError::InvalidDimensions`
     /// if the dimensions are invalid.
@@ -254,6 +282,53 @@ impl Image {
         crate::pdf::jpeg::build_jpeg_pdf_auto_size(&jpeg_bytes)
             .map_err(|e| ImageError::Encode(e.to_string()))
     }
+
+    /// Compresses image data gradually until the expected quality is reached.
+    /// Returns (`jpeg_bytes`, `width`, `height`).
+    /// # Errors
+    /// Returns an error if the image cannot be decoded, resized, or encoded.
+    pub fn compress(
+        &self,
+        quality: u8,
+        max_width: Option<u32>,
+        max_height: Option<u32>,
+        optimize: bool,
+    ) -> Result<Option<(Vec<u8>, u32, u32)>, ImageError> {
+        compress_decoded(
+            self,
+            quality,
+            max_width,
+            max_height,
+            optimize,
+            self.source_len,
+        )
+    }
+
+    /// Force-sets an image format.
+    #[must_use]
+    pub(crate) const fn with_format(mut self, format: ImageFormat) -> Self {
+        self.format = Some(format);
+        self
+    }
+}
+
+/// Encode JPEG (scaled).
+/// # Errors
+/// Returns [`ImageError`] if the image cannot be encoded.
+pub fn encode_jpeg_scaled(
+    img: &Image,
+    quality: u8,
+    max_width: Option<u32>,
+    max_height: Option<u32>,
+    optimize: bool,
+) -> Result<(Vec<u8>, u32, u32), ImageError> {
+    if quality < 5 {
+        return Err(ImageError::ProgressiveQualityTooLow { quality });
+    }
+    let scaled = downscale_to_fit(img, max_width, max_height);
+    let (w, h) = scaled.size();
+    let jpeg = scaled.encode(ImageFormat::Jpeg, quality, optimize)?;
+    Ok((jpeg, w, h))
 }
 
 /// Aspect-preserving downscale.
@@ -264,8 +339,6 @@ impl Image {
 #[must_use]
 pub fn downscale_to_fit(img: &Image, max_width: Option<u32>, max_height: Option<u32>) -> Image {
     let (width, height) = img.size();
-    // Clamp each bound to the current size so `resize` (which fits within the
-    // box using the smaller of the two ratios) can only ever scale down.
     let bound_w = max_width.map_or(width, |w| w.clamp(1, width));
     let bound_h = max_height.map_or(height, |h| h.clamp(1, height));
 
@@ -273,30 +346,60 @@ pub fn downscale_to_fit(img: &Image, max_width: Option<u32>, max_height: Option<
         return Image {
             inner: img.inner.clone(),
             format: img.format,
+            source_len: img.source_len,
         };
     }
 
     Image {
         inner: img.inner.resize(bound_w, bound_h, FilterType::Lanczos3),
         format: img.format,
+        source_len: img.source_len,
     }
 }
 
-/// Compresses image data by decoding, optionally downscaling, and re-encoding as JPEG.
-/// Returns (`jpeg_bytes`, `width`, `height`).
+/// Compresses a decoded image to JPEG format.
 /// # Errors
-/// Returns an error if the image cannot be decoded, resized, or encoded.
-pub fn compress(
-    data: &[u8],
+/// Returns [`ImageError`] if the image cannot be encoded.
+pub fn compress_decoded(
+    img: &Image,
     quality: u8,
     max_width: Option<u32>,
     max_height: Option<u32>,
-) -> Result<(Vec<u8>, u32, u32), ImageError> {
-    let img = Image::decode(data)?;
-    let scaled = downscale_to_fit(&img, max_width, max_height);
-    let jpeg_bytes = scaled.encode(ImageFormat::Jpeg, quality, false)?;
+    optimize: bool,
+    budget: Option<usize>,
+) -> Result<Option<(Vec<u8>, u32, u32)>, ImageError> {
+    if quality < 5 {
+        return Err(ImageError::ProgressiveQualityTooLow { quality });
+    }
+    let scaled = downscale_to_fit(img, max_width, max_height);
     let (w, h) = scaled.size();
-    Ok((jpeg_bytes, w, h))
+    let budget = if (w, h) == img.size() { budget } else { None };
+
+    let mut q = quality;
+    loop {
+        let jpeg = scaled.encode(ImageFormat::Jpeg, q, optimize)?;
+        if budget.is_none_or(|b| jpeg.len() < b) {
+            return Ok(Some((jpeg, w, h)));
+        }
+        if !optimize || q < 10 {
+            return Ok(None);
+        }
+        q -= 5;
+    }
+}
+
+/// Compresses an image, returning the compressed bytes and the new dimensions.
+/// # Errors
+/// Return [`ImageError`] if either the decode or compress operation fails
+pub fn compress_image(
+    data: &[u8],
+    quality: u8,
+    mw: Option<u32>,
+    mh: Option<u32>,
+    optimize: bool,
+) -> Result<Option<(Vec<u8>, u32, u32)>, ImageError> {
+    let img = Image::decode(data)?;
+    compress_decoded(&img, quality, mw, mh, optimize, Some(data.len()))
 }
 
 #[cfg(test)]
@@ -309,7 +412,7 @@ mod tests {
     /// Build deterministic raster bytes of a solid-colour image in `format`,
     /// so tests can assert exact dimensions without depending on fixture files.
     fn synth_bytes(width: u32, height: u32, format: ImageFormat) -> Vec<u8> {
-        let img = RgbImage::from_pixel(width, height, ::image::Rgb([120, 200, 40]));
+        let img = RgbImage::from_pixel(width, height, image::Rgb([120, 200, 40]));
         let dynamic = DynamicImage::ImageRgb8(img);
         let mut cursor = Cursor::new(Vec::new());
         dynamic
@@ -664,34 +767,57 @@ mod tests {
     #[test]
     fn compress_returns_jpeg_and_dimensions() {
         let bytes = synth_bytes(200, 100, ImageFormat::Png);
-        let (jpeg, w, h) = compress(&bytes, 85, Some(100), Some(100)).unwrap();
+        let (jpeg, w, h) = compress_image(&bytes, 85, Some(100), Some(100), false)
+            .unwrap()
+            .unwrap();
         assert_eq!(&jpeg[0..3], &[0xFF, 0xD8, 0xFF]);
         assert_eq!((w, h), (100, 50));
     }
-
     #[test]
     fn compress_does_not_upscale() {
         let bytes = synth_bytes(30, 30, ImageFormat::Png);
-        let (_, w, h) = compress(&bytes, 85, Some(500), Some(500)).unwrap();
+        let img = Image::decode(&bytes).unwrap();
+        let (_, w, h) = encode_jpeg_scaled(&img, 85, Some(500), Some(500), false).unwrap();
         assert_eq!((w, h), (30, 30));
     }
 
     #[test]
     fn compress_no_bounds_keeps_dimensions() {
         let bytes = synth_bytes(64, 48, ImageFormat::Png);
-        let (_, w, h) = compress(&bytes, 85, None, None).unwrap();
+        let img = Image::decode(&bytes).unwrap();
+        let (_, w, h) = encode_jpeg_scaled(&img, 85, None, None, false).unwrap();
         assert_eq!((w, h), (64, 48));
+    }
+    #[test]
+    fn compress_returns_none_when_jpeg_would_be_larger() {
+        let bytes = synth_bytes(30, 30, ImageFormat::Png); // tiny flat PNG
+        assert!(
+            compress_image(&bytes, 85, None, None, false)
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[test]
+    fn compress_with_bounds_returns_some_even_if_larger() {
+        // a requested downscale is always honored, regardless of byte count
+        let bytes = synth_bytes(200, 100, ImageFormat::Png);
+        let (_, w, h) = compress_image(&bytes, 85, Some(100), Some(100), false)
+            .unwrap()
+            .expect("downscale was requested");
+        assert_eq!((w, h), (100, 50));
+    }
+    #[test]
     fn compress_garbage_errors() {
-        assert!(compress(&[0x00, 0x01], 85, None, None).is_err());
+        assert!(compress_image(&[0x00, 0x01], 85, None, None, false).is_err());
     }
 
     #[test]
     fn compress_fixture_jpeg() {
         let bytes = test_data_bytes!("file_types/receipt.jpg");
-        let (jpeg, w, h) = compress(bytes, 80, Some(512), Some(512)).unwrap();
+        let (jpeg, w, h) = compress_image(bytes, 80, Some(512), Some(512), false)
+            .unwrap()
+            .unwrap();
         assert_eq!(&jpeg[0..3], &[0xFF, 0xD8, 0xFF]);
         assert!(w <= 512 && h <= 512);
     }

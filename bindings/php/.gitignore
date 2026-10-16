@@ -1,3 +1,7 @@
 # PHP (bindings/php)
 **/vendor/
 **/composer.lock
+
+# PHPUnit result/coverage cache (regenerated on every run; path/schema from phpunit.xml)
+.phpunit.result.cache
+.phpunit.cache/

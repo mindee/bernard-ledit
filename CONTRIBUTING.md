@@ -33,7 +33,9 @@ You only need these if you are working on the corresponding language binding.
 
 #### Python (`bindings/python`)
 
-Python 3.9+, a virtualenv, and [maturin](https://github.com/PyO3/maturin) are required:
+Python 3.9+ and an active virtualenv (venv, virtualenvwrapper, uv, …) are required. The `dev`
+extra installs [maturin](https://github.com/PyO3/maturin) (used by `just python build`) along with
+the test and lint tools:
 
 ```bash
 # Debian / Ubuntu
@@ -41,7 +43,7 @@ sudo apt install python3 python3-venv
 
 python3 -m venv .venv
 source .venv/bin/activate
-pip install maturin
+pip install -e "bindings/python[dev]"   # from the repo root
 ```
 
 #### PHP (`bindings/php`)

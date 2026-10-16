@@ -1,7 +1,7 @@
 use super::error::format_image_err;
+use crate::input::BinaryInput;
 use bernard_ledit::image::{
-    Filter, Image, compress as core_compress, format_name, guess_format as core_guess,
-    parse_output_format,
+    Filter, Image, format_name, guess_format as core_guess, parse_output_format,
 };
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
@@ -10,11 +10,27 @@ use std::str::FromStr;
 #[pyclass(name = "Image", module = "bernard_ledit.image")]
 /// An image.
 pub struct PyImage {
+    /// Core image.
     inner: Image,
+}
+
+impl PyImage {
+    /// Create from core Image.
+    #[allow(dead_code)]
+    pub(crate) const fn from_core(inner: Image) -> Self {
+        Self { inner }
+    }
 }
 
 #[pymethods]
 impl PyImage {
+    #[new]
+    #[pyo3(signature = (data))]
+    fn new(data: BinaryInput<'_>) -> PyResult<Self> {
+        let inner = Image::decode(&data.into_vec()?).map_err(|e| format_image_err(&e))?;
+        Ok(Self { inner })
+    }
+
     /// (width, height)
     #[getter]
     fn size(&self) -> (u32, u32) {
@@ -36,9 +52,9 @@ impl PyImage {
         Ok(cropped_image)
     }
 
-    #[pyo3(signature = (width, height, filter = "lanczos"))]
-    fn resize(&self, width: u32, height: u32, filter: &str) -> PyResult<Self> {
-        let filter_value = Filter::from_str(filter).map_err(|e| format_image_err(&e))?;
+    #[pyo3(signature = (width, height))]
+    fn resize(&self, width: u32, height: u32) -> PyResult<Self> {
+        let filter_value = Filter::from_str("lanczos").map_err(|e| format_image_err(&e))?;
         let resized_image = self
             .inner
             .resize(width, height, filter_value.0)
@@ -125,22 +141,28 @@ impl PyImage {
         let fmt = self.inner.format().and_then(format_name).unwrap_or("?");
         format!("Image({w}x{h}, format:{fmt})")
     }
-}
 
-/// Decodes raw bytes into an image.
-/// Accepts `bytes`, `bytearray`, or any file-like object with a `read()` method (e.g. `BytesIO`).
-/// # Errors
-/// Returns an error if the image data is invalid.
-#[pyfunction]
-pub fn decode(data: &Bound<'_, PyAny>) -> PyResult<PyImage> {
-    let bytes: Vec<u8> = if data.hasattr("read")? {
-        data.call_method0("read")?.extract()?
-    } else {
-        data.extract()?
-    };
-    Ok(PyImage {
-        inner: Image::decode(&bytes).map_err(|e| format_image_err(&e))?,
-    })
+    #[pyo3(signature = (quality = 85, max_width = None, max_height = None, optimize = true))]
+    fn compress<'py>(
+        &self,
+        py: Python<'py>,
+        quality: u8,
+        max_width: Option<u32>,
+        max_height: Option<u32>,
+        optimize: bool,
+    ) -> PyResult<Option<Bound<'py, PyBytes>>> {
+        let out = self
+            .inner
+            .compress(quality, max_width, max_height, optimize)
+            .map_err(|e| format_image_err(&e))?;
+        Ok(out.map(|(bytes, _, _)| PyBytes::new(py, &bytes)))
+    }
+
+    /// Retrieve the bytes from the image.
+    fn as_bytes<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
+        let owned_bytes = self.inner.to_bytes().map_err(|e| format_image_err(&e))?;
+        Ok(PyBytes::new(py, owned_bytes.as_slice()))
+    }
 }
 
 /// Guesses the format of the given bytes.
@@ -161,15 +183,22 @@ pub fn guess_format(data: &Bound<'_, PyAny>) -> PyResult<&'static str> {
 /// # Errors
 /// Returns an error if the image data is invalid or if the operation fails.
 #[pyfunction]
-#[pyo3(signature = (data, quality = 85, max_width = None, max_height = None))]
+#[pyo3(signature = (data, quality = 85, max_width = None, max_height = None, optimize = true))]
 pub fn compress<'py>(
     py: Python<'py>,
-    data: &[u8],
+    data: BinaryInput<'py>,
     quality: u8,
     max_width: Option<u32>,
     max_height: Option<u32>,
-) -> PyResult<(Bound<'py, PyBytes>, u32, u32)> {
-    let (data, width, height) =
-        core_compress(data, quality, max_width, max_height).map_err(|e| format_image_err(&e))?;
-    Ok((PyBytes::new(py, data.as_slice()), width, height))
+    optimize: bool,
+) -> PyResult<Bound<'py, PyBytes>> {
+    let data = data.into_vec()?;
+    let image = Image::decode(&data).map_err(|e| format_image_err(&e))?;
+    let out = image
+        .compress(quality, max_width, max_height, optimize)
+        .map_err(|e| format_image_err(&e))?;
+    Ok(match out {
+        Some((bytes, _, _)) => PyBytes::new(py, &bytes),
+        None => PyBytes::new(py, &data),
+    })
 }

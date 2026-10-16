@@ -21,6 +21,10 @@ lint = [
     "ruff",
     "mypy",
 ]
+dev = [
+    "maturin>=1.0,<2.0",
+    "bernard-ledit[test,lint]",
+]
 [tool.ruff]
 line-length = 88
 target-version = "py39"

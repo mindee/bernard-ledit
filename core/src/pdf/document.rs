@@ -5,6 +5,7 @@ use crate::pdf::jpeg::{build_jpeg_pdf, build_jpeg_pdf_auto_size};
 use crate::pdf::text_char::TextChar;
 use crate::pdf::{page::Page, pdfium};
 
+use crate::image::image_data::encode_jpeg_scaled;
 use pdfium_render::prelude::*;
 
 /// A struct that represents a PDF document.
@@ -56,6 +57,14 @@ impl Document {
         Ok(Page::new(p))
     }
 
+    /// Retrieves all pages.
+    ///
+    /// # Errors
+    /// Returns a [`PdfError`] if page retrieval fails.
+    pub fn pages(&self) -> Vec<Page<'_>> {
+        self.inner.pages().iter().map(Page::new).collect()
+    }
+
     /// Import a subset of pages from `src` into `self`, appending them.
     /// 1-indexed page numbers, auto-converts 0 to 1.
     ///
@@ -91,6 +100,15 @@ impl Document {
     pub fn save<W: std::io::Write + 'static>(&self, writer: &mut W) -> Result<(), PdfError> {
         self.inner.save_to_writer(writer)?;
         Ok(())
+    }
+
+    /// Save to a buffer and return it as an u8 vec.
+    /// # Errors
+    /// Returns a [`PdfError`] if saving the document fails.
+    pub fn to_bytes(&self) -> Result<Vec<u8>, PdfError> {
+        let mut buffer: Vec<u8> = Vec::new();
+        self.save(&mut buffer)?;
+        Ok(buffer)
     }
 
     /// Extract all text from the document, concatenating pages with newlines.
@@ -135,7 +153,7 @@ impl Document {
     ///
     /// `width` and `height` are the PDF page dimensions in points.
     ///
-    /// The JPEG bytes are embedded **as-is** using `/Filter /DCTDecode` — no pixel
+    /// The JPEG bytes are embedded **as-is** using `/Filter /DCTDecode` so no pixel
     /// decode or re-encode occurs. The resulting PDF is approximately
     /// `jpeg_bytes.len() + 500 bytes` of PDF framing overhead.
     ///
@@ -160,11 +178,6 @@ impl Document {
 
     /// Add text to a page.
     ///
-    /// Each [`TextChar`]'s `font_name`, `font_weight`, and `font_flags` are
-    /// used to pick one of the 14 PDF built-in font variants
-    /// (Helvetica / Times / Courier families plus Symbol and `ZapfDingbats`),
-    /// so requested fonts like "Arial Bold" are rendered using
-    /// `Helvetica-Bold`, "Times New Roman Italic" using `Times-Italic`, etc.
     /// # Panics
     /// If the font name is not a valid built-in font name.
     /// # Errors
@@ -250,6 +263,34 @@ impl Document {
         Ok(())
     }
 
+    /// Appends a JPEG as a new page, given its size.
+    /// # Panics
+    /// If the JPEG cannot be decoded.
+    /// # Errors
+    /// Returns a [`PdfError`] if the JPEG is invalid or the page cannot be appended.
+    pub fn append_jpeg_page_sized(
+        &mut self,
+        jpeg: &[u8],
+        w_pt: f32,
+        h_pt: f32,
+    ) -> Result<(), PdfError> {
+        let doc = Self::from_jpeg(jpeg, f64::from(w_pt), f64::from(h_pt))
+            .map_err(|e| PdfError::Other(format!("Invalid JPEG: {e}")))?;
+        self.inner.pages_mut().append(&doc.inner)?;
+        Ok(())
+    }
+
+    /// Appends a page, independently of its content.
+    /// # Errors
+    /// Returns a [`PdfError`] if the page cannot be appended.
+    fn append_page(&mut self, document: &PdfDocument, page_index: i32) -> Result<(), PdfError> {
+        let index = PdfPageIndex::from(page_index);
+        self.inner
+            .pages_mut()
+            .copy_page_from_document(document, index, index)
+            .map_err(PdfError::from)
+    }
+
     /// Appends a bunch of JPEGs as a new page.
     /// # Panics
     /// If one of the JPEGs cannot be decoded.
@@ -280,6 +321,67 @@ impl Document {
             }
         }
         Ok(false)
+    }
+
+    /// Returns the number of bytes in the document.
+    /// # Errors
+    /// Returns a [`PdfError`] if the document cannot be saved to bytes.
+    pub fn bytes_length(&self) -> Result<usize, PdfError> {
+        let bytes = self.inner.save_to_bytes().map_err(PdfError::from)?;
+        Ok(bytes.len())
+    }
+
+    /// Strips the text from each page of a PDF.
+    /// # Errors
+    /// Returns a [`Document`] with the text stripped from each page.
+    pub fn strip_text(&self) -> Result<Self, PdfError> {
+        let len = self.page_count()?;
+        let mut out_pdf = Self::new()?;
+        let full_range: Vec<u16> = (0..len).collect();
+        out_pdf.import_pages(self, &full_range)?;
+        if !self.has_text()? {
+            return Ok(out_pdf);
+        }
+
+        for i in 0..len {
+            out_pdf.page(i)?.strip_text()?;
+        }
+        Ok(out_pdf)
+    }
+
+    /// Compresses each page of a PDF by rasterizing it and re-encoding it as JPEG.
+    ///
+    /// # Errors
+    /// Returns an error if the PDF cannot be parsed, rasterized, or re-assembled.
+    pub fn compress(
+        &self,
+        quality: u8,
+        dpi: f32,
+        optimize: bool,
+    ) -> Result<Option<Self>, PdfError> {
+        let len = self.page_count()?;
+        let needs_work: Vec<bool> = (0..len)
+            .map(|i| Ok(self.inner.pages().get(i.into())?.text()?.is_empty()))
+            .collect::<Result<_, PdfError>>()?;
+        if !needs_work.contains(&true) {
+            return Ok(None);
+        }
+
+        let mut out = Self::new()?;
+        for (i, &rasterize) in needs_work.iter().enumerate() {
+            let i = u16::try_from(i).map_err(|_| PdfError::PageCountOutOfBounds)?;
+            if rasterize {
+                let page = self.page(i)?;
+                let (w_pt, h_pt) = page.size();
+                let img = page.render_image(dpi / 72.0)?;
+                let (jpeg, _, _) = encode_jpeg_scaled(&img, quality, None, None, optimize)
+                    .map_err(|e| PdfError::Other(e.to_string()))?;
+                out.append_jpeg_page_sized(&jpeg, w_pt, h_pt)?;
+            } else {
+                out.append_page(&self.inner, i.into())?;
+            }
+        }
+        Ok(Some(out))
     }
 }
 
@@ -370,7 +472,7 @@ mod tests {
         let page_count = doc.page_count().unwrap();
         let mut buf = Vec::new();
         doc.save(&mut buf).unwrap();
-        assert!(!buf.is_empty());
+        assert_ne!(buf.len(), 0);
         let reloaded = Document::from_bytes(buf).unwrap();
         assert_eq!(reloaded.page_count().unwrap(), page_count);
     }
@@ -523,5 +625,21 @@ mod tests {
         let bytes_blank: &[u8] = test_data_bytes!("file_types/pdf/blank.pdf");
         let doc_blank = Document::from_bytes(bytes_blank.to_vec()).unwrap();
         assert!(doc_blank.has_no_content().unwrap());
+    }
+
+    #[test]
+    fn test_strip_text() {
+        pdfium();
+        let bytes_multipage: &[u8] = test_data_bytes!("file_types/pdf/multipage.pdf");
+        let doc = Document::from_bytes(bytes_multipage.to_vec()).unwrap();
+
+        assert!(doc.has_text().unwrap());
+        let original_page_count = doc.page_count().unwrap();
+
+        let stripped_doc = doc.strip_text().unwrap();
+
+        assert_eq!(stripped_doc.page_count().unwrap(), original_page_count);
+        assert!(!stripped_doc.has_text().unwrap());
+        assert!(doc.has_text().unwrap());
     }
 }

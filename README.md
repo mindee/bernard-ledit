@@ -34,13 +34,8 @@ Bernard l'Édit is a **Rust core library** with per-language bindings that gives
 ---
 
 ## Features
-
-| Area         | Capabilities                                                                                                                       |
-|--------------|------------------------------------------------------------------------------------------------------------------------------------|
-| **Image**    | Decode (JPEG, PNG, TIFF, WebP, BMP, GIF, …), crop, resize (Lanczos, bicubic, nearest, …), encode, compress, save to path or buffer |
-| **PDF**      | Load, split, merge, rasterise pages to JPEG, embed images, extract text and character metadata, add text overlays                  |
-| **Geometry** | `Point` and `Polygon` primitives with centroid, bounding-box helpers                                                               |
-
+| **Image**    | Decode (JPEG, PNG, TIFF, WebP, BMP, GIF, …), crop, resize, encode, compress, save to path or buffer, extract polygon crops from images and PDF pages |
+| **PDF**      | Load, split, merge, rasterise pages to JPEG, embed images, extract text and character metadata, add text overlays, compress scans, extract sub-documents, apply page options, repair broken headers |
 ---
 
 ## Architecture
@@ -74,24 +69,22 @@ pip install bernard-ledit
 ```
 
 The wheel bundles the compiled Rust extension and pdfium – no system dependencies required.
-
 ### Image API
 
 ```python
-from bernard_ledit.image import decode, guess_format, compress
+from bernard_ledit.image import Image, guess_format, compress, extract_from_polygons
 
-# --- decode ---
-# Accepts bytes, bytearray, or any file-like object (BytesIO, BufferedReader, …)
-img = decode(open("photo.jpg", "rb"))
-img = decode(b"\xff\xd8\xff...")
+# --- load ---
+# Accepts bytes or any binary file-like object (BytesIO, BufferedReader, …)
+img = Image(open("photo.jpg", "rb"))
+img = Image(b"\xff\xd8\xff...")
 print(img)           # Image(1920x1080, format:JPEG)
 print(img.size)      # (1920, 1080)
 print(img.format)    # 'JPEG'
 
-# --- transform ---
-cropped  = img.crop(left=0, top=0, right=960, bottom=540)
-resized  = img.resize(640, 360)                    # Lanczos by default
-resized  = img.resize(640, 360, filter="bicubic")  # nearest | triangle | catmullrom | gaussian | lanczos
+# --- transform (both return a new Image) ---
+cropped = img.crop(left=0, top=0, right=960, bottom=540)
+resized = img.resize(640, 360)                     # exact size, Lanczos filter
 
 # --- encode ---
 jpeg_bytes = img.encode("JPEG", quality=85)        # optimize=True by default (mozjpeg)
@@ -105,16 +98,32 @@ img.save(buffer, format="JPEG")        # write to any writable buffer
 img.save("out.pdf", format="PDF")      # force PDF regardless of extension
 
 # --- helpers ---
-fmt   = guess_format(data)             # "JPEG" | "PNG" | "TIFF" | …
-jpeg, w, h = compress(
+fmt = guess_format(data)               # "JPEG" | "PNG" | "TIFF" | …
+
+# --- compress ---
+# Re-encodes as JPEG and returns bytes. If the result would not be smaller than
+# the input (and no downscale was requested), the input is returned unchanged.
+out = compress(
     data,
     quality=85,
     max_width=1024,    # aspect-preserving downscale, never upscales
     max_height=1024,
+    optimize=True,
 )
-```
+# The method form returns None instead when there is nothing to gain.
+out = Image(data).compress(quality=85)
 
-Supported resize filters: `nearest`, `triangle`, `catmullrom` (alias `bicubic`), `gaussian`, `lanczos` (default).
+# --- extract crops ---
+# `data` is an image or a PDF. Polygons are lists of normalized (x, y) points (0..1);
+# each crop is the polygon's bounding box. Returns one Image per polygon.
+crops = extract_from_polygons(
+    data,
+    page_id=0,
+    polygons=[[(0.1, 0.1), (0.5, 0.1), (0.5, 0.4), (0.1, 0.4)]],
+    dpi=72.0,          # PDF rendering resolution
+)
+crops[0].save("crop.jpg")
+```
 
 Supported encode formats: `JPEG`, `PNG`, `PDF`, `TIFF`, `WEBP`, `BMP`, `GIF`, `AVIF`, `ICO`, `QOI`, `TGA`, `PNM`, `FARBFELD`, `OPENEXR`.
 
@@ -136,7 +145,7 @@ with PdfDocument("document.pdf") as doc:
     print(page.text())        # extracted text
     print(page.chars())       # list[TextChar] with font/bounds metadata
     print(page.rotation())    # 0 | 90 | 180 | 270
-    bitmap = page.render(scale=2.0)      # PdfBitmap at 2× scale
+    bitmap = page.render_to_bitmap(scale=2.0)   # PdfBitmap at 2× scale (was page.render)
     png_bytes = bitmap.to_png_bytes()
 
 # --- rasterise a page to JPEG ---
@@ -165,6 +174,37 @@ chars = [TextChar(char="A", font_name="Helvetica", font_size=12.0,
 doc.add_text(page_idx=0, chars=chars)
 ```
 
+```python
+from bernard_ledit.pdf import (
+    PdfDocument, compress, extract_from_page_ranges, fix_pdf, apply_page_options,
+)
+
+# --- compress ---
+# Only pages without a text layer (scans) are rasterised and re-encoded as JPEG.
+# Returns the input unchanged if the result would not be smaller.
+smaller = compress(pdf_bytes, quality=85, optimize=True, dpi=150.0)
+# The method form returns a new PdfDocument, or None when there is nothing to gain.
+with PdfDocument(pdf_bytes) as doc:
+    result = doc.compress(quality=85)
+
+# --- extract sub-documents ---
+# `data` is a PDF or an image (treated as a one-page document).
+# Page indexes are 0-based; returns one PdfDocument per group.
+parts = extract_from_page_ranges(pdf_bytes, [[0, 1], [4]])
+
+# --- keep or remove pages ---
+# `operation` is "KEEP_ONLY" or "REMOVE". Negative indexes count from the end.
+# Returns (document or None, skipped_indexes). None means the PDF has fewer
+# than `on_min_pages` pages, so nothing was done.
+doc, skipped = apply_page_options(
+    pdf_bytes, operation="KEEP_ONLY", on_min_pages=0, page_indexes=[0, -1]
+)
+
+# --- repair a broken header ---
+# Drops every byte before the first `%PDF-` marker, if it sits before maximum_offset.
+fixed = fix_pdf(raw_bytes, maximum_offset=500)
+```
+
 ### Geometry API [DEPRECATED]
 
 ```python
@@ -186,7 +226,7 @@ print(len(poly))         # 4
 
 | Tool                                                       | Purpose                              |
 |------------------------------------------------------------|--------------------------------------|
-| Rust ≥ 1.88 (`rust-toolchain.toml` pins the exact version) | Core + all bindings                  |
+| Rust 1.99.0 (pinned in `rust-toolchain.toml`)              | Core + all bindings                  |
 | [just](https://github.com/casey/just)                      | Task runner                          |
 | [maturin](https://github.com/PyO3/maturin)                 | Build Python wheels                  |
 | A C compiler + cmake                                       | mozjpeg (bundled, built from source) |

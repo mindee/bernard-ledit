@@ -1,3 +1,4 @@
+use crate::image::error::ImageExtractError;
 use pdfium_render::prelude::PdfiumError;
 
 /// Combines PDF and image errors for builder operations like [`Document::from_jpeg`].
@@ -9,6 +10,12 @@ pub enum PdfBuilderError {
     /// An image-level error.
     #[error("Image processing error: {0}")]
     Image(#[from] ImageError),
+    /// Trying to access a page that does not exist.
+    #[error("page {0} does not exist (single images only have page 0)")]
+    PageOutOfRange(u16),
+    /// Polygon is empty or falls outside the page.
+    #[error("polygon {0} is empty or falls outside the page")]
+    EmptyPolygon(usize),
 }
 
 /// An error that can occur when working with PDF documents.
@@ -51,4 +58,27 @@ pub enum ImageError {
     /// An error that occurred when adding an image object to a page.
     #[error("Error adding image object to page")]
     AddObject,
+}
+
+/// Errors related to PDF extraction.
+#[derive(Debug, thiserror::Error)]
+pub enum PdfExtractError {
+    /// No page groups.
+    #[error("no page groups provided")]
+    NoGroups,
+    /// Page group is empty.
+    #[error("page group {0} is empty")]
+    EmptyGroup(usize),
+    /// Builder fails.
+    #[error(transparent)]
+    Builder(#[from] PdfBuilderError),
+    /// Image errors.
+    #[error(transparent)]
+    Image(#[from] crate::image::error::ImageError),
+    #[error(transparent)]
+    /// Regular PDF errors.
+    Pdf(#[from] PdfError),
+    /// Image extraction errors.
+    #[error(transparent)]
+    ImageExtract(#[from] ImageExtractError),
 }

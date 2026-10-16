@@ -76,12 +76,7 @@ impl From<RustTextChar> for PyTextChar {
             stroke_color: value.stroke_color,
             fill_color: value.fill_color,
             font_flags: value.font_flags,
-            bounds: (
-                value.bounds[0],
-                value.bounds[1],
-                value.bounds[2],
-                value.bounds[3],
-            ),
+            bounds: value.bounds.into(),
         }
     }
 }
