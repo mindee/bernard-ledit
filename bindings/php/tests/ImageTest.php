@@ -15,7 +15,7 @@ final class ImageTest extends TestCase
 {
     private const FIXTURES = TEST_ROOT_PATH . '/file_types';
 
-    private static function fixture(string $name): string
+    private static function loadFileContents(string $name): string
     {
         return file_get_contents(self::FIXTURES . '/' . $name);
     }
@@ -23,30 +23,30 @@ final class ImageTest extends TestCase
     /** PNG byte stream of exact dimensions, derived from receipt.png (resize + re-encode). */
     private static function makePng(int $width, int $height): string
     {
-        $base = decode(self::fixture('receipt.png'));
+        $base = decode(self::loadFileContents('receipt.png'));
         return $base->resize($width, $height)->encode('PNG');
     }
 
     public function testDecodeAndSize(): void
     {
-        $img = decode(self::fixture('receipt.jpg'));
+        $img = decode(self::loadFileContents('receipt.jpg'));
         self::assertInstanceOf(Image::class, $img);
-        self::assertSame('JPEG', $img->format());
-        [$w, $h] = $img->size();
+        self::assertSame('JPEG', $img->getFormat());
+        [$w, $h] = $img->getSize();
         self::assertGreaterThan(0, $w);
-        self::assertSame($w, $img->width());
-        self::assertSame($h, $img->height());
+        self::assertSame($w, $img->getWidth());
+        self::assertSame($h, $img->getHeight());
     }
 
     public function testDecodePng(): void
     {
-        $img = decode(self::fixture('receipt.png'));
-        self::assertSame('PNG', $img->format());
+        $img = decode(self::loadFileContents('receipt.png'));
+        self::assertSame('PNG', $img->getFormat());
     }
 
     public function testBinaryRoundTripIsNotUtf8Mangled(): void
     {
-        $bytes = self::fixture('receipt.jpg');
+        $bytes = self::loadFileContents('receipt.jpg');
         $out = decode($bytes)->encode('JPEG', 90);
         self::assertSame("\xFF\xD8", substr($out, 0, 2));
         self::assertSame('JPEG', guessFormat($out));
@@ -64,17 +64,17 @@ final class ImageTest extends TestCase
 
     public function testGuessFormatJpeg(): void
     {
-        self::assertSame('JPEG', guessFormat(self::fixture('receipt.jpg')));
+        self::assertSame('JPEG', guessFormat(self::loadFileContents('receipt.jpg')));
     }
 
     public function testGuessFormatPng(): void
     {
-        self::assertSame('PNG', guessFormat(self::fixture('receipt.png')));
+        self::assertSame('PNG', guessFormat(self::loadFileContents('receipt.png')));
     }
 
     public function testGuessFormatTiff(): void
     {
-        self::assertSame('TIFF', guessFormat(self::fixture('receipt.tiff')));
+        self::assertSame('TIFF', guessFormat(self::loadFileContents('receipt.tiff')));
     }
 
     public function testGuessFormatGarbageThrowsValueError(): void
@@ -86,14 +86,14 @@ final class ImageTest extends TestCase
     public function testSizeMatchesRequestedDimensions(): void
     {
         $img = decode(self::makePng(30, 20));
-        self::assertSame([30, 20], $img->size());
+        self::assertSame([30, 20], $img->getSize());
     }
 
     public function testCropValidBox(): void
     {
         $img = decode(self::makePng(100, 80));
         $cropped = $img->crop(10, 20, 60, 70);
-        self::assertSame([50, 50], $cropped->size());
+        self::assertSame([50, 50], $cropped->getSize());
     }
 
     public function testCropOutOfBoundsThrowsValueError(): void
@@ -113,13 +113,13 @@ final class ImageTest extends TestCase
     public function testResizeExact(): void
     {
         $img = decode(self::makePng(40, 40));
-        self::assertSame([80, 20], $img->resize(80, 20)->size());
+        self::assertSame([80, 20], $img->resize(80, 20)->getSize());
     }
 
     public function testResizeDefaultFilterIsAccepted(): void
     {
         $img = decode(self::makePng(40, 40));
-        self::assertSame([10, 10], $img->resize(10, 10)->size());
+        self::assertSame([10, 10], $img->resize(10, 10)->getSize());
     }
 
     public function testResizeZeroDimensionThrowsValueError(): void
@@ -170,8 +170,8 @@ final class ImageTest extends TestCase
         $img = decode(self::makePng(24, 12));
         $jpeg = $img->encode('JPEG', 90);
         $reloaded = decode($jpeg);
-        self::assertSame([24, 12], $reloaded->size());
-        self::assertSame('JPEG', $reloaded->format());
+        self::assertSame([24, 12], $reloaded->getSize());
+        self::assertSame('JPEG', $reloaded->getFormat());
     }
 
     public function testCompressReturnsJpegAndDimensions(): void
@@ -188,15 +188,15 @@ final class ImageTest extends TestCase
         [$jpeg] = compress($png, 90);
         $doc = PdfDocument::create();
         $doc->appendJpegPage($jpeg);
-        $reloaded = new PdfDocument($doc->save());
+        $reloaded = new PdfDocument($doc->asBytes());
 
         // Exercise PDFium's JPEG decoder and mozjpeg's encoder in the same process.
-        $bitmap = $reloaded->getPage(0)->render();
-        self::assertSame([64, 48], decode($bitmap->toPngBytes())->size());
+        $bitmap = $reloaded->getPage(0)->renderToBitmap();
+        self::assertSame([64, 48], decode($bitmap->toPngBytes())->getSize());
         self::assertGreaterThan(4, strlen(count_chars($bitmap->toBytes(), 3)));
-        $renderedJpeg = $reloaded->rasterizePage(0, 90);
+        $renderedJpeg = $reloaded->rasterizePageToJpegBytes(0, 90);
         self::assertSame('JPEG', guessFormat($renderedJpeg));
-        self::assertSame([64, 48], decode($renderedJpeg)->size());
+        self::assertSame([64, 48], decode($renderedJpeg)->getSize());
         self::assertSame($jpeg, compress($png, 90)[0]);
     }
 

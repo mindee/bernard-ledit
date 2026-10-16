@@ -149,6 +149,13 @@ impl Image {
         })
     }
 
+    /// Return bytes as an u8 vec.
+    /// # Errors
+    /// Returns a [`PdfError`] if saving the document fails.
+    pub fn to_bytes(&self) -> Result<Vec<u8>, ImageError> {
+        Ok(self.inner.as_bytes().to_vec())
+    }
+
     /// Creates an `ImageData` from a `DynamicImage`.
     pub(crate) fn from_dynamic(inner: DynamicImage) -> Self {
         let source_len = Some(inner.as_bytes().len());

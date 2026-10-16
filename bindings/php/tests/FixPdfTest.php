@@ -11,7 +11,7 @@ use function BernardLedit\Pdf\fixPdf;
 
 final class FixPdfTest extends TestCase
 {
-    private function data(string $name): string
+    private function loadFileContents($name): string
     {
         return file_get_contents(TEST_ROOT_PATH . '/file_types/' . $name);
     }
@@ -64,7 +64,7 @@ final class FixPdfTest extends TestCase
 
     public function testIntegrationWithRealDocument(): void
     {
-        $cleanPdf = $this->data('pdf/multipage.pdf');
+        $cleanPdf = $this->loadFileContents('pdf/multipage.pdf');
         $garbageData = "GARBAGE-HEADER\r\n" . $cleanPdf;
 
         $fixedBytes = fixPdf($garbageData);

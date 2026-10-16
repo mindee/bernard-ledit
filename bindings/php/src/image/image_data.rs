@@ -34,27 +34,27 @@ impl PhpImage {
 
     /// Dimensions as `[width, height]`.
     #[must_use]
-    pub fn size(&self) -> Vec<u32> {
+    pub fn get_size(&self) -> Vec<u32> {
         let (w, h) = self.inner.size();
         vec![w, h]
     }
 
     /// Width.
     #[must_use]
-    pub fn width(&self) -> u32 {
+    pub fn get_width(&self) -> u32 {
         self.inner.size().0
     }
 
     /// Height.
     #[must_use]
-    pub fn height(&self) -> u32 {
+    pub fn get_height(&self) -> u32 {
         self.inner.size().1
     }
 
     /// Upper-case format name (`"JPEG"`, `"PNG"`, etc.) or `null`.
     /// # Errors
     /// Returns an error if the format name cannot be converted to a string.
-    pub fn format(&self) -> Option<&'static str> {
+    pub fn get_format(&self) -> Option<&'static str> {
         self.inner.format().and_then(format_name)
     }
 

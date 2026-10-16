@@ -22,6 +22,7 @@ class Image:
         quality: int = 85,
         optimize: bool = True,
     ) -> None: ...
+    def as_bytes(self) -> bytes: ...
     def compress(
         self,
         quality: int = 85,

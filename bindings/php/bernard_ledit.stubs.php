@@ -42,14 +42,28 @@ namespace BernardLedit\Image {
          * @return string|null
          * @throws \Exception Returns an error if the format name cannot be converted to a string.
          */
-        public function format(): ?string {}
+        public function getFormat(): ?string {}
 
         /**
          * Height.
          *
          * @return int
          */
-        public function height(): int {}
+        public function getHeight(): int {}
+
+        /**
+         * Dimensions as `[width, height]`.
+         *
+         * @return array
+         */
+        public function getSize(): array {}
+
+        /**
+         * Width.
+         *
+         * @return int
+         */
+        public function getWidth(): int {}
 
         /**
          * Resizes an image using dimensions and a filter.
@@ -60,20 +74,6 @@ namespace BernardLedit\Image {
          * @throws \Exception Returns an error if the resizing operation fails.
          */
         public function resize(int $width, int $height): \BernardLedit\Image\Image {}
-
-        /**
-         * Dimensions as `[width, height]`.
-         *
-         * @return array
-         */
-        public function size(): array {}
-
-        /**
-         * Width.
-         *
-         * @return int
-         */
-        public function width(): int {}
     }
 
     /**
@@ -174,6 +174,14 @@ namespace BernardLedit\Pdf {
         public function appendMultipleJpegPages(array $jpegs): void {}
 
         /**
+         * Returns the PDF bytes (PHP writes files itself and keeps I/O out of Rust).
+         *
+         * @return string
+         * @throws \Exception Returns a PHP Exception if the save fails.
+         */
+        public function asBytes(): string {}
+
+        /**
          * Close the document.
          *
          * @return void
@@ -211,6 +219,22 @@ namespace BernardLedit\Pdf {
         public function getPage(int $index): \BernardLedit\Pdf\PdfPage {}
 
         /**
+         * Returns the page count.
+         *
+         * @return int
+         * @throws \Exception Returns a PHP Exception if the count fails.
+         */
+        public function getPageCount(): int {}
+
+        /**
+         * Retrieves the entire text from a document as a string.
+         *
+         * @return string
+         * @throws \Exception Returns a PHP Exception if the text retrieval fails.
+         */
+        public function getText(): string {}
+
+        /**
          * Returns true if the document has no content.
          *
          * @return bool
@@ -237,38 +261,14 @@ namespace BernardLedit\Pdf {
         public function importPages(\BernardLedit\Pdf\PdfDocument $src, array $indexes): void {}
 
         /**
-         * Returns the page count.
-         *
-         * @return int
-         * @throws \Exception Returns a PHP Exception if the count fails.
-         */
-        public function pageCount(): int {}
-
-        /**
-         * Rasterizes a page from a given index.
+         * Rasterizes a page from a given index as a JPEG.
          *
          * @param int $index
          * @param int $quality
          * @return string
          * @throws \Exception Returns a PHP Exception if the rasterization fails.
          */
-        public function rasterizePage(int $index, int $quality): string {}
-
-        /**
-         * Returns the PDF bytes (PHP writes files itself and keeps I/O out of Rust).
-         *
-         * @return string
-         * @throws \Exception Returns a PHP Exception if the save fails.
-         */
-        public function save(): string {}
-
-        /**
-         * Retrieves the entire text from a document as a string.
-         *
-         * @return string
-         * @throws \Exception Returns a PHP Exception if the text retrieval fails.
-         */
-        public function text(): string {}
+        public function rasterizePageToJpegBytes(int $index, int $quality): string {}
     }
 
     class PdfExtractException extends \Exception {
@@ -284,14 +284,30 @@ namespace BernardLedit\Pdf {
          * @return array
          * @throws \Exception Returns a PHP Exception if the `PdfDocument` is inaccessible.
          */
-        public function chars(): array {}
+        public function getChars(): array {}
 
         /**
          * Index of the page.
          *
          * @return int
          */
-        public function index(): int {}
+        public function getIndex(): int {}
+
+        /**
+         * `[width, height]` in points.
+         *
+         * @return array
+         * @throws \Exception Returns a PHP Exception if the `PdfDocument` is closed.
+         */
+        public function getSize(): array {}
+
+        /**
+         * Returns the text of the page.
+         *
+         * @return string
+         * @throws \Exception Returns a PHP Exception if the `PdfDocument` is inaccessible.
+         */
+        public function getText(): string {}
 
         /**
          * Checks whether the entire document is empty.
@@ -308,23 +324,7 @@ namespace BernardLedit\Pdf {
          * @return \PdfBitmap
          * @throws \Exception Returns a PHP Exception if the `PdfDocument` is inaccessible.
          */
-        public function render(float $scale = 1.0): \PdfBitmap {}
-
-        /**
-         * `[width, height]` in points.
-         *
-         * @return array
-         * @throws \Exception Returns a PHP Exception if the `PdfDocument` is closed.
-         */
-        public function size(): array {}
-
-        /**
-         * Returns the text of the page.
-         *
-         * @return string
-         * @throws \Exception Returns a PHP Exception if the `PdfDocument` is inaccessible.
-         */
-        public function text(): string {}
+        public function renderToBitmap(float $scale = 1.0): \PdfBitmap {}
     }
 
     class PdfiumException extends \Exception {
@@ -403,7 +403,14 @@ namespace {
          *
          * @return int
          */
-        public function height(): int {}
+        public function getHeight(): int {}
+
+        /**
+         * Width in pixels.
+         *
+         * @return int
+         */
+        public function getWidth(): int {}
 
         /**
          * Raw RGBA8 pixel buffer (row-major, 4 bytes per pixel).
@@ -419,13 +426,6 @@ namespace {
          * @throws \Exception Returns a PHP Exception if the conversion fails.
          */
         public function toPngBytes(): string {}
-
-        /**
-         * Width in pixels.
-         *
-         * @return int
-         */
-        public function width(): int {}
     }
 
     /**

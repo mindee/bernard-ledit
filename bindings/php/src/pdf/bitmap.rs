@@ -15,13 +15,13 @@ pub struct PhpPdfBitmap {
 impl PhpPdfBitmap {
     /// Width in pixels.
     #[must_use]
-    pub const fn width(&self) -> u32 {
+    pub const fn get_width(&self) -> u32 {
         self.inner.width
     }
 
     /// Height in pixels.
     #[must_use]
-    pub const fn height(&self) -> u32 {
+    pub const fn get_height(&self) -> u32 {
         self.inner.height
     }
 
@@ -48,8 +48,8 @@ impl PhpPdfBitmap {
     pub fn __debug_info(&self) -> HashMap<&'static str, String> {
         let mut info = HashMap::new();
 
-        info.insert("width", self.width().to_string());
-        info.insert("height", self.height().to_string());
+        info.insert("width", self.get_width().to_string());
+        info.insert("height", self.get_height().to_string());
 
         info.insert("buffer", "(binary data hidden)".to_string());
 
@@ -61,8 +61,8 @@ impl PhpPdfBitmap {
     pub fn __to_string(&self) -> String {
         format!(
             "PdfBitmap(width={}, height={})",
-            self.width(),
-            self.height()
+            self.get_width(),
+            self.get_height()
         )
     }
 }

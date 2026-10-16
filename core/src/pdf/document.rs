@@ -105,7 +105,7 @@ impl Document {
     /// Save to a buffer and return it as an u8 vec.
     /// # Errors
     /// Returns a [`PdfError`] if saving the document fails.
-    pub fn as_bytes(&self) -> Result<Vec<u8>, PdfError> {
+    pub fn to_bytes(&self) -> Result<Vec<u8>, PdfError> {
         let mut buffer: Vec<u8> = Vec::new();
         self.save(&mut buffer)?;
         Ok(buffer)
@@ -178,11 +178,6 @@ impl Document {
 
     /// Add text to a page.
     ///
-    /// Each [`TextChar`]'s `font_name`, `font_weight`, and `font_flags` are
-    /// used to pick one of the 14 PDF built-in font variants
-    /// (Helvetica / Times / Courier families plus Symbol and `ZapfDingbats`),
-    /// so requested fonts like "Arial Bold" are rendered using
-    /// `Helvetica-Bold`, "Times New Roman Italic" using `Times-Italic`, etc.
     /// # Panics
     /// If the font name is not a valid built-in font name.
     /// # Errors
@@ -365,19 +360,17 @@ impl Document {
         optimize: bool,
     ) -> Result<Option<Self>, PdfError> {
         let len = self.page_count()?;
-        let mut needs_work = Vec::new();
-        for i in 0..len {
-            if self.inner.pages().get(i.into())?.text()?.is_empty() {
-                needs_work.push(i);
-            }
-        }
-        if needs_work.is_empty() {
+        let needs_work: Vec<bool> = (0..len)
+            .map(|i| Ok(self.inner.pages().get(i.into())?.text()?.is_empty()))
+            .collect::<Result<_, PdfError>>()?;
+        if !needs_work.contains(&true) {
             return Ok(None);
         }
 
         let mut out = Self::new()?;
-        for i in 0..len {
-            if needs_work.contains(&i) {
+        for (i, &rasterize) in needs_work.iter().enumerate() {
+            let i = u16::try_from(i).map_err(|_| PdfError::PageCountOutOfBounds)?;
+            if rasterize {
                 let page = self.page(i)?;
                 let (w_pt, h_pt) = page.size();
                 let img = page.render_image(dpi / 72.0)?;

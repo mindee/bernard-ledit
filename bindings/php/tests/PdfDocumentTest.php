@@ -19,13 +19,13 @@ final class PdfDocumentTest extends TestCase
     public function testConstructFromBytes(): void
     {
         $doc = new PdfDocument(self::pdf('blank.pdf'));
-        self::assertSame(10, $doc->pageCount());
+        self::assertSame(10, $doc->getPageCount());
     }
 
     public function testFromFile(): void
     {
         $doc = new PdfDocument(file_get_contents(self::FIXTURES . '/pdf/blank_1.pdf'));
-        self::assertSame(1, $doc->pageCount());
+        self::assertSame(1, $doc->getPageCount());
     }
 
     public function testConstructFromInvalidBytesThrowsPdfiumException(): void
@@ -37,7 +37,7 @@ final class PdfDocumentTest extends TestCase
     public function testCreateEmptyDocument(): void
     {
         $doc = PdfDocument::create();
-        self::assertSame(0, $doc->pageCount());
+        self::assertSame(0, $doc->getPageCount());
     }
 
     public function testGetPageReturnsPdfPage(): void
@@ -45,7 +45,7 @@ final class PdfDocumentTest extends TestCase
         $doc = new PdfDocument(self::pdf('multipage.pdf'));
         $page = $doc->getPage(0);
         self::assertInstanceOf(\BernardLedit\Pdf\PdfPage::class, $page);
-        self::assertSame(0, $page->index());
+        self::assertSame(0, $page->getIndex());
     }
 
     public function testGetPageOutOfBoundsThrowsPdfiumException(): void
@@ -59,11 +59,11 @@ final class PdfDocumentTest extends TestCase
     {
         $src = new PdfDocument(self::pdf('multipage.pdf'));
         $dst = new PdfDocument(self::pdf('blank_1.pdf'));
-        $initial = $dst->pageCount();
+        $initial = $dst->getPageCount();
 
         $dst->importPages($src, [0, 1, 2]);
 
-        self::assertSame($initial + 3, $dst->pageCount());
+        self::assertSame($initial + 3, $dst->getPageCount());
     }
 
     public function testImportPagesOutOfBoundsThrowsValueError(): void
@@ -85,12 +85,12 @@ final class PdfDocumentTest extends TestCase
     public function testSaveReturnsReloadablePdfBytes(): void
     {
         $doc = new PdfDocument(self::pdf('blank_1.pdf'));
-        $saved = $doc->save();
+        $saved = $doc->asBytes();
 
         self::assertStringStartsWith('%PDF-', $saved);
 
         $reloaded = new PdfDocument($saved);
-        self::assertSame($doc->pageCount(), $reloaded->pageCount());
+        self::assertSame($doc->getPageCount(), $reloaded->getPageCount());
     }
 
     public function testSaveToFileWritesReloadablePdf(): void
@@ -100,12 +100,12 @@ final class PdfDocumentTest extends TestCase
         self::assertNotFalse($path);
 
         try {
-            file_put_contents($path, $doc->save());
+            file_put_contents($path, $doc->asBytes());
             $bytes = file_get_contents($path);
             self::assertStringStartsWith('%PDF-', $bytes);
 
             $reloaded = new PdfDocument($bytes);
-            self::assertSame(1, $reloaded->pageCount());
+            self::assertSame(1, $reloaded->getPageCount());
         } finally {
             unlink($path);
         }
@@ -117,7 +117,7 @@ final class PdfDocumentTest extends TestCase
         $doc->close();
 
         $this->expectException(\Exception::class);
-        $doc->pageCount();
+        $doc->getPageCount();
     }
 
     public function testCloseIsIdempotent(): void
@@ -135,7 +135,7 @@ final class PdfDocumentTest extends TestCase
 
         $doc->appendJpegPage($jpeg);
 
-        self::assertSame(1, $doc->pageCount());
+        self::assertSame(1, $doc->getPageCount());
     }
 
     public function testAppendJpegPageInvalidDataThrows(): void
@@ -152,7 +152,7 @@ final class PdfDocumentTest extends TestCase
 
         $doc->appendMultipleJpegPages([$jpeg, $jpeg, $jpeg]);
 
-        self::assertSame(3, $doc->pageCount());
+        self::assertSame(3, $doc->getPageCount());
     }
 
     public function testHasTextTrue(): void
@@ -182,7 +182,7 @@ final class PdfDocumentTest extends TestCase
     public function testRasterizePageReturnsJpegBytes(): void
     {
         $doc = new PdfDocument(self::pdf('blank_1.pdf'));
-        $jpeg = $doc->rasterizePage(0, 85);
+        $jpeg = $doc->rasterizePageToJpegBytes(0, 85);
 
         self::assertGreaterThan(0, strlen($jpeg));
         self::assertSame("\xFF\xD8", substr($jpeg, 0, 2));
@@ -192,7 +192,7 @@ final class PdfDocumentTest extends TestCase
     {
         $doc = new PdfDocument(self::pdf('blank_1.pdf'));
         $this->expectException(PdfiumException::class);
-        $doc->rasterizePage(99, 85);
+        $doc->rasterizePageToJpegBytes(99, 85);
     }
 
     public function testRasterizePageOnClosedDocumentThrows(): void
@@ -201,7 +201,7 @@ final class PdfDocumentTest extends TestCase
         $doc->close();
 
         $this->expectException(\Exception::class);
-        $doc->rasterizePage(0, 85);
+        $doc->rasterizePageToJpegBytes(0, 85);
     }
 
     public function testAddTextUpdatesTextAndChars(): void
@@ -212,9 +212,9 @@ final class PdfDocumentTest extends TestCase
         $doc->addText(0, [$char]);
 
         $page = $doc->getPage(0);
-        self::assertSame('A', $page->text());
+        self::assertSame('A', $page->getText());
 
-        $chars = $page->chars();
+        $chars = $page->getChars();
         self::assertCount(1, $chars);
         self::assertInstanceOf(\TextChar::class, $chars[0]);
         self::assertSame('A', (string) $chars[0]);

@@ -157,6 +157,14 @@ impl PyPdfDocument {
         Ok(())
     }
 
+    /// Retrieve the bytes from the document.
+    fn as_bytes<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
+        let owned_bytes = self
+            .with_doc(Document::to_bytes)?
+            .map_err(|e| format_pdf_err(&e))?;
+        Ok(PyBytes::new(py, owned_bytes.as_slice()))
+    }
+
     /// Save the document directly to a file path.
     #[allow(clippy::needless_pass_by_value)]
     fn save_to_file(&self, path: PathBuf) -> PyResult<()> {
@@ -280,7 +288,7 @@ pub fn compress(data: PdfInput<'_>, quality: u8, optimize: bool, dpi: f32) -> Py
     else {
         return Ok(data);
     };
-    let bytes = out.as_bytes().map_err(|e| format_pdf_err(&e))?;
+    let bytes = out.to_bytes().map_err(|e| format_pdf_err(&e))?;
     Ok(if bytes.len() < data.len() {
         bytes
     } else {

@@ -70,7 +70,7 @@ impl<'a> Page<'a> {
     /// Render the page to a bitmap.
     /// # Errors
     /// Returns a `PdfError` if the page could not be rendered.
-    pub fn render(&self, scale: f32) -> Result<Bitmap, PdfError> {
+    pub fn render_to_bitmap(&self, scale: f32) -> Result<Bitmap, PdfError> {
         let _lock = crate::pdf::NATIVE_LOCK
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -220,7 +220,7 @@ mod tests {
         pdfium();
         let jpeg = make_real_jpeg(100, 50);
         let doc = Document::from_jpeg(&jpeg, 100.0, 50.0).unwrap();
-        let bmp = doc.page(0).unwrap().render(1.0).unwrap();
+        let bmp = doc.page(0).unwrap().render_to_bitmap(1.0).unwrap();
         assert_eq!(bmp.width, 100);
         assert_eq!(bmp.height, 50);
     }
@@ -231,8 +231,8 @@ mod tests {
         let jpeg = make_real_jpeg(100, 50);
         let doc = Document::from_jpeg(&jpeg, 100.0, 50.0).unwrap();
         let page = doc.page(0).unwrap();
-        let bmp1 = page.render(1.0).unwrap();
-        let bmp2 = page.render(2.0).unwrap();
+        let bmp1 = page.render_to_bitmap(1.0).unwrap();
+        let bmp2 = page.render_to_bitmap(2.0).unwrap();
         assert!(bmp2.width - 2 * bmp1.width <= 1);
         assert!(bmp2.height - 2 * bmp1.height <= 1);
     }
@@ -242,7 +242,7 @@ mod tests {
         pdfium();
         let jpeg = make_real_jpeg(20, 30);
         let doc = Document::from_jpeg(&jpeg, 20.0, 30.0).unwrap();
-        let bmp = doc.page(0).unwrap().render(1.0).unwrap();
+        let bmp = doc.page(0).unwrap().render_to_bitmap(1.0).unwrap();
         assert_eq!(bmp.rgba.len(), (bmp.width * bmp.height * 4) as usize);
     }
 

@@ -39,7 +39,7 @@ impl PhpPdfDocument {
     /// Returns the page count.
     /// # Errors
     /// Returns a PHP Exception if the count fails.
-    pub fn page_count(&self) -> PhpResult<u16> {
+    pub fn get_page_count(&self) -> PhpResult<u16> {
         self.with_doc(|d| d.page_count().map_err(|e| map_pdf_err(&e)))?
     }
 
@@ -78,16 +78,16 @@ impl PhpPdfDocument {
     /// Returns the PDF bytes (PHP writes files itself and keeps I/O out of Rust).
     /// # Errors
     /// Returns a PHP Exception if the save fails.
-    pub fn save(&self) -> PhpResult<Binary<u8>> {
+    pub fn as_bytes(&self) -> PhpResult<Binary<u8>> {
         let mut out: Vec<u8> = Vec::new();
         self.with_doc(|d| d.save(&mut out).map_err(|e| map_pdf_err(&e)))??;
         Ok(Binary::new(out))
     }
 
-    /// Rasterizes a page from a given index.
+    /// Rasterizes a page from a given index as a JPEG.
     /// # Errors
     /// Returns a PHP Exception if the rasterization fails.
-    pub fn rasterize_page(&self, index: u16, quality: u8) -> PhpResult<Binary<u8>> {
+    pub fn rasterize_page_to_jpeg_bytes(&self, index: u16, quality: u8) -> PhpResult<Binary<u8>> {
         self.with_doc(|d| {
             d.rasterize_page(index, quality)
                 .map_err(|e| map_pdf_err(&e))
@@ -119,7 +119,7 @@ impl PhpPdfDocument {
     /// Retrieves the entire text from a document as a string.
     /// # Errors
     /// Returns a PHP Exception if the text retrieval fails.
-    pub fn text(&self) -> PhpResult<String> {
+    pub fn get_text(&self) -> PhpResult<String> {
         self.with_doc(|d| d.text().map_err(|e| map_pdf_err(&e)))?
     }
 
@@ -230,7 +230,7 @@ pub fn compress(
     else {
         return Ok(Binary::new(data.to_vec()));
     };
-    let bytes = out.as_bytes().map_err(|e| map_pdf_err(&e))?;
+    let bytes = out.to_bytes().map_err(|e| map_pdf_err(&e))?;
     Ok(Binary::new(if bytes.len() < data.len() {
         bytes
     } else {

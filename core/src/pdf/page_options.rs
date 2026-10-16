@@ -254,7 +254,7 @@ mod tests {
     fn output_survives_save_and_reload() {
         let doc = multipage();
         let out = run(&doc, PageOperation::KeepOnly, 0, &[3, 4]).unwrap();
-        let bytes = out.document.unwrap().as_bytes().unwrap();
+        let bytes = out.document.unwrap().to_bytes().unwrap();
         let reloaded = Document::from_bytes(bytes).unwrap();
         assert_eq!(star_counts(&reloaded), vec![16, 25]);
     }

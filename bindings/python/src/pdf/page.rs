@@ -69,11 +69,11 @@ impl PyPdfPage {
     }
 
     #[pyo3(signature = (scale = 1.0))]
-    fn render(&self, py: Python<'_>, scale: f32) -> PyResult<PyPdfBitmap> {
+    fn render_to_bitmap(&self, py: Python<'_>, scale: f32) -> PyResult<PyPdfBitmap> {
         self.doc.borrow(py).with_doc(|d| {
             let bitmap = d
                 .page(self.index)
-                .and_then(|p| p.render(scale))
+                .and_then(|p| p.render_to_bitmap(scale))
                 .map_err(|e| format_pdf_err(&e))?;
             Ok(PyPdfBitmap::from(bitmap))
         })?

@@ -17,14 +17,14 @@ pub struct PdfPage {
 impl PdfPage {
     /// Index of the page.
     #[must_use]
-    pub const fn index(&self) -> u16 {
+    pub const fn get_index(&self) -> u16 {
         self.index
     }
 
     /// `[width, height]` in points.
     /// # Errors
     /// Returns a PHP Exception if the `PdfDocument` is closed.
-    pub fn size(&self) -> PhpResult<Vec<f64>> {
+    pub fn get_size(&self) -> PhpResult<Vec<f64>> {
         self.with_page(|p| {
             let (w, h) = p.size();
             Ok(vec![f64::from(w), f64::from(h)])
@@ -41,14 +41,14 @@ impl PdfPage {
     /// Returns the characters on the page.
     /// # Errors
     /// Returns a PHP Exception if the `PdfDocument` is inaccessible.
-    pub fn chars(&self) -> PhpResult<Vec<PhpTextChar>> {
+    pub fn get_chars(&self) -> PhpResult<Vec<PhpTextChar>> {
         self.with_page(|p| Ok(p.chars()?.into_iter().map(PhpTextChar::from).collect()))
     }
 
     /// Returns the text of the page.
     /// # Errors
     /// Returns a PHP Exception if the `PdfDocument` is inaccessible.
-    pub fn text(&self) -> PhpResult<String> {
+    pub fn get_text(&self) -> PhpResult<String> {
         self.with_page(|p| p.text())
     }
 
@@ -56,8 +56,9 @@ impl PdfPage {
     /// # Errors
     /// Returns a PHP Exception if the `PdfDocument` is inaccessible.
     #[php(defaults(scale = 1.0_f32))]
-    pub fn render(&self, scale: f32) -> PhpResult<PhpPdfBitmap> {
-        self.with_page(|p| p.render(scale)).map(PhpPdfBitmap::from)
+    pub fn render_to_bitmap(&self, scale: f32) -> PhpResult<PhpPdfBitmap> {
+        self.with_page(|p| p.render_to_bitmap(scale))
+            .map(PhpPdfBitmap::from)
     }
 }
 
