@@ -24,5 +24,9 @@ macro_rules! test_data_bytes {
 
 /// Geometry module.
 pub mod geometry;
+/// Image module.
+pub mod image;
 /// PDF module.
 pub mod pdf;
+/// Utilities module.
+pub mod utils;

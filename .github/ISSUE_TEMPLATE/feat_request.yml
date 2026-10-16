@@ -3,30 +3,54 @@ description: Submit a proposal/request for a new feature for Bernard l'Édit
 labels: enhancement
 
 body:
+  - type: dropdown
+    attributes:
+      label: Scope
+      description: Which part of bernard-ledit would this affect?
+      options:
+        - Rust core
+        - Python binding
+        - .NET binding
+        - Java binding
+        - Node.js binding
+        - PHP binding
+        - Ruby binding
+        - All bindings
+        - Build / CI
+        - Other
+    validations:
+      required: true
+
   - type: textarea
     attributes:
       label: 🚀 The feature
       description: >
-        A clear and concise description of the feature proposal
+        A clear and concise description of the feature proposal.
     validations:
       required: true
+
   - type: textarea
     attributes:
-      label: Motivation, pitch
+      label: Motivation
       description: >
-        Please outline the motivation for the proposal. Is your feature request related to a specific problem? e.g., *"I'm working on X and would like Y to be possible"*. If this is related to another GitHub issue, please link here too.
+        Why is this needed? Is it related to a specific problem or use case?
+        e.g., *"I'm processing multi-page PDFs and need X to avoid Y"*.
+        Link any related issues here too.
     validations:
       required: true
+
   - type: textarea
     attributes:
-      label: Alternatives
+      label: Alternatives considered
       description: >
-        A description of any alternative solutions or features you've considered, if any.
+        Any alternative approaches you've considered, if applicable.
+
   - type: textarea
     attributes:
       label: Additional context
       description: >
-        Add any other context or screenshots about the feature request.
+        Any other context, examples, or references (e.g. how another library handles this).
+
   - type: markdown
     attributes:
       value: >

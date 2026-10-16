@@ -89,7 +89,7 @@ impl PyPolygon {
 
     // Length
     #[pyo3(name = "__len__")]
-    fn len_method(&self) -> usize {
+    const fn len_method(&self) -> usize {
         self.0.0.len()
     }
 

@@ -1,12 +1,59 @@
 #!/bin/sh
 set -e
 
-just core test
+zero=0000000000000000000000000000000000000000
+changed=""
 
-echo "☕ Running Java tests..."
-just java test
+while read -r local_ref local_sha remote_ref remote_sha; do
+    if [ "$local_sha" = "$zero" ]; then
+        continue
+    fi
+    if [ "$remote_sha" = "$zero" ]; then
+        base=$(git merge-base "$local_sha" origin/dev 2>/dev/null || git rev-list --max-parents=0 "$local_sha" | tail -1)
+    else
+        base=$remote_sha
+    fi
+    changed="$changed
+$(git diff --name-only "$base" "$local_sha")"
+done
 
-echo "🐍 Running Python tests..."
-just python test
+changed_matches() {
+    printf '%s\n' "$changed" | grep -qE "$1"
+}
 
-echo "🚀 All pre-push checks passed! Ready for takeoff."
+if changed_matches '(\.rs$|^Cargo\.(toml|lock)$|/Cargo\.toml$|^deny\.toml$|^rust\.just$|^\.cargo/)'; then
+    echo "Running Rust tests..."
+    just core test
+fi
+
+if changed_matches '^bindings/java/'; then
+    echo "Running Java tests..."
+    just java test
+fi
+
+if changed_matches '^bindings/python/'; then
+    echo "Running Python tests..."
+    just python test
+fi
+
+if changed_matches '^bindings/nodejs/' && test -f bindings/nodejs/justfile; then
+    echo "Running Node.js tests..."
+    just nodejs test
+fi
+
+if changed_matches '^bindings/php/' && test -f bindings/php/justfile; then
+    echo "Running PHP tests..."
+    just php test
+fi
+
+if changed_matches '^bindings/dotnet/' && test -f bindings/dotnet/justfile; then
+    echo "Running .NET tests..."
+    just dotnet test
+fi
+
+if changed_matches '^bindings/ruby/' && test -f bindings/ruby/justfile; then
+    echo "Running Ruby tests..."
+    just ruby test
+fi
+
+echo "All pre-push checks passed!"

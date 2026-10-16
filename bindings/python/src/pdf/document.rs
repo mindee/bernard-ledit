@@ -1,5 +1,6 @@
 //! PDF document.
 use super::{page::PyPdfPage, text_char::PyTextChar};
+use crate::input::PdfInput;
 use crate::pdf::error::{closed_err, format_pdf_err};
 use bernard_ledit::pdf::{Document, TextChar as RustTextChar};
 use pyo3::prelude::*;
@@ -13,38 +14,15 @@ pub struct PyPdfDocument {
     inner: Mutex<Option<Document>>,
 }
 
-/// PDF input.
-#[derive(FromPyObject)]
-pub enum PdfInput<'py> {
-    /// Raw bytes.
-    Bytes(Bound<'py, PyBytes>),
-    /// Path to a file.
-    Path(PathBuf),
-    /// File-like object.
-    FileLike(Bound<'py, PyAny>),
-}
-
 /// PDF document methods.
 #[pymethods]
 impl PyPdfDocument {
     /// Load a PDF from a file-like object or raw bytes.
     #[new]
     fn new(input: PdfInput<'_>) -> PyResult<Self> {
-        let bytes: Vec<u8> = match input {
-            PdfInput::Bytes(b) => b.as_bytes().to_vec(),
-            PdfInput::Path(path) => std::fs::read(&path).map_err(|e| {
-                pyo3::exceptions::PyIOError::new_err(format!(
-                    "Failed to read file at {}: {}",
-                    path.display(),
-                    e
-                ))
-            })?,
-            PdfInput::FileLike(obj) => {
-                let data = obj.call_method0("read")?;
-                data.extract::<Vec<u8>>()?
-            }
-        };
+        let bytes = input.into_vec()?;
         let doc = Document::from_bytes(bytes).map_err(|e| format_pdf_err(&e))?;
+
         Ok(Self {
             inner: Mutex::new(Some(doc)),
         })
@@ -155,7 +133,7 @@ impl PyPdfDocument {
         Ok(())
     }
 
-    /// Append a JPEG page to the document.
+    /// Append multiple JPEG pages to the document.
     #[allow(clippy::needless_pass_by_value)]
     fn append_multiple_jpeg_pages(&self, jpegs: Vec<Vec<u8>>) -> PyResult<()> {
         self.with_doc_mut(|d| {
@@ -177,6 +155,14 @@ impl PyPdfDocument {
         self.with_doc(|d| d.save(&mut bytes).map_err(|e| format_pdf_err(&e)))??;
         buf.call_method1("write", (PyBytes::new(buf.py(), &bytes),))?;
         Ok(())
+    }
+
+    /// Retrieve the bytes from the document.
+    fn as_bytes<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
+        let owned_bytes = self
+            .with_doc(Document::to_bytes)?
+            .map_err(|e| format_pdf_err(&e))?;
+        Ok(PyBytes::new(py, owned_bytes.as_slice()))
     }
 
     /// Save the document directly to a file path.
@@ -208,6 +194,21 @@ impl PyPdfDocument {
         *guard = None;
         drop(guard);
         Ok(())
+    }
+
+    /// Compresses a given PDF.
+    /// # Errors
+    /// Returns an error if the image data is invalid or if the operation fails.
+    /// # Panics
+    /// If the compression process encounters an unexpected error.
+    #[pyo3(signature = (quality = 85, optimize = true, dpi = 150.0))]
+    fn compress(&self, quality: u8, optimize: bool, dpi: f32) -> PyResult<Option<Self>> {
+        let out = self
+            .with_doc(|d| d.compress(quality, dpi, optimize))?
+            .map_err(|e| format_pdf_err(&e))?;
+        Ok(out.map(|doc| Self {
+            inner: Mutex::new(Some(doc)),
+        }))
     }
 
     /// String representation showing page count, or "closed" if already closed.
@@ -247,6 +248,14 @@ impl PyPdfDocument {
     }
 }
 
+impl From<Document> for PyPdfDocument {
+    fn from(doc: Document) -> Self {
+        Self {
+            inner: Mutex::new(Some(doc)),
+        }
+    }
+}
+
 impl PyPdfDocument {
     pub(crate) fn with_doc<R>(&self, f: impl FnOnce(&Document) -> R) -> PyResult<R> {
         let g = self.inner.lock().map_err(|_| closed_err())?;
@@ -263,4 +272,26 @@ impl PyPdfDocument {
         drop(g);
         Ok(result)
     }
+}
+
+/// Module-level accessor for compressing PDFs.
+/// # Errors
+/// Returns [`PdfError`] if the PDF cannot be compressed.
+#[pyfunction]
+#[pyo3(signature = (data, quality = 85, optimize = true, dpi = 150.0))]
+pub fn compress(data: PdfInput<'_>, quality: u8, optimize: bool, dpi: f32) -> PyResult<Vec<u8>> {
+    let data = data.into_vec()?;
+    let doc = Document::from_bytes(data.clone()).map_err(|e| format_pdf_err(&e))?;
+    let Some(out) = doc
+        .compress(quality, dpi, optimize)
+        .map_err(|e| format_pdf_err(&e))?
+    else {
+        return Ok(data);
+    };
+    let bytes = out.to_bytes().map_err(|e| format_pdf_err(&e))?;
+    Ok(if bytes.len() < data.len() {
+        bytes
+    } else {
+        data
+    })
 }

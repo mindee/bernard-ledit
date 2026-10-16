@@ -3,6 +3,10 @@
 **/*.rs.bk
 .env
 
+# Python
+.venv*
+venv/
+
 # Misc
 *.log
 
@@ -43,3 +47,4 @@ $RECYCLE.BIN/
 
 # Tools
 .rtk
+local_test

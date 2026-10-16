@@ -1,9 +1,10 @@
-name: Main
+name: Main and Dev
 
 on:
   push:
     branches:
       - main
+      - dev
   workflow_dispatch:
 
 concurrency:
@@ -30,6 +31,12 @@ jobs:
     needs: pre-commit
     with:
       python-versions: '["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]'
+
+  php-binding-tests:
+    uses: ./.github/workflows/_php-binding-tests.yml
+    needs: pre-commit
+    with:
+      php-versions: '["8.1", "8.2", "8.3", "8.4", "8.5"]'
 
   java-binding-tests:
     uses: ./.github/workflows/_java-binding-ci.yml

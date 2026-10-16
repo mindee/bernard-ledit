@@ -3,10 +3,19 @@ use std::env;
 use std::fs;
 use std::path::PathBuf;
 
-const PDFIUM_RELEASE: &str = "chromium/7825";
-
 fn main() {
-    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=pdfium-release");
+    let manifest = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+    let release_file = std::path::Path::new(&manifest).join("pdfium-release");
+    println!("cargo:rerun-if-changed={}", release_file.display());
+    let release = std::fs::read_to_string(&release_file)
+        .unwrap_or_else(|e| panic!("cannot read {}: {e}", release_file.display()))
+        .trim()
+        .to_owned();
+    if env::var_os("CARGO_FEATURE_STATIC_PDFIUM").is_some() {
+        println!("cargo:rerun-if-env-changed=PDFIUM_STATIC_LIB_PATH");
+        return;
+    }
 
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let target = env::var("TARGET").unwrap();
@@ -23,10 +32,11 @@ fn main() {
     };
 
     let download_url = format!(
-        "https://github.com/bblanchon/pdfium-binaries/releases/download/{PDFIUM_RELEASE}/pdfium-{os_arch}.tgz"
+        "https://github.com/bblanchon/pdfium-binaries/releases/download/{}/pdfium-{os_arch}.tgz",
+        release.replace('/', "%2F")
     );
 
-    let safe_release_name = PDFIUM_RELEASE.replace('/', "_");
+    let safe_release_name = release.replace('/', "_");
     let cache_dir = manifest_dir
         .join(".pdfium_cache")
         .join(safe_release_name)
@@ -75,8 +85,8 @@ fn main() {
     }
 
     let target_path = out_dir.join(lib_name);
-
     println!("cargo:rustc-env=PDFIUM_PATH={}", source_path.display());
+    let python_package_dir = manifest_dir.join("../bindings/python/bernard_ledit");
 
     if source_path.exists() {
         fs::copy(&source_path, &target_path).unwrap_or_else(|e| {
@@ -86,6 +96,21 @@ fn main() {
                 target_path.display()
             );
         });
+        if python_package_dir.is_dir() {
+            let bundled_pdfium_path = python_package_dir.join(lib_name);
+            fs::copy(&source_path, &bundled_pdfium_path).unwrap_or_else(|e| {
+                panic!(
+                    "Failed to copy PDFium library from {} to {}: {e}",
+                    source_path.display(),
+                    bundled_pdfium_path.display()
+                );
+            });
+        } else {
+            println!(
+                "cargo:warning=Skipping Python PDFium bundling: {} does not exist",
+                python_package_dir.display()
+            );
+        }
     } else {
         panic!(
             "PDFium extraction succeeded, but expected library was not found at: {}",

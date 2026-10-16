@@ -21,6 +21,10 @@ lint = [
     "ruff",
     "mypy",
 ]
+dev = [
+    "maturin>=1.0,<2.0",
+    "bernard-ledit[test,lint]",
+]
 [tool.ruff]
 line-length = 88
 target-version = "py39"
@@ -31,7 +35,12 @@ select = ["E", "F", "I", "N", "UP"]
 [tool.maturin]
 module-name = "bernard_ledit._bernard_ledit"
 features = ["pyo3/extension-module"]
-include = ["bernard_ledit/**/*.pyi"]
+include = [
+    "bernard_ledit/**/*.pyi",
+    "bernard_ledit/libpdfium.so",
+    "bernard_ledit/libpdfium.dylib",
+    "bernard_ledit/pdfium.dll",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["bernard_ledit/tests"]

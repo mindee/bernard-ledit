@@ -7,7 +7,7 @@
 //! # Content
 //! PDF defines 14 built-in (standard) fonts that don't require font
 //! embedding (Helvetica, Times, Courier — each in four regular/bold/italic
-//! variants — plus Symbol and ZapfDingbats). When adding text we don't have
+//! variants, plus Symbol and ZapfDingbats). When adding text, we don't have
 //! arbitrary font files at hand, so we pick the closest built-in for the
 //! requested name.
 
@@ -17,13 +17,7 @@ use pdfium_render::prelude::PdfFontBuiltin;
 const PDF_FONT_FLAG_ITALIC: i32 = 1 << 6;
 
 /// Resolve a textual font name (plus weight and flags) to one of the 14
-/// PDF built-in font variants.
-///
-/// The mapping picks a family from the font name (Times / Courier / Symbol /
-/// `ZapfDingbats`, defaulting to Helvetica for any sans-serif or unknown name)
-/// and then picks a bold/italic variant based on `font_weight` (>= 600 is
-/// considered bold) and the italic flag in `font_flags` (or "italic" /
-/// "oblique" appearing in the font name).
+/// PDF built-in font variants. Defaults to Helvetica.
 #[must_use]
 pub fn resolve_builtin_font(font_name: &str, font_weight: u32, font_flags: i32) -> PdfFontBuiltin {
     let lower = font_name.to_ascii_lowercase();

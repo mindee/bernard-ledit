@@ -1,3 +1,4 @@
+use crate::image::Image;
 use crate::pdf::text_char::TextChar;
 use crate::pdf::{PdfError, bitmap::Bitmap};
 use pdfium_render::prelude::*;
@@ -26,6 +27,39 @@ impl<'a> Page<'a> {
         Ok(self.inner.objects().len() == 0 && self.inner.text()?.is_empty())
     }
 
+    /// Strips the text off a page.
+    /// # Errors
+    /// Returns a `PdfError` if text suppression fails.
+    pub fn strip_text(&mut self) -> Result<(), PdfError> {
+        let objects = self.inner.objects_mut();
+
+        let text_indices: Vec<usize> = objects
+            .iter()
+            .enumerate()
+            .filter(|(_, obj)| obj.object_type() == PdfPageObjectType::Text)
+            .map(|(i, _)| i)
+            .collect();
+        for index in text_indices.into_iter().rev() {
+            objects.remove_object_at_index(index)?;
+        }
+
+        let form_indices: Vec<usize> = objects
+            .iter()
+            .enumerate()
+            .filter(|(_, obj)| obj.object_type() == PdfPageObjectType::XObjectForm)
+            .map(|(i, _)| i)
+            .collect();
+        for index in form_indices {
+            let mut obj = objects.get(index)?;
+            if let Some(form) = obj.as_x_object_form_object_mut() {
+                strip_text_from_form(form)?;
+            }
+        }
+
+        self.inner.regenerate_content()?;
+        Ok(())
+    }
+
     /// Extract all text from the page.
     /// # Errors
     /// Returns a `PdfError` if text extraction fails.
@@ -36,7 +70,10 @@ impl<'a> Page<'a> {
     /// Render the page to a bitmap.
     /// # Errors
     /// Returns a `PdfError` if the page could not be rendered.
-    pub fn render(&self, scale: f32) -> Result<Bitmap, PdfError> {
+    pub fn render_to_bitmap(&self, scale: f32) -> Result<Bitmap, PdfError> {
+        let _lock = crate::pdf::NATIVE_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let cfg = PdfRenderConfig::new().scale_page_by_factor(scale);
         let pb = self.inner.render_with_config(&cfg)?;
         Ok(Bitmap::from_pdfium(&pb))
@@ -80,6 +117,18 @@ impl<'a> Page<'a> {
 
         Ok(())
     }
+
+    /// Renders an image at a given scale.
+    /// # Errors
+    /// Returns [`PdfError`] if the image cannot be rendered.
+    pub fn render_image(&self, scale: f32) -> Result<Image, PdfError> {
+        let _lock = crate::pdf::NATIVE_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let cfg = PdfRenderConfig::new().scale_page_by_factor(scale);
+        let bitmap = self.inner.render_with_config(&cfg)?;
+        Ok(Image::from_dynamic(bitmap.as_image()?))
+    }
 }
 
 /// Convert a `PdfPageRenderRotation` to a u32.
@@ -91,6 +140,25 @@ pub const fn get_rotation(rotation: PdfPageRenderRotation) -> u32 {
         PdfPageRenderRotation::Degrees180 => 180,
         PdfPageRenderRotation::Degrees270 => 270,
     }
+}
+
+/// Recursively removes text objects from a form and every form nested in it.
+fn strip_text_from_form(form: &mut PdfPageXObjectFormObject) -> Result<(), PdfError> {
+    for index in (0..form.len()).rev() {
+        let mut child = form.get(index)?;
+        match child.object_type() {
+            PdfPageObjectType::Text => {
+                form.remove_object_at_index(index)?;
+            }
+            PdfPageObjectType::XObjectForm => {
+                if let Some(inner) = child.as_x_object_form_object_mut() {
+                    strip_text_from_form(inner)?;
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -152,7 +220,7 @@ mod tests {
         pdfium();
         let jpeg = make_real_jpeg(100, 50);
         let doc = Document::from_jpeg(&jpeg, 100.0, 50.0).unwrap();
-        let bmp = doc.page(0).unwrap().render(1.0).unwrap();
+        let bmp = doc.page(0).unwrap().render_to_bitmap(1.0).unwrap();
         assert_eq!(bmp.width, 100);
         assert_eq!(bmp.height, 50);
     }
@@ -163,8 +231,8 @@ mod tests {
         let jpeg = make_real_jpeg(100, 50);
         let doc = Document::from_jpeg(&jpeg, 100.0, 50.0).unwrap();
         let page = doc.page(0).unwrap();
-        let bmp1 = page.render(1.0).unwrap();
-        let bmp2 = page.render(2.0).unwrap();
+        let bmp1 = page.render_to_bitmap(1.0).unwrap();
+        let bmp2 = page.render_to_bitmap(2.0).unwrap();
         assert!(bmp2.width - 2 * bmp1.width <= 1);
         assert!(bmp2.height - 2 * bmp1.height <= 1);
     }
@@ -174,7 +242,7 @@ mod tests {
         pdfium();
         let jpeg = make_real_jpeg(20, 30);
         let doc = Document::from_jpeg(&jpeg, 20.0, 30.0).unwrap();
-        let bmp = doc.page(0).unwrap().render(1.0).unwrap();
+        let bmp = doc.page(0).unwrap().render_to_bitmap(1.0).unwrap();
         assert_eq!(bmp.rgba.len(), (bmp.width * bmp.height * 4) as usize);
     }
 
@@ -214,5 +282,18 @@ mod tests {
             .rotate(180)
             .expect("Rotation should be one of 0, 90, 180 or 270.");
         assert_eq!(page_0.rotation().unwrap(), 180);
+    }
+
+    #[test]
+    fn compress_scanned_page_keeps_page_size() {
+        pdfium();
+        let jpeg = test_data_bytes!("file_types/receipt.jpg");
+        let doc = Document::from_jpeg(jpeg, 200.0, 300.0).unwrap();
+        let out = doc
+            .compress(80, 150.0, true)
+            .unwrap()
+            .expect("scanned page should be recompressed");
+        let (w, h) = out.page(0).unwrap().size();
+        assert!((w - 200.0).abs() < 0.5 && (h - 300.0).abs() < 0.5);
     }
 }

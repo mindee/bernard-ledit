@@ -2,6 +2,9 @@
 
 /// Geometry-related functionality.
 mod geometry;
+/// Image-related functionality.
+pub mod image;
+mod input;
 /// PDF-related functionality.
 pub mod pdf;
 
@@ -13,5 +16,6 @@ use pyo3::{Bound, PyResult, pymodule};
 fn _bernard_ledit(m: &Bound<'_, PyModule>) -> PyResult<()> {
     geometry::register_submodule(m)?;
     pdf::register_submodule(m)?;
+    image::register_submodule(m)?;
     Ok(())
 }
