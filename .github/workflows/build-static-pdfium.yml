@@ -1,7 +1,8 @@
 name: Build static PDFium
 on:
   workflow_dispatch:
-
+  push:
+    branches: [add-php-ext-publish]
 permissions:
   contents: write
 
