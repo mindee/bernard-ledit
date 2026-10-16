@@ -48,3 +48,6 @@ $RECYCLE.BIN/
 # Tools
 .rtk
 local_test
+
+# Build
+tools/pdfium-static/pdfium-static-namespaced/
