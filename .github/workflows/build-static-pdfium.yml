@@ -1,0 +1,44 @@
+name: Build static PDFium
+on:
+  workflow_dispatch:
+  push:
+    branches: [add-php-ext-publish]
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: linux-x64-glibc,   runner: ubuntu-latest,    os: linux, cpu: x64 }
+          - { target: linux-arm64-glibc, runner: ubuntu-24.04-arm, os: linux, cpu: arm64 }
+    steps:
+      - uses: actions/checkout@v6
+      - name: Read PDFium release
+        id: rel
+        run: echo "tag=$(tr -d '[:space:]' < core/pdfium-release)" >> "$GITHUB_OUTPUT"
+      - name: Build
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            bash tools/pdfium-static/build.sh && exit 0
+            echo "::warning::Attempt $attempt failed, retrying in $((attempt * 60))s"
+            sudo rm -rf /tmp/pdfium-static/pdfium-binaries/_bad_scm
+            sleep $((attempt * 60))
+          done
+          exit 1
+      - uses: actions/cache@v6
+        with:
+          path: /tmp/pdfium-static/pdfium-binaries/pdfium
+          key: pdfium-src-${{ hashFiles('core/pdfium-release') }}-${{ matrix.target }}
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rel="pdfium-static-${{ steps.rel.outputs.tag }}"; rel="${rel//\//_}"
+          cp tools/pdfium-static/pdfium-static-namespaced/lib/libpdfium.a "libpdfium-${{ matrix.target }}.a"
+          gh release view "$rel" >/dev/null 2>&1 || gh release create "$rel" --title "$rel" --notes "Static PDFium for bernard-ledit"
+          gh release upload "$rel" "libpdfium-${{ matrix.target }}.a" --clobber
