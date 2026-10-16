@@ -1,0 +1,35 @@
+name: Build static PDFium
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: linux-x64-glibc,   runner: ubuntu-latest,    os: linux, cpu: x64 }
+          - { target: linux-arm64-glibc, runner: ubuntu-24.04-arm, os: linux, cpu: arm64 }
+    steps:
+      - uses: actions/checkout@v6
+      - name: Read PDFium release
+        id: rel
+        run: echo "tag=$(tr -d '[:space:]' < core/pdfium-release)" >> "$GITHUB_OUTPUT"
+      - name: Build
+        run: bash tools/pdfium-static/buildandinstall.bash   # parametrize tag/os/cpu first
+        env:
+          PDFIUM_TAG: ${{ steps.rel.outputs.tag }}
+          PDFIUM_OS: ${{ matrix.os }}
+          PDFIUM_CPU: ${{ matrix.cpu }}
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rel="pdfium-static-${{ steps.rel.outputs.tag }}"; rel="${rel//\//_}"
+          cp tools/pdfium-static/pdfium-static-namespaced/lib/libpdfium.a "libpdfium-${{ matrix.target }}.a"
+          gh release view "$rel" >/dev/null 2>&1 || gh release create "$rel" --title "$rel" --notes "Static PDFium for bernard-ledit"
+          gh release upload "$rel" "libpdfium-${{ matrix.target }}.a" --clobber
