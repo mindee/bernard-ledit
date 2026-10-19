@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Namespace bundled JPEG symbols in a copy of a Linux PDFium static archive."""
+"""Namespace bundled JPEG symbols in a copy of a PDFium static archive (ELF or Mach-O)."""
 
 import argparse
 from collections import Counter
@@ -54,16 +54,21 @@ def namespace_archive(build_root, output_dir):
     jpeg = symbols(nm, jpeg_archives, defined_only=True)
     jpeg_names = {name for name, _ in jpeg}
     names = jpeg_names & {name for name, _ in defined}
-    if "jpeg_natural_order" not in names:
+    # Mach-O (macOS) prefixes C symbols with "_"; ELF (Linux) doesn't.
+    underscore = "_" if "_jpeg_natural_order" in names else ""
+    if underscore + "jpeg_natural_order" not in names:
         raise RuntimeError(
             "Expected unmodified jpeg_natural_order definition is missing; "
             "use the original archive and component archives from the same build"
         )
     all_names = {name for name, _ in original}
-    mapping = {name: PREFIX + name for name in sorted(names)}
+    # Keep the platform prefix in front, so the C-level name becomes bernard_pdfium_<name> everywhere.
+    mapping = {
+        name: underscore + PREFIX + name.removeprefix(underscore) for name in sorted(names)
+    }
     if set(mapping.values()) & all_names:
         raise RuntimeError("Archive already contains destination-prefixed symbols")
-    if any(name.startswith("FPDF") for name in names):
+    if any(name.removeprefix(underscore).startswith("FPDF") for name in names):
         raise RuntimeError("JPEG component archives unexpectedly define PDFium API symbols")
 
     expected = Counter()

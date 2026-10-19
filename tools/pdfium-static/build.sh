@@ -67,6 +67,7 @@ else
   yes | docker run --rm -i \
     -v "$PWD/pdfium-binaries:/w" -w /w \
     -e PDFIUM_TAG="$PDFIUM_TAG" -e PDFIUM_OS="$PDFIUM_OS" -e PDFIUM_CPU="$PDFIUM_CPU" -e PDFIUM_ENV="$PDFIUM_ENV" \
+    -e MUSL_URL="${MUSL_URL:-https://github.com/mindee/bernard-ledit/releases/download/musl-toolchains}" \
     ubuntu:22.04 bash -eu -c '
       export DEBIAN_FRONTEND=noninteractive
       echo "debconf debconf/frontend select Noninteractive" | debconf-set-selections
