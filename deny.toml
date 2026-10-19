@@ -48,6 +48,8 @@ skip = [
     { name = "nom" },
     { name = "r-efi" },
     { name = "syn" },
+    { name = "thiserror" },
+    { name = "thiserror-impl" },
     { name = "winnow" },
     { name = "windows-sys" },
 ]
