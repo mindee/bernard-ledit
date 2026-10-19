@@ -15,7 +15,7 @@ use ext_php_rs::{
 use std::ffi::CStr;
 use std::sync::OnceLock;
 
-#[cfg(not(feature = "static-pdfium"))]
+#[cfg(not(feature = "static-link"))]
 use ext_php_rs::zend::ExecutorGlobals;
 
 pub const INI_PDFIUM_PATH: &CStr = c"bernard_ledit.pdfium_path";
@@ -56,12 +56,12 @@ pub(crate) fn ensure_pdfium() -> PhpResult<()> {
         .map_err(PhpException::from_class::<error::PdfiumException>)
 }
 
-#[cfg(feature = "static-pdfium")]
+#[cfg(feature = "static-link")]
 fn bind_pdfium() -> Result<(), bernard_ledit::pdf::PdfError> {
     bernard_ledit::pdf::initialize_static()
 }
 
-#[cfg(not(feature = "static-pdfium"))]
+#[cfg(not(feature = "static-link"))]
 fn bind_pdfium() -> Result<(), bernard_ledit::pdf::PdfError> {
     use bernard_ledit::pdf::{PdfError, initialize};
     let ini = ExecutorGlobals::get().ini_values();

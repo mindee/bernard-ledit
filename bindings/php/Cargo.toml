@@ -27,5 +27,6 @@ ext-php-rs = { version = "=0.16.3", features = ["closure"] }
 workspace = true
 
 [features]
-static-pdfium = ["bernard-ledit/static-pdfium"]
-static-pdfium-libcxx = ["bernard-ledit/static-pdfium-libcxx"]
+static-link = ["bernard-ledit/static-link"]
+static-pdfium = ["static-link", "bernard-ledit/static-pdfium"]
+static-pdfium-libcxx = ["static-link", "bernard-ledit/static-pdfium-libcxx"]
