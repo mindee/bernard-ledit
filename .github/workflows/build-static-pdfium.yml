@@ -13,8 +13,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { target: linux-x64-glibc,   runner: ubuntu-latest,    os: linux, cpu: x64 }
-          - { target: linux-arm64-glibc, runner: ubuntu-24.04-arm, os: linux, cpu: arm64 }
+          - { target: linux-x64-glibc,   runner: ubuntu-latest, os: linux, cpu: x64 }
+          - { target: linux-arm64-glibc, runner: ubuntu-latest, os: linux, cpu: arm64 }
     steps:
       - uses: actions/checkout@v6
       - name: Read PDFium release
@@ -32,8 +32,9 @@ jobs:
           OUT_DIR: ${{ github.workspace }}/out/${{ matrix.target }}
         run: |
           for attempt in 1 2 3; do
-            bash tools/pdfium-static/build.sh && exit 0
-            echo "::warning::Attempt $attempt failed, retrying in $((attempt * 60))s"
+            if bash tools/pdfium-static/build.sh 2>&1 | tee build.log; then exit 0; fi
+            grep -qE 'HTTP 5[0-9]{2}|RPC failed|Could not resolve host' build.log || exit 1
+            echo "::warning::Network failure on attempt $attempt, retrying in $((attempt * 60))s"
             sudo rm -rf /tmp/pdfium-static/pdfium-binaries/_bad_scm
             sleep $((attempt * 60))
           done
@@ -42,6 +43,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -o pipefail
           rel="pdfium-static-${{ steps.rel.outputs.tag }}"; rel="${rel//\//_}"
           cp "out/${{ matrix.target }}/lib/libpdfium.a" "libpdfium-${{ matrix.target }}.a"
           gh release view "$rel" >/dev/null 2>&1 || gh release create "$rel" --title "$rel" --notes "Static PDFium for bernard-ledit"
