@@ -58,7 +58,7 @@ cd ..
 # DEBIAN_FRONTEND. Flags must precede the os/cpu positionals (build.sh uses getopts).
 yes | docker run --rm -i \
   -v "$PWD/pdfium-binaries:/w" -w /w \
-  -e PDFIUM_TAG -e PDFIUM_OS -e PDFIUM_CPU \
+  -e PDFIUM_TAG="$PDFIUM_TAG" -e PDFIUM_OS="$PDFIUM_OS" -e PDFIUM_CPU="$PDFIUM_CPU" \
   ubuntu:22.04 bash -eu -c '
     export DEBIAN_FRONTEND=noninteractive
     echo "debconf debconf/frontend select Noninteractive" | debconf-set-selections
