@@ -11,19 +11,23 @@ jobs:
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         include:
           - { target: linux-x64-glibc,   runner: ubuntu-latest, os: linux, cpu: x64 }
           - { target: linux-arm64-glibc, runner: ubuntu-latest, os: linux, cpu: arm64 }
     steps:
       - uses: actions/checkout@v6
+
       - name: Read PDFium release
         id: rel
         run: echo "tag=$(tr -d '[:space:]' < core/pdfium-release)" >> "$GITHUB_OUTPUT"
+
       - uses: actions/cache@v6
         with:
           path: /tmp/pdfium-static/pdfium-binaries/pdfium
           key: pdfium-src-${{ hashFiles('core/pdfium-release') }}-${{ matrix.target }}
+
       - name: Build
         shell: bash
         env:
@@ -39,12 +43,30 @@ jobs:
             sleep $((attempt * 60))
           done
           exit 1
+
+      # The Docker build runs as root; give the files back so the cache can save them.
+      - name: Fix ownership
+        if: always()
+        run: sudo chown -R "$(id -u):$(id -g)" /tmp/pdfium-static out 2>/dev/null || true
+
+      - name: Show output
+        if: always()
+        run: find out -type f 2>/dev/null || true
+
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          set -o pipefail
+          lib="$(find "out/${{ matrix.target }}" -name libpdfium.a -print -quit)"
+          [ -n "$lib" ] || { echo "::error::libpdfium.a not found under out/${{ matrix.target }}"; exit 1; }
           rel="pdfium-static-${{ steps.rel.outputs.tag }}"; rel="${rel//\//_}"
-          cp "out/${{ matrix.target }}/lib/libpdfium.a" "libpdfium-${{ matrix.target }}.a"
+          cp "$lib" "libpdfium-${{ matrix.target }}.a"
           gh release view "$rel" >/dev/null 2>&1 || gh release create "$rel" --title "$rel" --notes "Static PDFium for bernard-ledit"
           gh release upload "$rel" "libpdfium-${{ matrix.target }}.a" --clobber
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ matrix.target }}
+          path: build.log
