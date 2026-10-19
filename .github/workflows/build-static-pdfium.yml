@@ -1,8 +1,17 @@
 name: Build static PDFium
 on:
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Rebuild and overwrite targets that are already published"
+        type: boolean
+        default: false
   push:
     branches: [add-php-ext-publish]
+    paths:
+      - core/pdfium-release
+      - tools/pdfium-static/**
+      - .github/workflows/build-static-pdfium.yml
 permissions:
   contents: write
 
@@ -11,7 +20,6 @@ jobs:
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
-      max-parallel: 1
       matrix:
         include:
           - { target: linux-x64-glibc,   runner: ubuntu-latest, os: linux, cpu: x64 }
@@ -23,12 +31,28 @@ jobs:
         id: rel
         run: echo "tag=$(tr -d '[:space:]' < core/pdfium-release)" >> "$GITHUB_OUTPUT"
 
+      - name: Check if already published
+        id: exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rel="pdfium-static-${{ steps.rel.outputs.tag }}"; rel="${rel//\//_}"
+          asset="libpdfium-${{ matrix.target }}.a"
+          if gh release view "$rel" --json assets --jq '.assets[].name' 2>/dev/null | grep -qx "$asset"; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::$asset already in $rel, skipping (run manually with force=true to rebuild)"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/cache@v6
+        if: steps.exists.outputs.published != 'true' || inputs.force
         with:
           path: /tmp/pdfium-static/pdfium-binaries/pdfium
           key: pdfium-src-${{ hashFiles('core/pdfium-release') }}-${{ matrix.target }}
 
       - name: Build
+        if: steps.exists.outputs.published != 'true' || inputs.force
         shell: bash
         env:
           PDFIUM_OS: ${{ matrix.os }}
@@ -46,14 +70,15 @@ jobs:
 
       # The Docker build runs as root; give the files back so the cache can save them.
       - name: Fix ownership
-        if: always()
+        if: always() && (steps.exists.outputs.published != 'true' || inputs.force)
         run: sudo chown -R "$(id -u):$(id -g)" /tmp/pdfium-static out 2>/dev/null || true
 
       - name: Show output
-        if: always()
+        if: always() && (steps.exists.outputs.published != 'true' || inputs.force)
         run: find out -type f 2>/dev/null || true
 
       - name: Publish
+        if: steps.exists.outputs.published != 'true' || inputs.force
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
