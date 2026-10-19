@@ -125,6 +125,7 @@ jobs:
             export RUSTFLAGS="-C target-feature=-crt-static"
             just php test-static
             ext=target/release/libbernard_ledit_php.so
-            ldd "$ext"
-            if ldd "$ext" | grep -qi pdfium; then echo "links pdfium dynamically" >&2; exit 1; fi
+            deps="$(ldd "$ext" 2>/dev/null || true)"
+            echo "$deps"
+            if echo "$deps" | grep -qi pdfium; then echo "links pdfium dynamically" >&2; exit 1; fi
           '

@@ -73,7 +73,7 @@ else
       echo "debconf debconf/frontend select Noninteractive" | debconf-set-selections
       apt-get update
       apt-get install -y git curl python3 lsb-release sudo build-essential pkg-config file
-      # ⚠️ check: the variable build.sh reads for musl
+      # Check: the variable build.sh reads for musl
       env_arg=""; [ "$PDFIUM_ENV" = musl ] && env_arg="musl"
       ./build.sh -s -b "$PDFIUM_TAG" "$PDFIUM_OS" "$PDFIUM_CPU" $env_arg
     ' || [ "${PIPESTATUS[1]}" -eq 0 ]

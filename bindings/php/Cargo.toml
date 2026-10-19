@@ -28,3 +28,4 @@ workspace = true
 
 [features]
 static-pdfium = ["bernard-ledit/static-pdfium"]
+static-pdfium-libcxx = ["bernard-ledit/static-pdfium-libcxx"]
