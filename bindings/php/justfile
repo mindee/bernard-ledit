@@ -30,7 +30,7 @@ build-release:
 build-static:
     cargo build -p bernard-ledit-php --release --features static-pdfium
 
-pdfium_release := replace(trim(read("../../core/pdfium-release")), "/", "_")
+pdfium_release := replace(`tr -d '[:space:]' < ../../core/pdfium-release`, "/", "_")
 pdfium_target := if os() == "macos" {
     if arch() == "aarch64" { "mac-arm64" } else { "mac-x64" }
 } else if os() == "windows" {
