@@ -20,8 +20,16 @@ jobs:
       - name: Read PDFium release
         id: rel
         run: echo "tag=$(tr -d '[:space:]' < core/pdfium-release)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v6
+        with:
+          path: /tmp/pdfium-static/pdfium-binaries/pdfium
+          key: pdfium-src-${{ hashFiles('core/pdfium-release') }}-${{ matrix.target }}
       - name: Build
         shell: bash
+        env:
+          PDFIUM_OS: ${{ matrix.os }}
+          PDFIUM_CPU: ${{ matrix.cpu }}
+          OUT_DIR: ${{ github.workspace }}/out/${{ matrix.target }}
         run: |
           for attempt in 1 2 3; do
             bash tools/pdfium-static/build.sh && exit 0
@@ -30,15 +38,11 @@ jobs:
             sleep $((attempt * 60))
           done
           exit 1
-      - uses: actions/cache@v6
-        with:
-          path: /tmp/pdfium-static/pdfium-binaries/pdfium
-          key: pdfium-src-${{ hashFiles('core/pdfium-release') }}-${{ matrix.target }}
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           rel="pdfium-static-${{ steps.rel.outputs.tag }}"; rel="${rel//\//_}"
-          cp tools/pdfium-static/pdfium-static-namespaced/lib/libpdfium.a "libpdfium-${{ matrix.target }}.a"
+          cp "out/${{ matrix.target }}/lib/libpdfium.a" "libpdfium-${{ matrix.target }}.a"
           gh release view "$rel" >/dev/null 2>&1 || gh release create "$rel" --title "$rel" --notes "Static PDFium for bernard-ledit"
           gh release upload "$rel" "libpdfium-${{ matrix.target }}.a" --clobber
