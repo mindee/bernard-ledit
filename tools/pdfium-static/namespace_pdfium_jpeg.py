@@ -5,6 +5,7 @@ import argparse
 from collections import Counter
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
 
@@ -32,13 +33,15 @@ def symbols(nm, archives, defined_only=False):
 def namespace_archive(build_root, output_dir):
     build_root = build_root.resolve()
     output_dir = output_dir.resolve()
-    source = build_root / "staging/lib/libpdfium.a"
-    destination = output_dir / "libpdfium.a"
+    is_windows = sys.platform == "win32"
+    exe = ".exe" if is_windows else ""
+    lib = "pdfium.lib" if is_windows else "libpdfium.a"
+    source = build_root / "staging/lib" / lib
+    destination = output_dir / lib
     tools = build_root / "pdfium/third_party/llvm-build/Release+Asserts/bin"
-    nm, objcopy, ar = (tools / name for name in ("llvm-nm", "llvm-objcopy", "llvm-ar"))
+    nm, objcopy, ar = (tools / f"{name}{exe}" for name in ("llvm-nm", "llvm-objcopy", "llvm-ar"))
     jpeg_dir = build_root / "pdfium/out/obj/third_party/libjpeg_turbo"
-    # Include libjpeg12/16 and the separate SIMD C/assembly archives.
-    jpeg_archives = sorted(jpeg_dir.glob("*.a"))
+    jpeg_archives = sorted(jpeg_dir.glob("*.lib" if is_windows else "*.a"))
     for path in (source, nm, objcopy, ar):
         if not path.is_file():
             raise FileNotFoundError(f"Required PDFium build artifact/tool missing: {path}")

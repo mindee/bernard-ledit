@@ -7,7 +7,7 @@ on:
         type: boolean
         default: false
   push:
-    branches: [add-php-ext-publish]
+    branches: [ add-php-ext-publish ]
     paths:
       - core/pdfium-release
       - tools/pdfium-static/**
@@ -23,11 +23,12 @@ jobs:
       max-parallel: 2   # googlesource throttles parallel gclient syncs
       matrix:
         include:
-          - { target: linux-x64-glibc,   runner: ubuntu-latest, os: linux, cpu: x64,   env: glibc }
-          - { target: linux-arm64-glibc, runner: ubuntu-latest, os: linux, cpu: arm64, env: glibc }
-          - { target: linux-x64-musl,    runner: ubuntu-latest, os: linux, cpu: x64,   env: musl }
-          - { target: linux-arm64-musl,  runner: ubuntu-latest, os: linux, cpu: arm64, env: musl }
-          - { target: mac-arm64,         runner: macos-latest,  os: mac,   cpu: arm64, env: "" }
+          - { target: linux-x64-glibc,   runner: ubuntu-latest,  os: linux, cpu: x64,   env: glibc, lib_ext: a,   work_dir: /tmp/pdfium-static }
+          - { target: linux-arm64-glibc, runner: ubuntu-latest,  os: linux, cpu: arm64, env: glibc, lib_ext: a,   work_dir: /tmp/pdfium-static }
+          - { target: linux-x64-musl,    runner: ubuntu-latest,  os: linux, cpu: x64,   env: musl,  lib_ext: a,   work_dir: /tmp/pdfium-static }
+          - { target: linux-arm64-musl,  runner: ubuntu-latest,  os: linux, cpu: arm64, env: musl,  lib_ext: a,   work_dir: /tmp/pdfium-static }
+          - { target: mac-arm64,         runner: macos-latest,   os: mac,   cpu: arm64, env: "",    lib_ext: a,   work_dir: /tmp/pdfium-static }
+          - { target: win-x64,           runner: windows-latest, os: win,   cpu: x64,   env: "",    lib_ext: lib, work_dir: "C:/pdfium-static" }
     steps:
       - uses: actions/checkout@v6
 
@@ -41,7 +42,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           rel="pdfium-static-${{ steps.rel.outputs.tag }}"; rel="${rel//\//_}"
-          asset="libpdfium-${{ matrix.target }}.a"
+          asset="libpdfium-${{ matrix.target }}.${{ matrix.lib_ext }}"
           if gh release view "$rel" --json assets --jq '.assets[].name' 2>/dev/null | grep -qx "$asset"; then
             echo "published=true" >> "$GITHUB_OUTPUT"
             echo "::notice::$asset already in $rel, skipping (run manually with force=true to rebuild)"
@@ -52,8 +53,18 @@ jobs:
       - uses: actions/cache@v6
         if: steps.exists.outputs.published != 'true' || inputs.force
         with:
-          path: /tmp/pdfium-static/pdfium-binaries/pdfium
+          path: ${{ matrix.work_dir }}/pdfium-binaries/pdfium
           key: pdfium-src-${{ hashFiles('core/pdfium-release') }}-${{ matrix.target }}
+
+      - name: Prepare Windows build
+        if: runner.os == 'Windows' && (steps.exists.outputs.published != 'true' || inputs.force)
+        shell: bash
+        run: git config --global core.longpaths true
+
+      - uses: actions/setup-python@v6
+        if: runner.os == 'Windows' && (steps.exists.outputs.published != 'true' || inputs.force)
+        with:
+          python-version: "3.12"
 
       - name: Build
         if: steps.exists.outputs.published != 'true' || inputs.force
@@ -63,6 +74,8 @@ jobs:
           PDFIUM_OS: ${{ matrix.os }}
           PDFIUM_CPU: ${{ matrix.cpu }}
           OUT_DIR: ${{ github.workspace }}/out/${{ matrix.target }}
+          WORK_DIR: ${{ matrix.work_dir }}
+          DEPOT_TOOLS_WIN_TOOLCHAIN: "0"
         run: |
           max=5
           for attempt in $(seq 1 "$max"); do
@@ -71,31 +84,34 @@ jobs:
             [ "$attempt" -lt "$max" ] || { echo "::error::Network failures persisted after $max attempts"; exit 1; }
             wait_s=$(( attempt * 120 + RANDOM % 60 ))
             echo "::warning::Network failure on attempt $attempt/$max, retrying in ${wait_s}s"
-            sudo rm -rf /tmp/pdfium-static/pdfium-binaries/_bad_scm
+            rm -rf "$WORK_DIR/pdfium-binaries/_bad_scm" 2>/dev/null || sudo rm -rf "$WORK_DIR/pdfium-binaries/_bad_scm"
             sleep "$wait_s"
           done
           exit 1
 
       # The Docker build runs as root; give the files back so the cache can save them.
       - name: Fix ownership
-        if: always() && (steps.exists.outputs.published != 'true' || inputs.force)
-        run: sudo chown -R "$(id -u):$(id -g)" /tmp/pdfium-static out 2>/dev/null || true
+        if: always() && runner.os != 'Windows' && (steps.exists.outputs.published != 'true' || inputs.force)
+        run: sudo chown -R "$(id -u):$(id -g)" "${{ matrix.work_dir }}" out 2>/dev/null || true
 
       - name: Show output
         if: always() && (steps.exists.outputs.published != 'true' || inputs.force)
         run: find out -type f 2>/dev/null || true
+        shell: bash
 
       - name: Publish
         if: steps.exists.outputs.published != 'true' || inputs.force
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          lib="$(find "out/${{ matrix.target }}" -name libpdfium.a -print -quit)"
-          [ -n "$lib" ] || { echo "::error::libpdfium.a not found under out/${{ matrix.target }}"; exit 1; }
+          lib="$(find "out/${{ matrix.target }}" \( -name libpdfium.a -o -name pdfium.lib \) -print -quit)"
+          [ -n "$lib" ] || { echo "::error::PDFium library not found under out/${{ matrix.target }}"; exit 1; }
           rel="pdfium-static-${{ steps.rel.outputs.tag }}"; rel="${rel//\//_}"
-          cp "$lib" "libpdfium-${{ matrix.target }}.a"
+          asset="libpdfium-${{ matrix.target }}.${{ matrix.lib_ext }}"
+          cp "$lib" "$asset"
           gh release view "$rel" >/dev/null 2>&1 || gh release create "$rel" --title "$rel" --notes "Static PDFium for bernard-ledit"
-          gh release upload "$rel" "libpdfium-${{ matrix.target }}.a" --clobber
+          gh release upload "$rel" "$asset" --clobber
+        shell: bash
 
       - name: Upload build log
         if: failure()

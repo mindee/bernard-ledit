@@ -25,10 +25,15 @@ namespacer="$script_dir/namespace_pdfium_jpeg.py"
 
 # Fail before the long build, not after it.
 [ -f "$namespacer" ] || { echo "missing $namespacer" >&2; exit 1; }
-if [ "$PDFIUM_OS" != mac ]; then
+if [ "$PDFIUM_OS" = linux ]; then
   command -v docker >/dev/null || { echo "docker is required" >&2; exit 1; }
 fi
-command -v python3 >/dev/null || { echo "python3 is required" >&2; exit 1; }
+if [ "$PDFIUM_OS" = win ]; then
+  PYTHON="$(command -v python || true)"
+else
+  PYTHON="$(command -v python3 || command -v python || true)"
+fi
+[ -n "$PYTHON" ] || { echo "python is required" >&2; exit 1; }
 
 mkdir -p "$WORK_DIR" && cd "$WORK_DIR"
 if [ ! -d pdfium-binaries/.git ]; then
@@ -61,8 +66,8 @@ cd ..
 # symbol versions. `yes |` with `-i` answers install-build-deps' bare apt prompts; debconf
 # is preseeded because `yes` can pick wrong entries in debconf dialogs, and sudo strips
 # DEBIAN_FRONTEND. Flags must precede the os/cpu positionals (build.sh uses getopts).
-if [ "$PDFIUM_OS" = mac ]; then
-  ( cd pdfium-binaries && ./build.sh -s -b "$PDFIUM_TAG" mac "$PDFIUM_CPU" )
+if [ "$PDFIUM_OS" = mac ] || [ "$PDFIUM_OS" = win ]; then
+  ( cd pdfium-binaries && ./build.sh -s -b "$PDFIUM_TAG" "$PDFIUM_OS" "$PDFIUM_CPU" )
 else
   yes | docker run --rm -i \
     -v "$PWD/pdfium-binaries:/w" -w /w \
@@ -86,5 +91,5 @@ fi
 
 # Keep the staged original; Cargo must link the namespaced copy.
 mkdir -p "$OUT_DIR"
-python3 "$namespacer" "$WORK_DIR/pdfium-binaries" "$OUT_DIR"
+"$PYTHON" "$namespacer" "$WORK_DIR/pdfium-binaries" "$OUT_DIR"
 echo "Namespaced static PDFium in $OUT_DIR"
