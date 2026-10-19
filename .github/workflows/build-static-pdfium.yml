@@ -64,12 +64,15 @@ jobs:
           PDFIUM_CPU: ${{ matrix.cpu }}
           OUT_DIR: ${{ github.workspace }}/out/${{ matrix.target }}
         run: |
-          for attempt in 1 2 3; do
+          max=5
+          for attempt in $(seq 1 "$max"); do
             if bash tools/pdfium-static/build.sh 2>&1 | tee build.log; then exit 0; fi
-            grep -qE 'HTTP 5[0-9]{2}|RPC failed|Could not resolve host|musl\.cc' build.log || exit 1
-            echo "::warning::Network failure on attempt $attempt, retrying in $((attempt * 60))s"
+            tail -n 60 build.log | grep -qE 'HTTP 5[0-9]{2}|RPC failed|Could not resolve host|musl\.cc' || exit 1
+            [ "$attempt" -lt "$max" ] || { echo "::error::Network failures persisted after $max attempts"; exit 1; }
+            wait_s=$(( attempt * 120 + RANDOM % 60 ))
+            echo "::warning::Network failure on attempt $attempt/$max, retrying in ${wait_s}s"
             sudo rm -rf /tmp/pdfium-static/pdfium-binaries/_bad_scm
-            sleep $((attempt * 60))
+            sleep "$wait_s"
           done
           exit 1
 
