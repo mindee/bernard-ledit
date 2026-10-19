@@ -115,5 +115,8 @@ jobs:
       - name: Check the extension is self-contained
         run: |
           ext=target/release/libbernard_ledit_php.so
-          ! ldd "$ext" | grep -i pdfium
+          if ldd "$ext" | grep -qi pdfium; then
+            echo "::error::$ext dynamically links against pdfium"
+            exit 1
+          fi
           objdump -T "$ext" | grep -o 'GLIBC_[0-9.]*' | sort -Vu | tail -n 1
