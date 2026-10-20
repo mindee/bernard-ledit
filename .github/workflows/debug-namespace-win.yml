@@ -1,0 +1,67 @@
+name: Debug Windows namespacing
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Run ID of the build that uploaded raw-win-x64"
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  debug:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: raw-win-x64
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+          # The artifact's root is the pdfium/ directory; recreate it under a fake build root.
+          path: C:/nsdebug/pdfium
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Which LLVM tools are available
+        run: |
+          B="/c/nsdebug/pdfium/third_party/llvm-build/Release+Asserts/bin"
+          echo "--- Chromium bundle:"; ls -la "$B"
+          for t in "$B"/llvm-*.exe; do "$t" --version | head -n 2; done
+          echo "--- Runner LLVM:"; "/c/Program Files/LLVM/bin/llvm-objcopy.exe" --version | head -n 2
+
+      - name: Compare one NASM object before and after objcopy
+        run: |
+          set -x
+          lib=/c/nsdebug/pdfium/out/obj/pdfium.lib
+          RUNNER="/c/Program Files/LLVM/bin"
+          CHROMIUM="/c/nsdebug/pdfium/third_party/llvm-build/Release+Asserts/bin"
+          member="$("$RUNNER/llvm-ar.exe" t "$lib" | grep 'jccolor-sse2.o' | head -n 1)"
+          echo "member: $member"
+          mkdir -p before && cd before && "$RUNNER/llvm-ar.exe" x "$lib" "$member" && cd ..
+          obj="$(find before -name jccolor-sse2.o | head -n 1)"
+
+          dump() {
+            echo "===== $1"
+            "$RUNNER/llvm-readobj.exe" --file-headers --sections --symbols "$1" | head -n 120
+            "$RUNNER/llvm-nm.exe" --extern-only "$1" || true
+          }
+          dump "$obj"
+
+          for objcopy in "$RUNNER/llvm-objcopy.exe" "$CHROMIUM/llvm-objcopy.exe"; do
+            [ -f "$objcopy" ] || { echo "(no $objcopy)"; continue; }
+            out="after-$(basename "$(dirname "$objcopy")").o"
+            "$objcopy" --redefine-sym jsimd_rgb_ycc_convert_sse2=bernard_pdfium_jsimd_rgb_ycc_convert_sse2 "$obj" "$out"
+            dump "$out"
+          done
+
+      - name: Run the namespacer
+        run: python tools/pdfium-static/namespace_pdfium_jpeg.py /c/nsdebug out-debug
