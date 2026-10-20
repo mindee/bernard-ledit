@@ -131,7 +131,6 @@ jobs:
         with:
           arch: x64
           toolset: ${{ matrix.msvc }}
-
       - name: Check the library against the target toolset (Windows)
         if: runner.os == 'Windows' && (steps.exists.outputs.published != 'true' || inputs.force)
         run: |
@@ -139,7 +138,9 @@ jobs:
           MSYS_NO_PATHCONV=1 lib.exe /NOLOGO /LIST "$lib" > /dev/null
           # Link a throwaway DLL that pulls in the API we use: unresolved symbols fail here,
           # with this toolset's link.exe and runtime libraries, before anything is published.
-          MSYS_NO_PATHCONV=1 link.exe /NOLOGO /DLL /NOENTRY /OUT:linktest.dll \
+          # Full path: Git Bash's GNU `link` would otherwise shadow Visual Studio's link.exe.
+          msvc_link="$(cygpath -u "$VCToolsInstallDir")/bin/Hostx64/x64/link.exe"
+          MSYS_NO_PATHCONV=1 "$msvc_link" /NOLOGO /DLL /NOENTRY /OUT:linktest.dll \
             /INCLUDE:FPDF_InitLibraryWithConfig /INCLUDE:FPDF_LoadMemDocument64 \
             /INCLUDE:FPDF_RenderPageBitmap /INCLUDE:FPDFText_LoadPage \
             /INCLUDE:FPDFPage_GenerateContent /INCLUDE:FPDF_SaveAsCopy \
