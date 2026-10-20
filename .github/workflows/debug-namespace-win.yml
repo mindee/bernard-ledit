@@ -39,37 +39,29 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Which LLVM tools are available
+      - name: Install latest LLVM
         run: |
-          B="/c/nsdebug/pdfium/third_party/llvm-build/Release+Asserts/bin"
-          echo "--- Chromium bundle:"; ls -la "$B"
-          for t in "$B"/llvm-*.exe; do "$t" --version | head -n 2; done
-          echo "--- Runner LLVM:"; "/c/Program Files/LLVM/bin/llvm-objcopy.exe" --version | head -n 2
+          choco upgrade llvm -y --no-progress
+          "/c/Program Files/LLVM/bin/llvm-objcopy.exe" --version
 
       - name: Compare one NASM object before and after objcopy
         run: |
-          set -x
           lib=/c/nsdebug/pdfium/out/obj/pdfium.lib
-          RUNNER="/c/Program Files/LLVM/bin"
-          CHROMIUM="/c/nsdebug/pdfium/third_party/llvm-build/Release+Asserts/bin"
-          member="$("$RUNNER/llvm-ar.exe" t "$lib" | grep 'jccolor-sse2.o' | head -n 1)"
-          echo "member: $member"
-          mkdir -p before && cd before && "$RUNNER/llvm-ar.exe" x "$lib" "$member" && cd ..
+          LLVM="/c/Program Files/LLVM/bin"
+          member="$("$LLVM/llvm-ar.exe" t "$lib" | grep 'jccolor-sse2.o' | head -n 1)"
+          mkdir -p before && (cd before && "$LLVM/llvm-ar.exe" x "$lib" "$member")
           obj="$(find before -name jccolor-sse2.o | head -n 1)"
 
           dump() {
-            echo "===== $1"
-            "$RUNNER/llvm-readobj.exe" --file-headers --sections --symbols "$1" | head -n 120
-            "$RUNNER/llvm-nm.exe" --extern-only "$1" || true
+            {
+              echo "================ $1"
+              "$LLVM/llvm-readobj.exe" --file-headers --symbols "$1" 2>&1 | head -n 80
+              echo "--- nm:"
+              "$LLVM/llvm-nm.exe" --extern-only "$1" 2>&1
+            } > "$1.txt"
+            cat "$1.txt"
           }
+
           dump "$obj"
-
-          for objcopy in "$RUNNER/llvm-objcopy.exe" "$CHROMIUM/llvm-objcopy.exe"; do
-            [ -f "$objcopy" ] || { echo "(no $objcopy)"; continue; }
-            out="after-$(basename "$(dirname "$objcopy")").o"
-            "$objcopy" --redefine-sym jsimd_rgb_ycc_convert_sse2=bernard_pdfium_jsimd_rgb_ycc_convert_sse2 "$obj" "$out"
-            dump "$out"
-          done
-
-      - name: Run the namespacer
-        run: python tools/pdfium-static/namespace_pdfium_jpeg.py /c/nsdebug out-debug
+          "$LLVM/llvm-objcopy.exe" --redefine-sym jsimd_rgb_ycc_convert_sse2=bernard_pdfium_jsimd_rgb_ycc_convert_sse2 "$obj" after.o
+          dump after.o
