@@ -130,3 +130,68 @@ jobs:
             echo "$deps"
             if echo "$deps" | grep -qi pdfium; then echo "links pdfium dynamically" >&2; exit 1; fi
           '
+  php-binding-tests-windows:
+    name: Test static PHP binding (win-x64, PHP ${{ matrix.php }} ${{ matrix.thread_safety }})
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      CARGO_INCREMENTAL: 0
+      # ext-php-rs needs nightly on Windows (vectorcall ABI); overrides rust-toolchain.toml.
+      RUSTUP_TOOLCHAIN: nightly
+    strategy:
+      fail-fast: false
+      matrix:
+        php: [ "8.1", "8.2", "8.3", "8.4", "8.5" ]
+        thread_safety: [ "zts", "nts" ]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Download static PDFium
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rel="pdfium-static-$(tr -d '[:space:]' < core/pdfium-release)"; rel="${rel//\//_}"
+          mkdir -p "$RUNNER_TEMP/pdfium-static"
+          gh release download "$rel" -p "libpdfium-win-x64.lib" -O "$RUNNER_TEMP/pdfium-static/pdfium.lib"
+          echo "PDFIUM_STATIC_LIB_PATH=$RUNNER_TEMP/pdfium-static" >> "$GITHUB_ENV"
+
+      - uses: extractions/setup-just@v4
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: php-static-win-x64-php${{ matrix.php }}-${{ matrix.thread_safety }}
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: composer:v2
+        env:
+          phpts: ${{ matrix.thread_safety }}
+
+      - name: Pin MSVC toolset to match the PHP build
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+          toolset: ${{ contains(fromJSON('["8.1", "8.2", "8.3"]'), matrix.php) && '14.29' || '14.44' }}
+
+      - name: Remove MSYS GNU link.exe
+        run: rm -f "/c/Program Files/Git/usr/bin/link.exe"
+
+      - name: Build and test (static PDFium)
+        run: just php test-static
+
+      - name: Check the extension is self-contained
+        run: |
+          ext=target/release/bernard_ledit_php.dll
+          deps="$("/c/Program Files/LLVM/bin/llvm-readobj.exe" --coff-imports "$ext" | grep -i '^ *Name:' || true)"
+          echo "$deps"
+          if echo "$deps" | grep -qi pdfium; then echo "::error::$ext links pdfium dynamically"; exit 1; fi

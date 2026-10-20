@@ -7,6 +7,11 @@ use std::path::{Path, PathBuf};
 fn main() {
     if is_static_build() {
         println!("cargo:rerun-if-env-changed=PDFIUM_STATIC_LIB_PATH");
+        if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
+            for lib in ["gdi32", "user32", "advapi32"] {
+                println!("cargo:rustc-link-lib=dylib={lib}");
+            }
+        }
         return;
     }
 

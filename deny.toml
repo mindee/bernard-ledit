@@ -6,6 +6,7 @@ ignore = [
     # paste is unmaintained (RUSTSEC-2024-0436) but is a transitive dep via
     # rav1e -> ravif -> image with no available upgrade path.
     { id = "RUSTSEC-2024-0436", reason = "Transitive dep via rav1e/ravif/image; no upstream fix available" },
+    { id = "RUSTSEC-2026-0374", reason = "basic-toml via askama_derive <- uniffi_bindgen (build-time only); no upstream fix yet" },
 ]
 
 [licenses]
@@ -40,6 +41,7 @@ highlight = "all"
 # Known exceptions for duplicate versions (populate as needed)
 skip = [
     { name = "cargo_metadata" },
+    { name = "cargo-platform" },
     { name = "convert_case" },
     { name = "getrandom" },
     { name = "itertools" },
@@ -50,7 +52,6 @@ skip = [
     { name = "syn" },
     { name = "thiserror" },
     { name = "thiserror-impl" },
-    { name = "winnow" },
     { name = "windows-sys" },
 ]
 skip-tree = []

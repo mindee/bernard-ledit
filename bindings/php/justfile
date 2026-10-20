@@ -26,7 +26,7 @@ build-release:
     cargo build -p bernard-ledit-php --release
 
 
-static_feature := if os() == "macos" { "static-pdfium-libcxx" } else { "static-pdfium" }
+static_feature := if os() == "macos" { "static-pdfium-libcxx" } else if os() == "windows" { "static-pdfium-msvc" } else { "static-pdfium" }
 # Builds the PHP extension in release mode with pdfium statically linked.
 # Requires PDFIUM_STATIC_LIB_PATH=<dir containing libpdfium.a> (see php-bindings-solo-plan.md §7).
 build-static:

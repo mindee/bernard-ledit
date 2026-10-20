@@ -60,6 +60,17 @@ fi
 
 sedi 's/gclient sync /gclient sync --jobs 4 /' steps/02-checkout.sh
 sedi '/09-test.sh/d; /10-pack.sh/d' build.sh
+# Windows: link PDFium against the DLL C runtime (/MD) like Rust and PHP, not Chromium's
+# default static runtime (/MT) for non-component builds. Runs after pdfium-binaries' own patches.
+if [ "$PDFIUM_OS" = win ]; then
+  crt_gn="$WORK_DIR/pdfium-binaries/pdfium/build/config/win/BUILD.gn"
+  cat >> steps/03-patch.sh <<EOF
+
+# bernard-ledit: dynamic CRT
+grep -q '":static_crt"' "$crt_gn" || { echo "static_crt config not found in $crt_gn" >&2; exit 1; }
+sed -i 's/configs = \[ ":static_crt" \]/configs = [ ":dynamic_crt" ]/' "$crt_gn"
+EOF
+fi
 cd ..
 
 # ubuntu:22.04 (glibc 2.35): the .a, and so our extension, inherits the builder's glibc
@@ -69,6 +80,11 @@ cd ..
 if [ "$PDFIUM_OS" = mac ] || [ "$PDFIUM_OS" = win ]; then
   ( cd pdfium-binaries && ./build.sh -s -b "$PDFIUM_TAG" "$PDFIUM_OS" "$PDFIUM_CPU" )
   if [ "$PDFIUM_OS" = win ]; then
+    lib="pdfium-binaries/pdfium/out/obj/pdfium.lib"
+    if grep -aqi 'defaultlib:"\{0,1\}libcmt' "$lib"; then
+      echo "pdfium.lib still requests the static C runtime (libcmt); the /MD patch did not apply" >&2
+      exit 1
+    fi
     # Chromium's own llvm-nm/objcopy/ar, matching the compiler that built the objects.
     ( cd pdfium-binaries/pdfium && "$PYTHON" tools/clang/scripts/update.py --package=objdump ) \
       || echo "warning: could not fetch Chromium's LLVM tools; falling back to PATH" >&2

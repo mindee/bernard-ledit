@@ -30,3 +30,4 @@ workspace = true
 static-link = ["bernard-ledit/static-link"]
 static-pdfium = ["static-link", "bernard-ledit/static-pdfium"]
 static-pdfium-libcxx = ["static-link", "bernard-ledit/static-pdfium-libcxx"]
+static-pdfium-msvc = ["static-link", "bernard-ledit/static-pdfium-msvc"]
