@@ -35,17 +35,17 @@ else
 fi
 [ -n "$PYTHON" ] || { echo "python is required" >&2; exit 1; }
 
-mkdir -p "$WORK_DIR" && cd "$WORK_DIR"
-if [ ! -d pdfium-binaries/.git ]; then
-  git clone https://github.com/bblanchon/pdfium-binaries.git
+mkdir -p "$WORK_DIR/pdfium-binaries" && cd "$WORK_DIR/pdfium-binaries"
+# Init in place rather than clone: a restored source cache may already have put pdfium/ here.
+if [ ! -d .git ]; then
+  git init --quiet
+  git remote add origin https://github.com/bblanchon/pdfium-binaries.git
 fi
-cd pdfium-binaries
-git fetch --tags --quiet
+git fetch --tags --quiet origin
 # Use the tag matching the pdfium release, NOT main: main's patch set targets today's pdfium
 # revision and its patches fail to apply against older chromium/<N> checkouts.
-# Discard the local patches below first, so a re-run on a reused checkout can switch tags.
-git checkout --quiet -- .
-git checkout --quiet "$PDFIUM_TAG"
+# -f discards our local patches from a previous run, so a reused checkout can switch tags.
+git checkout --quiet -f "$PDFIUM_TAG"
 
 # Leftovers from a failed gclient sync would make the next sync fail.
 sudo rm -rf _bad_scm 2>/dev/null || rm -rf _bad_scm
