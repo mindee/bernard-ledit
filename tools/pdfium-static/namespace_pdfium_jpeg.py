@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Namespace bundled JPEG symbols in a copy of a PDFium static archive (ELF or Mach-O)."""
+"""Namespace bundled JPEG symbols in a copy of a PDFium static archive (ELF, Mach-O or COFF)."""
 
 import argparse
 from collections import Counter
@@ -69,9 +69,7 @@ def namespace_archive(build_root, output_dir):
     jpeg_dir = build_root / "pdfium/out/obj/third_party/libjpeg_turbo"
     # Include libjpeg12/16 and the separate SIMD C/assembly archives.
     jpeg_archives = sorted(jpeg_dir.glob("*.lib" if is_windows else "*.a"))
-    for path in (nm, objcopy, ar):
-        if not path.is_file():
-            raise FileNotFoundError(f"Required PDFium build tool missing: {path}")
+    nm, objcopy, ar = (find_tool(name) for name in ("llvm-nm", "llvm-objcopy", "llvm-ar"))
     if not jpeg_archives:
         raise RuntimeError(f"No JPEG component archives in {jpeg_dir}")
     if destination == source or (
