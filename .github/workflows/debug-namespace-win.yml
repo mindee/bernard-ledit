@@ -1,10 +1,19 @@
 name: Debug Windows namespacing
 on:
+  push:
+    branches: [ add-php-ext-publish ]
+    paths:
+      - .github/workflows/debug-namespace-win.yml
+      - tools/pdfium-static/namespace_pdfium_jpeg.py
   workflow_dispatch:
     inputs:
       run_id:
         description: "Run ID of the build that uploaded raw-win-x64"
-        required: true
+        required: false
+
+env:
+  # Build run that uploaded the raw-win-x64 artifact; override via workflow_dispatch input.
+  RAW_RUN_ID: ${{ inputs.run_id || '39420237617' }}
 
 permissions:
   contents: read
@@ -22,9 +31,8 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: raw-win-x64
-          run-id: ${{ inputs.run_id }}
+          run-id: ${{ env.RAW_RUN_ID }}
           github-token: ${{ github.token }}
-          # The artifact's root is the pdfium/ directory; recreate it under a fake build root.
           path: C:/nsdebug/pdfium
 
       - uses: actions/setup-python@v6
