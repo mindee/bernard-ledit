@@ -140,11 +140,12 @@ jobs:
           # with this toolset's link.exe and runtime libraries, before anything is published.
           # Full path: Git Bash's GNU `link` would otherwise shadow Visual Studio's link.exe.
           msvc_link="$(cygpath -u "$VCToolsInstallDir")/bin/Hostx64/x64/link.exe"
-          MSYS_NO_PATHCONV=1 "$msvc_link" /NOLOGO /DLL /NOENTRY /OUT:linktest.dll \
+          MSYS_NO_PATHCONV=1 "$msvc_link" /NOLOGO /DLL /NOENTRY /MACHINE:X64 /OUT:linktest.dll \
             /INCLUDE:FPDF_InitLibraryWithConfig /INCLUDE:FPDF_LoadMemDocument64 \
             /INCLUDE:FPDF_RenderPageBitmap /INCLUDE:FPDFText_LoadPage \
             /INCLUDE:FPDFPage_GenerateContent /INCLUDE:FPDF_SaveAsCopy \
-            "$lib" gdi32.lib user32.lib advapi32.lib
+            "$lib" msvcrt.lib msvcprt.lib vcruntime.lib ucrt.lib \
+            gdi32.lib user32.lib advapi32.lib
           echo "pdfium.lib links with toolset ${{ matrix.msvc }}"
 
       - name: Publish
