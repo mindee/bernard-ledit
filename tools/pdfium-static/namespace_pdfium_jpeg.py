@@ -151,6 +151,7 @@ def namespace_archive(build_root, output_dir):
     jpeg_archives = sorted(jpeg_dir.glob("*.lib" if is_windows else "*.a"))
     nm, ar = find_tool("llvm-nm"), find_tool("llvm-ar")
     objcopy = None if is_windows else find_tool("llvm-objcopy")
+    lib_tool = find_tool("llvm-lib") if is_windows else None
     if not jpeg_archives:
         raise RuntimeError(f"No JPEG component archives in {jpeg_dir}")
     if destination == source or (
@@ -201,7 +202,14 @@ def namespace_archive(build_root, output_dir):
                 [str(objcopy), f"--redefine-syms={symbol_map}", str(source), str(candidate)],
                 check=True,
             )
-        subprocess.run([str(ar), "s", str(candidate)], check=True)
+        if is_windows:
+            # Rebuild the archive in Microsoft's format (both linker members), which link.exe
+            # requires; llvm-ar's regenerated index isn't accepted by every link.exe version.
+            renamed_lib = tmp / "renamed.lib"
+            candidate.replace(renamed_lib)
+            subprocess.run([str(lib_tool), "/NOLOGO", f"/OUT:{candidate}", str(renamed_lib)], check=True)
+        else:
+            subprocess.run([str(ar), "s", str(candidate)], check=True)
         # Check definitions AND cross-member references. Everything outside the map,
         # including FPDF_* and unresolved system-library symbols, must stay unchanged.
         actual = symbols(nm, [candidate])

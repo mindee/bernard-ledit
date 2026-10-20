@@ -121,6 +121,21 @@ jobs:
           echo "--- built libraries:"
           ls -la "${{ matrix.work_dir }}/pdfium-binaries/pdfium/out/obj/"*.lib 2>/dev/null || true
 
+      - name: Pin the oldest MSVC toolset (Windows)
+        if: runner.os == 'Windows' && (steps.exists.outputs.published != 'true' || inputs.force)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+          toolset: "14.29"
+
+      - name: Check the library with the oldest supported lib.exe (Windows)
+        if: runner.os == 'Windows' && (steps.exists.outputs.published != 'true' || inputs.force)
+        run: |
+          lib="$(find "out/${{ matrix.target }}" -name pdfium.lib -print -quit)"
+          # lib.exe reads both index members and every member header, like link.exe does.
+          MSYS_NO_PATHCONV=1 lib.exe /NOLOGO /LIST "$lib" > /dev/null
+          echo "lib.exe 14.29 accepts $lib"
+
       - name: Publish
         if: steps.exists.outputs.published != 'true' || inputs.force
         env:
