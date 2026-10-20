@@ -1,8 +1,9 @@
 name: PHP binding tests (static lib build)
 
 on:
-  push:
-    branches: [add-php-ext-publish]
+#  push:
+#    branches: [add-php-ext-publish]
+  workflow_dispatch:
 
 permissions:
   contents: read

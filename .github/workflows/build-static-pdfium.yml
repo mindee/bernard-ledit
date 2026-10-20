@@ -105,6 +105,10 @@ jobs:
           find "${{ matrix.work_dir }}/pdfium-binaries/staging" -type f 2>/dev/null | head -n 50 || true
           echo "--- jpeg archives:"
           ls "${{ matrix.work_dir }}/pdfium-binaries/pdfium/out/obj/third_party/libjpeg_turbo" 2>/dev/null || true
+          echo "--- args.gn:"
+          cat "${{ matrix.work_dir }}/pdfium-binaries/staging/args.gn" 2>/dev/null || true
+          echo "--- built libraries:"
+          ls -la "${{ matrix.work_dir }}/pdfium-binaries/pdfium/out/obj/"*.lib 2>/dev/null || true
 
       - name: Publish
         if: steps.exists.outputs.published != 'true' || inputs.force
