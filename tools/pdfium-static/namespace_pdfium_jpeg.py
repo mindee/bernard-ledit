@@ -7,6 +7,7 @@ from pathlib import Path
 import os
 import shutil
 import subprocess
+import struct
 import sys
 import tempfile
 
@@ -31,6 +32,85 @@ def symbols(nm, archives, defined_only=False):
         result[(fields[0], fields[1])] += 1
     return result
 
+# GUID identifying the COFF "bigobj" format, as stored in the file (little-endian).
+BIGOBJ_CLASSID = bytes.fromhex("c7a1bad1eebaa94baf20faf66aa4dcb8")
+
+
+def coff_symbol_table(obj):
+    """(symbol table offset, symbol count, record size) for a COFF object, or None."""
+    if len(obj) >= 56 and obj[:4] == b"\x00\x00\xff\xff":
+        version = struct.unpack_from("<H", obj, 4)[0]
+        if version >= 2 and obj[12:28] == BIGOBJ_CLASSID:
+            pointer, count = struct.unpack_from("<II", obj, 48)
+            return pointer, count, 20
+        return None  # import object or unknown header
+    if len(obj) >= 20 and struct.unpack_from("<H", obj, 0)[0] in (0x8664, 0xAA64, 0x14C):
+        pointer, count = struct.unpack_from("<II", obj, 8)
+        return pointer, count, 18
+    return None
+
+
+def rename_coff_symbols(obj, mapping):
+    """Rename symbols in one COFF object. New names go at the end of the string table,
+    so no code, section or relocation moves. Returns (new bytes, number renamed)."""
+    table = coff_symbol_table(obj)
+    if table is None:
+        return obj, 0
+    pointer, count, record = table
+    if pointer == 0 or count == 0:
+        return obj, 0
+    strtab = pointer + count * record
+    strsize = max(struct.unpack_from("<I", obj, strtab)[0], 4)
+    if strtab + strsize != len(obj):
+        raise RuntimeError("Unexpected data after the COFF string table; refusing to rewrite")
+
+    out = bytearray(obj[:strtab])
+    strings = bytearray(obj[strtab + 4 : strtab + strsize])
+    renamed = 0
+    index = 0
+    while index < count:
+        offset = pointer + index * record
+        raw = obj[offset : offset + 8]
+        if raw[:4] == b"\0\0\0\0":
+            start = strtab + struct.unpack_from("<I", raw, 4)[0]
+            name = obj[start : obj.index(b"\0", start)].decode("latin-1")
+        else:
+            name = raw.rstrip(b"\0").decode("latin-1")
+        new = mapping.get(name)
+        if new is not None:
+            struct.pack_into("<II", out, offset, 0, 4 + len(strings))  # string table offset
+            strings += new.encode("ascii") + b"\0"
+            renamed += 1
+        index += 1 + obj[offset + record - 1]  # skip auxiliary records
+    out += struct.pack("<I", 4 + len(strings)) + strings
+    return bytes(out), renamed
+
+
+def rename_in_archive(source, destination, mapping):
+    """Rewrite every COFF object in an ar archive. The symbol index is left stale
+    on purpose; `llvm-ar s` regenerates it afterwards."""
+    data = source.read_bytes()
+    if not data.startswith(b"!<arch>\n"):
+        raise RuntimeError(f"{source} is not an ar archive")
+    out = bytearray(b"!<arch>\n")
+    position, total = 8, 0
+    while position < len(data):
+        header = data[position : position + 60]
+        if len(header) < 60 or header[58:60] != b"`\n":
+            raise RuntimeError(f"Bad archive member header at offset {position}")
+        name = header[:16].rstrip(b" ")
+        size = int(header[48:58].decode().strip())
+        body = data[position + 60 : position + 60 + size]
+        position += 60 + size + (size & 1)
+        # "/" = symbol index, "//" = long names, "/<...>" and "/SYM64/" = other special members.
+        if not (name in (b"/", b"//", b"/SYM64/") or name.startswith(b"/<")):
+            body, renamed = rename_coff_symbols(body, mapping)
+            total += renamed
+        out += header[:48] + f"{len(body):<10}".encode() + b"`\n" + body
+        if len(body) & 1:
+            out += b"\n"
+    destination.write_bytes(out)
+    return total
 
 def namespace_archive(build_root, output_dir):
     build_root = build_root.resolve()
@@ -69,7 +149,8 @@ def namespace_archive(build_root, output_dir):
     jpeg_dir = build_root / "pdfium/out/obj/third_party/libjpeg_turbo"
     # Include libjpeg12/16 and the separate SIMD C/assembly archives.
     jpeg_archives = sorted(jpeg_dir.glob("*.lib" if is_windows else "*.a"))
-    nm, objcopy, ar = (find_tool(name) for name in ("llvm-nm", "llvm-objcopy", "llvm-ar"))
+    nm, ar = find_tool("llvm-nm"), find_tool("llvm-ar")
+    objcopy = None if is_windows else find_tool("llvm-objcopy")
     if not jpeg_archives:
         raise RuntimeError(f"No JPEG component archives in {jpeg_dir}")
     if destination == source or (
@@ -111,10 +192,15 @@ def namespace_archive(build_root, output_dir):
             "".join(f"{old} {new}\n" for old, new in mapping.items()), encoding="ascii"
         )
         candidate = tmp / "libpdfium.a"
-        subprocess.run(
-            [str(objcopy), f"--redefine-syms={symbol_map}", str(source), str(candidate)],
-            check=True,
-        )
+        if is_windows:
+            # llvm-objcopy drops the whole symbol table of NASM-assembled COFF objects,
+            # so rename in place instead.
+            rename_in_archive(source, candidate, mapping)
+        else:
+            subprocess.run(
+                [str(objcopy), f"--redefine-syms={symbol_map}", str(source), str(candidate)],
+                check=True,
+            )
         subprocess.run([str(ar), "s", str(candidate)], check=True)
         # Check definitions AND cross-member references. Everything outside the map,
         # including FPDF_* and unresolved system-library symbols, must stay unchanged.
