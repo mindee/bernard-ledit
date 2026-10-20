@@ -4,6 +4,8 @@
 import argparse
 from collections import Counter
 from pathlib import Path
+import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -51,8 +53,19 @@ def namespace_archive(build_root, output_dir):
     source = matches[0]
     destination = output_dir / ("pdfium.lib" if is_windows else "libpdfium.a")
 
-    tools = build_root / "pdfium/third_party/llvm-build/Release+Asserts/bin"
-    nm, objcopy, ar = (tools / f"{name}{exe}" for name in ("llvm-nm", "llvm-objcopy", "llvm-ar"))
+    bundled = build_root / "pdfium/third_party/llvm-build/Release+Asserts/bin"
+
+    def find_tool(name):
+        """PDFium's bundled LLVM tool if present, else one on PATH (LLVM_BIN overrides both)."""
+        override = os.environ.get("LLVM_BIN")
+        for candidate in ([Path(override) / f"{name}{exe}"] if override else []) + [bundled / f"{name}{exe}"]:
+            if candidate.is_file():
+                return candidate
+        on_path = shutil.which(name)
+        if on_path:
+            return Path(on_path)
+        raise FileNotFoundError(f"Required LLVM tool not found: {name} (looked in {bundled} and PATH)")
+
     jpeg_dir = build_root / "pdfium/out/obj/third_party/libjpeg_turbo"
     # Include libjpeg12/16 and the separate SIMD C/assembly archives.
     jpeg_archives = sorted(jpeg_dir.glob("*.lib" if is_windows else "*.a"))

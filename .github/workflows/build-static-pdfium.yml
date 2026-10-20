@@ -61,8 +61,11 @@ jobs:
 
       - name: Prepare Windows build
         if: runner.os == 'Windows' && (steps.exists.outputs.published != 'true' || inputs.force)
+        run: |
+          git config --global core.longpaths true
+          echo "C:/Program Files/LLVM/bin" >> "$GITHUB_PATH"
+          "/c/Program Files/LLVM/bin/llvm-nm.exe" --version
         shell: bash
-        run: git config --global core.longpaths true
 
       - uses: actions/setup-python@v6
         if: runner.os == 'Windows' && (steps.exists.outputs.published != 'true' || inputs.force)
