@@ -29,6 +29,9 @@ jobs:
           - { target: linux-arm64-musl,  runner: ubuntu-latest,  os: linux, cpu: arm64, env: musl,  lib_ext: a,   work_dir: /tmp/pdfium-static }
           - { target: mac-arm64,         runner: macos-latest,   os: mac,   cpu: arm64, env: "",    lib_ext: a,   work_dir: /tmp/pdfium-static }
           - { target: win-x64,           runner: windows-latest, os: win,   cpu: x64,   env: "",    lib_ext: lib, work_dir: "C:/pdfium-static" }
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v6
 
