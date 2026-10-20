@@ -78,6 +78,16 @@ cd ..
 # is preseeded because `yes` can pick wrong entries in debconf dialogs, and sudo strips
 # DEBIAN_FRONTEND. Flags must precede the os/cpu positionals (build.sh uses getopts).
 if [ "$PDFIUM_OS" = mac ] || [ "$PDFIUM_OS" = win ]; then
+  if [ "$PDFIUM_OS" = win ] && [ -n "${MSVC_TOOLSET:-}" ]; then
+    # Chromium's build takes its compiler environment from vcvarsall.bat, which uses the
+    # toolset listed in this file. Point it at the one the target PHP versions link with.
+    vs="$(cygpath -u "$("/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe" \
+          -latest -products '*' -property installationPath | tr -d '\r')")"
+    full="$(ls -d "$vs/VC/Tools/MSVC/$MSVC_TOOLSET".* 2>/dev/null | sort -V | tail -n 1)"
+    [ -n "$full" ] || { echo "MSVC toolset $MSVC_TOOLSET is not installed under $vs" >&2; exit 1; }
+    basename "$full" > "$vs/VC/Auxiliary/Build/Microsoft.VCToolsVersion.default.txt"
+    echo "Default MSVC toolset for this build: $(basename "$full")"
+  fi
   ( cd pdfium-binaries && ./build.sh -s -b "$PDFIUM_TAG" "$PDFIUM_OS" "$PDFIUM_CPU" )
   if [ "$PDFIUM_OS" = win ]; then
     lib="pdfium-binaries/pdfium/out/obj/pdfium.lib"

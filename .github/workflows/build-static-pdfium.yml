@@ -28,7 +28,8 @@ jobs:
           - { target: linux-x64-musl,    runner: ubuntu-latest,  os: linux, cpu: x64,   env: musl,  lib_ext: a,   work_dir: /tmp/pdfium-static }
           - { target: linux-arm64-musl,  runner: ubuntu-latest,  os: linux, cpu: arm64, env: musl,  lib_ext: a,   work_dir: /tmp/pdfium-static }
           - { target: mac-arm64,         runner: macos-latest,   os: mac,   cpu: arm64, env: "",    lib_ext: a,   work_dir: /tmp/pdfium-static }
-          - { target: win-x64,           runner: windows-latest, os: win,   cpu: x64,   env: "",    lib_ext: lib, work_dir: "C:/pdfium-static" }
+          - { target: win-x64-v143, runner: windows-latest, os: win, cpu: x64, env: "", lib_ext: lib, work_dir: "C:/pdfium-static", msvc: "14.44" }
+          - { target: win-x64-v142, runner: windows-latest, os: win, cpu: x64, env: "", lib_ext: lib, work_dir: "C:/pdfium-static", msvc: "14.29" }
     defaults:
       run:
         shell: bash
@@ -121,20 +122,29 @@ jobs:
           echo "--- built libraries:"
           ls -la "${{ matrix.work_dir }}/pdfium-binaries/pdfium/out/obj/"*.lib 2>/dev/null || true
 
-      - name: Pin the oldest MSVC toolset (Windows)
+      - name: Pin the target MSVC toolset (Windows)
         if: runner.os == 'Windows' && (steps.exists.outputs.published != 'true' || inputs.force)
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
-          toolset: "14.29"
+          toolset: ${{ matrix.msvc }}
 
-      - name: Check the library with the oldest supported lib.exe (Windows)
+      - name: Check the library against the target toolset (Windows)
         if: runner.os == 'Windows' && (steps.exists.outputs.published != 'true' || inputs.force)
         run: |
           lib="$(find "out/${{ matrix.target }}" -name pdfium.lib -print -quit)"
-          # lib.exe reads both index members and every member header, like link.exe does.
           MSYS_NO_PATHCONV=1 lib.exe /NOLOGO /LIST "$lib" > /dev/null
-          echo "lib.exe 14.29 accepts $lib"
+          # Every C++ runtime helper the library needs must exist in this toolset's runtime libraries.
+          crt="$(cygpath -u "$VCToolsInstallDir")/lib/x64"
+          LLVM="/c/Program Files/LLVM/bin"
+          needed="$("$LLVM/llvm-nm.exe" --undefined-only "$lib" 2>/dev/null | awk '{print $NF}' | grep '^__std_' | sort -u)"
+          provided="$("$LLVM/llvm-nm.exe" --defined-only "$crt/msvcprt.lib" "$crt/vcruntime.lib" 2>/dev/null | awk '{print $NF}' | sort -u)"
+          missing="$(comm -23 <(echo "$needed") <(echo "$provided"))"
+          if [ -n "$missing" ]; then
+            echo "::error::pdfium.lib needs C++ runtime helpers that toolset ${{ matrix.msvc }} doesn't provide:"
+            echo "$missing"; exit 1
+          fi
+          echo "pdfium.lib is compatible with toolset ${{ matrix.msvc }}"
 
       - name: Publish
         if: steps.exists.outputs.published != 'true' || inputs.force

@@ -12,6 +12,11 @@ rustflags = [
     "-C", "link-arg=dynamic_lookup",
 ]
 
+[target.x86_64-pc-windows-msvc]
+# A static PDFium leaves its Windows API imports to the final link, including pdfium-render's
+# own DLL link, which core/build.rs can't reach. Unused import libraries cost nothing.
+rustflags = ["-l", "dylib=gdi32", "-l", "dylib=user32", "-l", "dylib=advapi32"]
+
 # pdfium's renderer is not thread-safe; run all tests sequentially to avoid
 # heap corruption (SIGABRT) when multiple tests exercise pdfium concurrently.
 [env]
