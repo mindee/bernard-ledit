@@ -67,7 +67,7 @@ if [ "$PDFIUM_OS" = win ]; then
   cat >> steps/03-patch.sh <<EOF
 
 # bernard-ledit: dynamic CRT
-grep -q '":static_crt"' "$crt_gn" || { echo "static_crt config not found in $crt_gn" >&2; exit 1; }
+grep -qE '":(static|dynamic)_crt"' "$crt_gn" || { echo "CRT config not found in $crt_gn" >&2; exit 1; }
 sed -i 's/configs = \[ ":static_crt" \]/configs = [ ":dynamic_crt" ]/' "$crt_gn"
 EOF
 fi

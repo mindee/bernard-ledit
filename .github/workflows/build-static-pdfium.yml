@@ -57,7 +57,9 @@ jobs:
       - uses: actions/cache@v6
         if: steps.exists.outputs.published != 'true' || inputs.force
         with:
-          path: ${{ matrix.work_dir }}/pdfium-binaries/pdfium
+          path: |
+            ${{ matrix.work_dir }}/pdfium-binaries/pdfium
+            !${{ matrix.work_dir }}/pdfium-binaries/pdfium/out
           key: pdfium-src-${{ hashFiles('core/pdfium-release') }}-${{ matrix.target }}
 
       - name: Prepare Windows build
@@ -83,6 +85,7 @@ jobs:
           OUT_DIR: ${{ github.workspace }}/out/${{ matrix.target }}
           WORK_DIR: ${{ matrix.work_dir }}
           DEPOT_TOOLS_WIN_TOOLCHAIN: "0"
+          MSVC_TOOLSET: ${{ matrix.msvc }}
         run: |
           max=5
           for attempt in $(seq 1 "$max"); do
@@ -99,7 +102,7 @@ jobs:
         if: always() && runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
-          name: raw-win-x64
+          name: raw-${{ matrix.target }}
           path: |
             C:/pdfium-static/pdfium-binaries/pdfium/out/obj/pdfium.lib
             C:/pdfium-static/pdfium-binaries/pdfium/out/obj/third_party/libjpeg_turbo/
@@ -132,19 +135,16 @@ jobs:
       - name: Check the library against the target toolset (Windows)
         if: runner.os == 'Windows' && (steps.exists.outputs.published != 'true' || inputs.force)
         run: |
-          lib="$(find "out/${{ matrix.target }}" -name pdfium.lib -print -quit)"
+          lib="$(cygpath -w "$(find "out/${{ matrix.target }}" -name pdfium.lib -print -quit)")"
           MSYS_NO_PATHCONV=1 lib.exe /NOLOGO /LIST "$lib" > /dev/null
-          # Every C++ runtime helper the library needs must exist in this toolset's runtime libraries.
-          crt="$(cygpath -u "$VCToolsInstallDir")/lib/x64"
-          LLVM="/c/Program Files/LLVM/bin"
-          needed="$("$LLVM/llvm-nm.exe" --undefined-only "$lib" 2>/dev/null | awk '{print $NF}' | grep '^__std_' | sort -u)"
-          provided="$("$LLVM/llvm-nm.exe" --defined-only "$crt/msvcprt.lib" "$crt/vcruntime.lib" 2>/dev/null | awk '{print $NF}' | sort -u)"
-          missing="$(comm -23 <(echo "$needed") <(echo "$provided"))"
-          if [ -n "$missing" ]; then
-            echo "::error::pdfium.lib needs C++ runtime helpers that toolset ${{ matrix.msvc }} doesn't provide:"
-            echo "$missing"; exit 1
-          fi
-          echo "pdfium.lib is compatible with toolset ${{ matrix.msvc }}"
+          # Link a throwaway DLL that pulls in the API we use: unresolved symbols fail here,
+          # with this toolset's link.exe and runtime libraries, before anything is published.
+          MSYS_NO_PATHCONV=1 link.exe /NOLOGO /DLL /NOENTRY /OUT:linktest.dll \
+            /INCLUDE:FPDF_InitLibraryWithConfig /INCLUDE:FPDF_LoadMemDocument64 \
+            /INCLUDE:FPDF_RenderPageBitmap /INCLUDE:FPDFText_LoadPage \
+            /INCLUDE:FPDFPage_GenerateContent /INCLUDE:FPDF_SaveAsCopy \
+            "$lib" gdi32.lib user32.lib advapi32.lib
+          echo "pdfium.lib links with toolset ${{ matrix.msvc }}"
 
       - name: Publish
         if: steps.exists.outputs.published != 'true' || inputs.force
