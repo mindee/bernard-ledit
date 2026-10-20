@@ -35,16 +35,30 @@ def namespace_archive(build_root, output_dir):
     output_dir = output_dir.resolve()
     is_windows = sys.platform == "win32"
     exe = ".exe" if is_windows else ""
-    lib = "pdfium.lib" if is_windows else "libpdfium.a"
-    source = build_root / "staging/lib" / lib
-    destination = output_dir / lib
+
+    staging = build_root / "staging/lib"
+    if is_windows:
+        # pdfium-binaries doesn't stage static Windows builds; take the archive from the build output.
+        candidates = [*staging.glob("*pdfium*.lib"), build_root / "pdfium/out/obj/pdfium.lib"]
+    else:
+        candidates = [staging / "libpdfium.a"]
+    matches = [p for p in candidates if p.is_file()]
+    if not matches:
+        found = sorted(p.name for p in staging.iterdir()) if staging.is_dir() else []
+        raise FileNotFoundError(
+            f"No PDFium archive found; tried {[str(p) for p in candidates]}; staging/lib has: {found}"
+        )
+    source = matches[0]
+    destination = output_dir / ("pdfium.lib" if is_windows else "libpdfium.a")
+
     tools = build_root / "pdfium/third_party/llvm-build/Release+Asserts/bin"
     nm, objcopy, ar = (tools / f"{name}{exe}" for name in ("llvm-nm", "llvm-objcopy", "llvm-ar"))
     jpeg_dir = build_root / "pdfium/out/obj/third_party/libjpeg_turbo"
+    # Include libjpeg12/16 and the separate SIMD C/assembly archives.
     jpeg_archives = sorted(jpeg_dir.glob("*.lib" if is_windows else "*.a"))
-    for path in (source, nm, objcopy, ar):
+    for path in (nm, objcopy, ar):
         if not path.is_file():
-            raise FileNotFoundError(f"Required PDFium build artifact/tool missing: {path}")
+            raise FileNotFoundError(f"Required PDFium build tool missing: {path}")
     if not jpeg_archives:
         raise RuntimeError(f"No JPEG component archives in {jpeg_dir}")
     if destination == source or (
