@@ -99,8 +99,12 @@ jobs:
 
       - name: Show output
         if: always() && (steps.exists.outputs.published != 'true' || inputs.force)
-        run: find out -type f 2>/dev/null || true
-        shell: bash
+        run: |
+          find out -type f 2>/dev/null || true
+          echo "--- staging:"
+          find "${{ matrix.work_dir }}/pdfium-binaries/staging" -type f 2>/dev/null | head -n 50 || true
+          echo "--- jpeg archives:"
+          ls "${{ matrix.work_dir }}/pdfium-binaries/pdfium/out/obj/third_party/libjpeg_turbo" 2>/dev/null || true
 
       - name: Publish
         if: steps.exists.outputs.published != 'true' || inputs.force
