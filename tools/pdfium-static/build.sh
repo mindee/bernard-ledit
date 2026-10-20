@@ -68,6 +68,11 @@ cd ..
 # DEBIAN_FRONTEND. Flags must precede the os/cpu positionals (build.sh uses getopts).
 if [ "$PDFIUM_OS" = mac ] || [ "$PDFIUM_OS" = win ]; then
   ( cd pdfium-binaries && ./build.sh -s -b "$PDFIUM_TAG" "$PDFIUM_OS" "$PDFIUM_CPU" )
+  if [ "$PDFIUM_OS" = win ]; then
+    # Chromium's own llvm-nm/objcopy/ar, matching the compiler that built the objects.
+    ( cd pdfium-binaries/pdfium && "$PYTHON" tools/clang/scripts/update.py --package=objdump ) \
+      || echo "warning: could not fetch Chromium's LLVM tools; falling back to PATH" >&2
+  fi
 else
   yes | docker run --rm -i \
     -v "$PWD/pdfium-binaries:/w" -w /w \
