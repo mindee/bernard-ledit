@@ -94,7 +94,15 @@ jobs:
             sleep "$wait_s"
           done
           exit 1
-
+      - name: Upload raw Windows build (debug)
+        if: always() && runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: raw-win-x64
+          path: |
+            C:/pdfium-static/pdfium-binaries/pdfium/out/obj/pdfium.lib
+            C:/pdfium-static/pdfium-binaries/pdfium/out/obj/third_party/libjpeg_turbo/*.lib
+            C:/pdfium-static/pdfium-binaries/pdfium/third_party/llvm-build/Release+Asserts/bin/llvm-*.exe
       # The Docker build runs as root; give the files back so the cache can save them.
       - name: Fix ownership
         if: always() && runner.os != 'Windows' && (steps.exists.outputs.published != 'true' || inputs.force)
