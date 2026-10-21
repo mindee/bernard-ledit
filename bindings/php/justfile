@@ -30,6 +30,9 @@ static_feature := if os() == "macos" { "static-pdfium-libcxx" } else if os() == 
 # Builds the PHP extension in release mode with pdfium statically linked.
 # Requires PDFIUM_STATIC_LIB_PATH=<dir containing libpdfium.a> (see php-bindings-solo-plan.md §7).
 build-static:
+    # pdfium-render's build script bakes PDFIUM_STATIC_LIB_PATH into its output; a restored
+    # CI cache can carry a stale copy, so always rerun it. Only this one crate rebuilds.
+    cargo clean --release -p pdfium-render
     cargo build -p bernard-ledit-php --release --features {{static_feature}}
 
 pdfium_release := replace(`tr -d '[:space:]' < ../../core/pdfium-release`, "/", "_")
