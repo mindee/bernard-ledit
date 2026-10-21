@@ -90,6 +90,7 @@ cd ..
 # is preseeded because `yes` can pick wrong entries in debconf dialogs, and sudo strips
 # DEBIAN_FRONTEND. Flags must precede the os/cpu positionals (build.sh uses getopts).
 if [ "$PDFIUM_OS" = mac ] || [ "$PDFIUM_OS" = win ]; then
+  ( cd pdfium-binaries && ./build.sh -s -b "$PDFIUM_TAG" "$PDFIUM_OS" "$PDFIUM_CPU" )
   if [ "$PDFIUM_OS" = win ]; then
     lib="pdfium-binaries/pdfium/out/obj/pdfium.lib"
     if grep -aqi 'defaultlib:"\{0,1\}libcmt' "$lib"; then
