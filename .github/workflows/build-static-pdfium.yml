@@ -140,12 +140,18 @@ jobs:
           # with this toolset's link.exe and runtime libraries, before anything is published.
           # Full path: Git Bash's GNU `link` would otherwise shadow Visual Studio's link.exe.
           msvc_link="$(cygpath -u "$VCToolsInstallDir")/bin/Hostx64/x64/link.exe"
+          # Only unresolved symbols referenced from pdfium.lib count; errors from the C runtime's
+          # own startup objects come from this artificial entry-point-less link, not the library.
           MSYS_NO_PATHCONV=1 "$msvc_link" /NOLOGO /DLL /NOENTRY /MACHINE:X64 /OUT:linktest.dll \
             /INCLUDE:FPDF_InitLibraryWithConfig /INCLUDE:FPDF_LoadMemDocument64 \
             /INCLUDE:FPDF_RenderPageBitmap /INCLUDE:FPDFText_LoadPage \
             /INCLUDE:FPDFPage_GenerateContent /INCLUDE:FPDF_SaveAsCopy \
             "$lib" msvcrt.lib msvcprt.lib vcruntime.lib ucrt.lib \
-            gdi32.lib user32.lib advapi32.lib
+            gdi32.lib user32.lib advapi32.lib > linktest.log 2>&1 || true
+          if grep -E '^pdfium\.lib\(.*unresolved external symbol' linktest.log; then
+            echo "::error::pdfium.lib needs symbols that toolset ${{ matrix.msvc }} doesn't provide (see above)"
+            exit 1
+          fi
           echo "pdfium.lib links with toolset ${{ matrix.msvc }}"
 
       - name: Publish

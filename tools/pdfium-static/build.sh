@@ -70,6 +70,18 @@ if [ "$PDFIUM_OS" = win ]; then
 grep -qE '":(static|dynamic)_crt"' "$crt_gn" || { echo "CRT config not found in $crt_gn" >&2; exit 1; }
 sed -i 's/configs = \[ ":static_crt" \]/configs = [ ":dynamic_crt" ]/' "$crt_gn"
 EOF
+
+  if [ -n "${MSVC_TOOLSET:-}" ]; then
+    toolchain_py="$WORK_DIR/pdfium-binaries/pdfium/build/toolchain/win/setup_toolchain.py"
+    cat >> steps/03-patch.sh <<EOF
+
+# bernard-ledit: compile with MSVC toolset $MSVC_TOOLSET (vcvarsall.bat -vcvars_ver)
+if ! grep -q "vcvars_ver=$MSVC_TOOLSET" "$toolchain_py"; then
+  grep -q "\[script_path," "$toolchain_py" || { echo "vcvarsall call not found in $toolchain_py" >&2; exit 1; }
+  sed -i "s/\[script_path,/[script_path, '-vcvars_ver=$MSVC_TOOLSET',/" "$toolchain_py"
+fi
+EOF
+  fi
 fi
 cd ..
 
@@ -78,17 +90,6 @@ cd ..
 # is preseeded because `yes` can pick wrong entries in debconf dialogs, and sudo strips
 # DEBIAN_FRONTEND. Flags must precede the os/cpu positionals (build.sh uses getopts).
 if [ "$PDFIUM_OS" = mac ] || [ "$PDFIUM_OS" = win ]; then
-  if [ "$PDFIUM_OS" = win ] && [ -n "${MSVC_TOOLSET:-}" ]; then
-    # Chromium's build takes its compiler environment from vcvarsall.bat, which uses the
-    # toolset listed in this file. Point it at the one the target PHP versions link with.
-    vs="$(cygpath -u "$("/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe" \
-          -latest -products '*' -property installationPath | tr -d '\r')")"
-    full="$(ls -d "$vs/VC/Tools/MSVC/$MSVC_TOOLSET".* 2>/dev/null | sort -V | tail -n 1)"
-    [ -n "$full" ] || { echo "MSVC toolset $MSVC_TOOLSET is not installed under $vs" >&2; exit 1; }
-    basename "$full" > "$vs/VC/Auxiliary/Build/Microsoft.VCToolsVersion.default.txt"
-    echo "Default MSVC toolset for this build: $(basename "$full")"
-  fi
-  ( cd pdfium-binaries && ./build.sh -s -b "$PDFIUM_TAG" "$PDFIUM_OS" "$PDFIUM_CPU" )
   if [ "$PDFIUM_OS" = win ]; then
     lib="pdfium-binaries/pdfium/out/obj/pdfium.lib"
     if grep -aqi 'defaultlib:"\{0,1\}libcmt' "$lib"; then
