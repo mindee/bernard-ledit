@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   php-binding-tests:
-    name: Test static PHP binding (${{ matrix.platform.pdfium_target }}, PHP ${{ matrix.php }} ${{ matrix.thread_safety }})
+    name: Test static PHP binding (win-x64, PHP ${{ matrix.php }} ${{ matrix.thread_safety }}, MSVC ${{ contains(fromJSON('["8.1", "8.2", "8.3"]'), matrix.php) && 'v142' || 'v143' }})
     runs-on: ${{ matrix.platform.runner }}
     env:
       CARGO_INCREMENTAL: 0
@@ -32,13 +32,14 @@ jobs:
           submodules: recursive
 
       - name: Download static PDFium
-        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           rel="pdfium-static-$(tr -d '[:space:]' < core/pdfium-release)"; rel="${rel//\//_}"
+          # PHP 8.1-8.3 are built with MSVC 14.29 (v142), 8.4+ with 14.44 (v143).
+          target=${{ contains(fromJSON('["8.1", "8.2", "8.3"]'), matrix.php) && 'win-x64-v142' || 'win-x64-v143' }}
           mkdir -p "$RUNNER_TEMP/pdfium-static"
-          gh release download "$rel" -p "libpdfium-${{ matrix.platform.pdfium_target }}.a" -O "$RUNNER_TEMP/pdfium-static/libpdfium.a"
+          gh release download "$rel" -p "libpdfium-$target.lib" -O "$RUNNER_TEMP/pdfium-static/pdfium.lib"
           echo "PDFIUM_STATIC_LIB_PATH=$RUNNER_TEMP/pdfium-static" >> "$GITHUB_ENV"
 
       - uses: extractions/setup-just@v4
