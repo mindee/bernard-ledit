@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   php-binding-tests:
-    name: Test static PHP binding (win-x64, PHP ${{ matrix.php }} ${{ matrix.thread_safety }}, MSVC ${{ contains(fromJSON('["8.1", "8.2", "8.3"]'), matrix.php) && 'v142' || 'v143' }})
+    name: Test static PHP binding (${{ matrix.platform.pdfium_target }}, PHP ${{ matrix.php }} ${{ matrix.thread_safety }})
     runs-on: ${{ matrix.platform.runner }}
     env:
       CARGO_INCREMENTAL: 0
@@ -132,7 +132,7 @@ jobs:
             if echo "$deps" | grep -qi pdfium; then echo "links pdfium dynamically" >&2; exit 1; fi
           '
   php-binding-tests-windows:
-    name: Test static PHP binding (win-x64, PHP ${{ matrix.php }} ${{ matrix.thread_safety }})
+    name: Test static PHP binding (win-x64, PHP ${{ matrix.php }} ${{ matrix.thread_safety }}, MSVC ${{ contains(fromJSON('["8.1", "8.2", "8.3"]'), matrix.php) && 'v142' || 'v143' }})
     runs-on: windows-latest
     defaults:
       run:
