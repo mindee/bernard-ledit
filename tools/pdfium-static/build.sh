@@ -82,7 +82,7 @@ if ! grep -q "vcvars_ver=$MSVC_TOOLSET" "$toolchain_py"; then
     grep -n -B2 -A12 -i "vcvarsall" "$toolchain_py" >&2 || true
     exit 1
   fi
-  sed -i "s/_LoadEnvFromBat(args)/_LoadEnvFromBat(args + ['-vcvars_ver=$MSVC_TOOLSET'])/" "$toolchain_py"
+    sed -i "/def _LoadEnvFromBat/!s/_LoadEnvFromBat(args)/_LoadEnvFromBat(args + ['-vcvars_ver=$MSVC_TOOLSET'])/" "$toolchain_py"
 fi
 EOF
   fi
