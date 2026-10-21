@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Builds a static, JPEG-namespaced libpdfium.a with bblanchon/pdfium-binaries, inside Docker.
+# Builds a static, JPEG-namespaced PDFium library with bblanchon/pdfium-binaries:
+# inside Docker on Linux, natively on macOS and Windows.
 #
 # Env (all optional):
 #   PDFIUM_ENV   PDFium environment.
@@ -101,9 +102,6 @@ if [ "$PDFIUM_OS" = mac ] || [ "$PDFIUM_OS" = win ]; then
       echo "pdfium.lib still requests the static C runtime (libcmt); the /MD patch did not apply" >&2
       exit 1
     fi
-    # Chromium's own llvm-nm/objcopy/ar, matching the compiler that built the objects.
-    ( cd pdfium-binaries/pdfium && "$PYTHON" tools/clang/scripts/update.py --package=objdump ) \
-      || echo "warning: could not fetch Chromium's LLVM tools; falling back to PATH" >&2
   fi
 else
   yes | docker run --rm -i \
@@ -115,7 +113,7 @@ else
       echo "debconf debconf/frontend select Noninteractive" | debconf-set-selections
       apt-get update
       apt-get install -y git curl python3 lsb-release sudo build-essential pkg-config file
-      # Check: the variable build.sh reads for musl
+      # The environment ("musl") is build.sh optional third positional argument.
       env_arg=""; [ "$PDFIUM_ENV" = musl ] && env_arg="musl"
       ./build.sh -s -b "$PDFIUM_TAG" "$PDFIUM_OS" "$PDFIUM_CPU" $env_arg
     ' || [ "${PIPESTATUS[1]}" -eq 0 ]

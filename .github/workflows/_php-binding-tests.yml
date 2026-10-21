@@ -50,9 +50,8 @@ jobs:
         uses: actions/cache@v6
         with:
           path: core/.pdfium_cache
-          key: pdfium-${{ runner.os }}-${{ hashFiles('core/build.rs') }}
-          restore-keys: |
-            pdfium-${{ runner.os }}-
+          # Keyed on the release itself, with no fallback: an older release must never be restored.
+          key: pdfium-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('core/pdfium-release') }}
 
       - uses: extractions/setup-just@v4
 

@@ -28,11 +28,9 @@ build-release:
 
 static_feature := if os() == "macos" { "static-pdfium-libcxx" } else if os() == "windows" { "static-pdfium-msvc" } else { "static-pdfium" }
 # Builds the PHP extension in release mode with pdfium statically linked.
-# Requires PDFIUM_STATIC_LIB_PATH=<dir containing libpdfium.a> (see php-bindings-solo-plan.md §7).
+# Requires PDFIUM_STATIC_LIB_PATH=<dir containing libpdfium.a, or pdfium.lib on Windows>, e.g. a
+# library from the pdfium-static-* GitHub release, or one built with tools/pdfium-static/build.sh.
 build-static:
-    # pdfium-render's build script bakes PDFIUM_STATIC_LIB_PATH into its output; a restored
-    # CI cache can carry a stale copy, so always rerun it. Only this one crate rebuilds.
-    cargo clean --release -p pdfium-render
     cargo build -p bernard-ledit-php --release --features {{static_feature}}
 
 pdfium_release := replace(`tr -d '[:space:]' < ../../core/pdfium-release`, "/", "_")
@@ -77,8 +75,9 @@ pdfium-path:
 run *ARGS: build
     #!/usr/bin/env bash
     set -euo pipefail
-    export PDFIUM_PATH="$(just pdfium-path)"
-    export EXT_DIR="$(just php-ext-dir)"
+    PDFIUM_PATH="$(just pdfium-path)"
+    export PDFIUM_PATH
+    EXT_DIR="$(just php-ext-dir)"
     php -n -d extension_dir="$EXT_DIR" {{php_test_exts}} -d extension={{ext_debug}} {{ARGS}}
 
 # Runs a single PHP expression (via `php -r`) against the debug build. Safely quotes CODE for you,
@@ -87,8 +86,9 @@ run *ARGS: build
 run-code CODE: build
     #!/usr/bin/env bash
     set -euo pipefail
-    export PDFIUM_PATH="$(just pdfium-path)"
-    export EXT_DIR="$(just php-ext-dir)"
+    PDFIUM_PATH="$(just pdfium-path)"
+    export PDFIUM_PATH
+    EXT_DIR="$(just php-ext-dir)"
     php -n -d extension_dir="$EXT_DIR" {{php_test_exts}} -d extension={{ext_debug}} -r {{quote(CODE)}}
 
 # Checks the module loads at all - the first thing to run when something seems broken.
@@ -96,8 +96,9 @@ run-code CODE: build
 smoke: build
     #!/usr/bin/env bash
     set -euo pipefail
-    export PDFIUM_PATH="$(just pdfium-path)"
-    export EXT_DIR="$(just php-ext-dir)"
+    PDFIUM_PATH="$(just pdfium-path)"
+    export PDFIUM_PATH
+    EXT_DIR="$(just php-ext-dir)"
     php -n -d extension_dir="$EXT_DIR" {{php_test_exts}} -d extension={{ext_debug}} -m | grep -i bernard.ledit
 
 # Dumps the reflected classes/methods/functions of the compiled module - faster than reading stubs.
@@ -106,8 +107,9 @@ smoke: build
 reflect: build
     #!/usr/bin/env bash
     set -euo pipefail
-    export PDFIUM_PATH="$(just pdfium-path)"
-    export EXT_DIR="$(just php-ext-dir)"
+    PDFIUM_PATH="$(just pdfium-path)"
+    export PDFIUM_PATH
+    EXT_DIR="$(just php-ext-dir)"
     MODULE=$(php -n -d extension_dir="$EXT_DIR" {{php_test_exts}} -d extension={{ext_debug}} -m | grep -i bernard.ledit | head -n 1)
     php -n -d extension_dir="$EXT_DIR" {{php_test_exts}} -d extension={{ext_debug}} --re "$MODULE"
 
@@ -117,8 +119,9 @@ test *ARGS: build
     #!/usr/bin/env bash
     set -euo pipefail
     [ -d vendor ] || composer install
-    export PDFIUM_PATH="$(just pdfium-path)"
-    export EXT_DIR="$(just php-ext-dir)"
+    PDFIUM_PATH="$(just pdfium-path)"
+    export PDFIUM_PATH
+    EXT_DIR="$(just php-ext-dir)"
     php -n -d extension_dir="$EXT_DIR" {{php_test_exts}} -d extension={{ext_debug}} vendor/bin/phpunit {{ARGS}}
 
 # Runs phpunit against the static-pdfium release build with NO PDFIUM_PATH set and no libpdfium.so
@@ -129,7 +132,7 @@ test-static: build-static
     set -euo pipefail
     [ -d vendor ] || composer install
     unset PDFIUM_PATH
-    export EXT_DIR="$(just php-ext-dir)"
+    EXT_DIR="$(just php-ext-dir)"
     php -n -d extension_dir="$EXT_DIR" {{php_test_exts}} -d extension={{ext_release}} vendor/bin/phpunit
 
 # Regenerates the PHP stub file (bernard_ledit.stubs.php) for IDEs/phpstan from the compiled extension

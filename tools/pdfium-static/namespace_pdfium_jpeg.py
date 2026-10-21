@@ -88,7 +88,7 @@ def rename_coff_symbols(obj, mapping):
 
 def rename_in_archive(source, destination, mapping):
     """Rewrite every COFF object in an ar archive. The symbol index is left stale
-    on purpose; `llvm-ar s` regenerates it afterwards."""
+    on purpose; the caller rebuilds the archive with llvm-lib afterwards."""
     data = source.read_bytes()
     if not data.startswith(b"!<arch>\n"):
         raise RuntimeError(f"{source} is not an ar archive")
@@ -149,7 +149,8 @@ def namespace_archive(build_root, output_dir):
     jpeg_dir = build_root / "pdfium/out/obj/third_party/libjpeg_turbo"
     # Include libjpeg12/16 and the separate SIMD C/assembly archives.
     jpeg_archives = sorted(jpeg_dir.glob("*.lib" if is_windows else "*.a"))
-    nm, ar = find_tool("llvm-nm"), find_tool("llvm-ar")
+    nm = find_tool("llvm-nm")
+    ar = None if is_windows else find_tool("llvm-ar")
     objcopy = None if is_windows else find_tool("llvm-objcopy")
     lib_tool = find_tool("llvm-lib") if is_windows else None
     if not jpeg_archives:
