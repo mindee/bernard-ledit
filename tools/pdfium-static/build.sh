@@ -72,19 +72,19 @@ sed -i 's/configs = \[ ":static_crt" \]/configs = [ ":dynamic_crt" ]/' "$crt_gn"
 EOF
 
   if [ -n "${MSVC_TOOLSET:-}" ]; then
-      toolchain_py="$WORK_DIR/pdfium-binaries/pdfium/build/toolchain/win/setup_toolchain.py"
-      cat >> steps/03-patch.sh <<EOF
+    toolchain_py="$WORK_DIR/pdfium-binaries/pdfium/build/toolchain/win/setup_toolchain.py"
+    cat >> steps/03-patch.sh <<EOF
 
-    # bernard-ledit: compile with MSVC toolset $MSVC_TOOLSET (vcvarsall.bat -vcvars_ver)
-    if ! grep -q "vcvars_ver=$MSVC_TOOLSET" "$toolchain_py"; then
-      if ! grep -q "_LoadEnvFromBat(args)" "$toolchain_py"; then
-        echo "vcvarsall call not found in $toolchain_py; relevant code:" >&2
-        grep -n -B2 -A12 -i "vcvarsall" "$toolchain_py" >&2 || true
-        exit 1
-      fi
-      sed -i "s/_LoadEnvFromBat(args)/_LoadEnvFromBat(args + ['-vcvars_ver=$MSVC_TOOLSET'])/" "$toolchain_py"
-    fi
-    EOF
+# bernard-ledit: compile with MSVC toolset $MSVC_TOOLSET (vcvarsall.bat -vcvars_ver)
+if ! grep -q "vcvars_ver=$MSVC_TOOLSET" "$toolchain_py"; then
+  if ! grep -q "_LoadEnvFromBat(args)" "$toolchain_py"; then
+    echo "vcvarsall call not found in $toolchain_py; relevant code:" >&2
+    grep -n -B2 -A12 -i "vcvarsall" "$toolchain_py" >&2 || true
+    exit 1
+  fi
+  sed -i "s/_LoadEnvFromBat(args)/_LoadEnvFromBat(args + ['-vcvars_ver=$MSVC_TOOLSET'])/" "$toolchain_py"
+fi
+EOF
   fi
 fi
 cd ..
