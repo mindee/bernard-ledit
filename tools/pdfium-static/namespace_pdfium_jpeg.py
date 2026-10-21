@@ -1,236 +1,256 @@
 #!/usr/bin/env python3
-"""Namespace bundled JPEG symbols in a copy of a PDFium static archive (ELF, Mach-O or COFF)."""
+"""Prefix the libjpeg-turbo symbols bundled in a static PDFium library.
+
+PDFium and mozjpeg both contain libjpeg-turbo, so linking both into one binary clashes on symbols
+such as jpeg_* and jsimd_*. This writes a copy of PDFium's archive in which its libjpeg-turbo
+symbols are renamed to bernard_pdfium_<name>, then checks that nothing else changed.
+
+ELF and Mach-O archives are rewritten with llvm-objcopy. COFF archives (Windows) are rewritten by
+this script, because llvm-objcopy drops the symbol table of NASM-assembled COFF objects.
+"""
 
 import argparse
 from collections import Counter
 from pathlib import Path
-import os
 import shutil
-import subprocess
 import struct
+import subprocess
 import sys
 import tempfile
 
-
 PREFIX = "bernard_pdfium_"
+MARKER_SYMBOL = "jpeg_natural_order"
+IS_WINDOWS = sys.platform == "win32"
+
+AR_MAGIC = b"!<arch>\n"
+AR_HEADER_SIZE = 60
+AR_INDEX_MEMBERS = (b"/", b"//", b"/SYM64/")
+COFF_MACHINES = (0x8664, 0xAA64, 0x14C)
+COFF_BIGOBJ_CLASSID = bytes.fromhex("c7a1bad1eebaa94baf20faf66aa4dcb8")
 
 
-def symbols(nm, archives, defined_only=False):
+def find_tool(name, bundled_dir):
+    """Return PDFium's bundled LLVM tool `name`, or the one on PATH."""
+    bundled = bundled_dir / (f"{name}.exe" if IS_WINDOWS else name)
+    if bundled.is_file():
+        return bundled
+    on_path = shutil.which(name)
+    if on_path:
+        return Path(on_path)
+    raise FileNotFoundError(f"{name} not found in {bundled_dir} or on PATH")
+
+
+def read_symbols(nm, archives, defined_only=False):
+    """Count the (name, type) pairs of the external symbols in `archives`."""
     command = [str(nm), "--extern-only", "--format=posix"]
     if defined_only:
         command.append("--defined-only")
-    output = subprocess.check_output(
-        command + [str(path) for path in archives], text=True
-    )
-    result = Counter()
+    output = subprocess.check_output(command + [str(path) for path in archives], text=True)
+    counts = Counter()
     for line in output.splitlines():
         if not line.strip() or line.endswith(":"):
             continue
         fields = line.split()
         if len(fields) < 2 or len(fields[1]) != 1:
             raise RuntimeError(f"Unexpected llvm-nm output: {line}")
-        result[(fields[0], fields[1])] += 1
-    return result
-
-# GUID identifying the COFF "bigobj" format, as stored in the file (little-endian).
-BIGOBJ_CLASSID = bytes.fromhex("c7a1bad1eebaa94baf20faf66aa4dcb8")
+        counts[(fields[0], fields[1])] += 1
+    return counts
 
 
-def coff_symbol_table(obj):
-    """(symbol table offset, symbol count, record size) for a COFF object, or None."""
-    if len(obj) >= 56 and obj[:4] == b"\x00\x00\xff\xff":
-        version = struct.unpack_from("<H", obj, 4)[0]
-        if version >= 2 and obj[12:28] == BIGOBJ_CLASSID:
-            pointer, count = struct.unpack_from("<II", obj, 48)
-            return pointer, count, 20
-        return None  # import object or unknown header
-    if len(obj) >= 20 and struct.unpack_from("<H", obj, 0)[0] in (0x8664, 0xAA64, 0x14C):
-        pointer, count = struct.unpack_from("<II", obj, 8)
-        return pointer, count, 18
-    return None
+def locate_inputs(build_root):
+    """Return the PDFium archive and libjpeg-turbo's component archives of a pdfium-binaries build.
 
-
-def rename_coff_symbols(obj, mapping):
-    """Rename symbols in one COFF object. New names go at the end of the string table,
-    so no code, section or relocation moves. Returns (new bytes, number renamed)."""
-    table = coff_symbol_table(obj)
-    if table is None:
-        return obj, 0
-    pointer, count, record = table
-    if pointer == 0 or count == 0:
-        return obj, 0
-    strtab = pointer + count * record
-    strsize = max(struct.unpack_from("<I", obj, strtab)[0], 4)
-    if strtab + strsize != len(obj):
-        raise RuntimeError("Unexpected data after the COFF string table; refusing to rewrite")
-
-    out = bytearray(obj[:strtab])
-    strings = bytearray(obj[strtab + 4 : strtab + strsize])
-    renamed = 0
-    index = 0
-    while index < count:
-        offset = pointer + index * record
-        raw = obj[offset : offset + 8]
-        if raw[:4] == b"\0\0\0\0":
-            start = strtab + struct.unpack_from("<I", raw, 4)[0]
-            name = obj[start : obj.index(b"\0", start)].decode("latin-1")
-        else:
-            name = raw.rstrip(b"\0").decode("latin-1")
-        new = mapping.get(name)
-        if new is not None:
-            struct.pack_into("<II", out, offset, 0, 4 + len(strings))  # string table offset
-            strings += new.encode("ascii") + b"\0"
-            renamed += 1
-        index += 1 + obj[offset + record - 1]  # skip auxiliary records
-    out += struct.pack("<I", 4 + len(strings)) + strings
-    return bytes(out), renamed
-
-
-def rename_in_archive(source, destination, mapping):
-    """Rewrite every COFF object in an ar archive. The symbol index is left stale
-    on purpose; the caller rebuilds the archive with llvm-lib afterwards."""
-    data = source.read_bytes()
-    if not data.startswith(b"!<arch>\n"):
-        raise RuntimeError(f"{source} is not an ar archive")
-    out = bytearray(b"!<arch>\n")
-    position, total = 8, 0
-    while position < len(data):
-        header = data[position : position + 60]
-        if len(header) < 60 or header[58:60] != b"`\n":
-            raise RuntimeError(f"Bad archive member header at offset {position}")
-        name = header[:16].rstrip(b" ")
-        size = int(header[48:58].decode().strip())
-        body = data[position + 60 : position + 60 + size]
-        position += 60 + size + (size & 1)
-        # "/" = symbol index, "//" = long names, "/<...>" and "/SYM64/" = other special members.
-        if not (name in (b"/", b"//", b"/SYM64/") or name.startswith(b"/<")):
-            body, renamed = rename_coff_symbols(body, mapping)
-            total += renamed
-        out += header[:48] + f"{len(body):<10}".encode() + b"`\n" + body
-        if len(body) & 1:
-            out += b"\n"
-    destination.write_bytes(out)
-    return total
-
-def namespace_archive(build_root, output_dir):
-    build_root = build_root.resolve()
-    output_dir = output_dir.resolve()
-    is_windows = sys.platform == "win32"
-    exe = ".exe" if is_windows else ""
-
-    staging = build_root / "staging/lib"
-    if is_windows:
-        # pdfium-binaries doesn't stage static Windows builds; take the archive from the build output.
-        candidates = [*staging.glob("*pdfium*.lib"), build_root / "pdfium/out/obj/pdfium.lib"]
+    pdfium-binaries doesn't stage static Windows builds, so there the archive comes from the build
+    output. The component archives tell which symbols belong to libjpeg-turbo.
+    """
+    if IS_WINDOWS:
+        source = build_root / "pdfium/out/obj/pdfium.lib"
     else:
-        candidates = [staging / "libpdfium.a"]
-    matches = [p for p in candidates if p.is_file()]
-    if not matches:
-        found = sorted(p.name for p in staging.iterdir()) if staging.is_dir() else []
-        raise FileNotFoundError(
-            f"No PDFium archive found; tried {[str(p) for p in candidates]}; staging/lib has: {found}"
-        )
-    source = matches[0]
-    destination = output_dir / ("pdfium.lib" if is_windows else "libpdfium.a")
-
-    bundled = build_root / "pdfium/third_party/llvm-build/Release+Asserts/bin"
-
-    def find_tool(name):
-        """PDFium's bundled LLVM tool if present, else one on PATH (LLVM_BIN overrides both)."""
-        override = os.environ.get("LLVM_BIN")
-        for candidate in ([Path(override) / f"{name}{exe}"] if override else []) + [bundled / f"{name}{exe}"]:
-            if candidate.is_file():
-                return candidate
-        on_path = shutil.which(name)
-        if on_path:
-            return Path(on_path)
-        raise FileNotFoundError(f"Required LLVM tool not found: {name} (looked in {bundled} and PATH)")
-
+        source = build_root / "staging/lib/libpdfium.a"
+    if not source.is_file():
+        raise FileNotFoundError(f"PDFium archive not found: {source}")
     jpeg_dir = build_root / "pdfium/out/obj/third_party/libjpeg_turbo"
-    # Include libjpeg12/16 and the separate SIMD C/assembly archives.
-    jpeg_archives = sorted(jpeg_dir.glob("*.lib" if is_windows else "*.a"))
-    nm = find_tool("llvm-nm")
-    ar = None if is_windows else find_tool("llvm-ar")
-    objcopy = None if is_windows else find_tool("llvm-objcopy")
-    lib_tool = find_tool("llvm-lib") if is_windows else None
+    jpeg_archives = sorted(jpeg_dir.glob("*.lib" if IS_WINDOWS else "*.a"))
     if not jpeg_archives:
-        raise RuntimeError(f"No JPEG component archives in {jpeg_dir}")
-    if destination == source or (
-        destination.exists() and destination.samefile(source)
-    ):
-        raise ValueError("Output must not overwrite the original PDFium archive")
+        raise FileNotFoundError(f"No libjpeg-turbo archives in {jpeg_dir}")
+    return source, jpeg_archives
 
-    original = symbols(nm, [source])
-    defined = symbols(nm, [source], defined_only=True)
-    jpeg = symbols(nm, jpeg_archives, defined_only=True)
-    jpeg_names = {name for name, _ in jpeg}
-    names = jpeg_names & {name for name, _ in defined}
-    # Mach-O (macOS) prefixes C symbols with "_"; ELF (Linux) doesn't.
-    underscore = "_" if "_jpeg_natural_order" in names else ""
-    if underscore + "jpeg_natural_order" not in names:
+
+def build_symbol_map(nm, source, jpeg_archives, original):
+    """Map each libjpeg-turbo symbol defined in `source` to its prefixed name.
+
+    Mach-O symbols start with an underscore, which stays in front so that the C name becomes
+    bernard_pdfium_<name> on every platform.
+    """
+    defined = {name for name, _ in read_symbols(nm, [source], defined_only=True)}
+    jpeg = {name for name, _ in read_symbols(nm, jpeg_archives, defined_only=True)}
+    names = jpeg & defined
+    underscore = "_" if "_" + MARKER_SYMBOL in names else ""
+    if underscore + MARKER_SYMBOL not in names:
         raise RuntimeError(
-            "Expected unmodified jpeg_natural_order definition is missing; "
-            "use the original archive and component archives from the same build"
+            f"{MARKER_SYMBOL} is not defined in {source}: use the original archive "
+            "and the component archives of the same build"
         )
-    all_names = {name for name, _ in original}
-    # Keep the platform prefix in front, so the C-level name becomes bernard_pdfium_<name> everywhere.
+    if any(name.removeprefix(underscore).startswith("FPDF") for name in names):
+        raise RuntimeError("The libjpeg-turbo archives unexpectedly define PDFium API symbols")
     mapping = {
         name: underscore + PREFIX + name.removeprefix(underscore) for name in sorted(names)
     }
-    if set(mapping.values()) & all_names:
-        raise RuntimeError("Archive already contains destination-prefixed symbols")
-    if any(name.removeprefix(underscore).startswith("FPDF") for name in names):
-        raise RuntimeError("JPEG component archives unexpectedly define PDFium API symbols")
+    if set(mapping.values()) & {name for name, _ in original}:
+        raise RuntimeError(f"{source} already contains {PREFIX}* symbols")
+    return mapping
 
+
+def coff_symbol_table(obj):
+    """Return (offset, symbol count, record size) of a COFF object's symbol table, or None."""
+    if obj[:4] == b"\x00\x00\xff\xff":
+        is_bigobj = (
+                len(obj) >= 56
+                and struct.unpack_from("<H", obj, 4)[0] >= 2
+                and obj[12:28] == COFF_BIGOBJ_CLASSID
+        )
+        if not is_bigobj:
+            return None
+        offset, count = struct.unpack_from("<II", obj, 48)
+        return offset, count, 20
+    if len(obj) >= 20 and struct.unpack_from("<H", obj, 0)[0] in COFF_MACHINES:
+        offset, count = struct.unpack_from("<II", obj, 8)
+        return offset, count, 18
+    return None
+
+
+def coff_symbol_name(obj, record, string_table):
+    """Return the name of the symbol record at `record`; long names live in the string table."""
+    raw = obj[record : record + 8]
+    if raw[:4] == b"\0\0\0\0":
+        start = string_table + struct.unpack_from("<I", raw, 4)[0]
+        return obj[start : obj.index(b"\0", start)].decode("latin-1")
+    return raw.rstrip(b"\0").decode("latin-1")
+
+
+def rename_coff_symbols(obj, mapping):
+    """Rename the mapped symbols of one COFF object; other archive members are returned unchanged.
+
+    New names are appended to the string table and the symbol records point at them, so no
+    section, relocation or symbol index moves.
+    """
+    table = coff_symbol_table(obj)
+    if table is None or 0 in table[:2]:
+        return obj
+    offset, count, record_size = table
+    string_table = offset + count * record_size
+    string_table_size = max(struct.unpack_from("<I", obj, string_table)[0], 4)
+    if string_table + string_table_size != len(obj):
+        raise RuntimeError("Unexpected data after a COFF string table; refusing to rewrite it")
+
+    out = bytearray(obj[:string_table])
+    strings = bytearray(obj[string_table + 4 : string_table + string_table_size])
+    index = 0
+    while index < count:
+        record = offset + index * record_size
+        new_name = mapping.get(coff_symbol_name(obj, record, string_table))
+        if new_name is not None:
+            struct.pack_into("<II", out, record, 0, 4 + len(strings))
+            strings += new_name.encode("ascii") + b"\0"
+        index += 1 + obj[record + record_size - 1]
+    out += struct.pack("<I", 4 + len(strings)) + strings
+    return bytes(out)
+
+
+def rename_in_coff_archive(source, destination, mapping):
+    """Copy an ar archive, renaming the mapped symbols in every COFF member.
+
+    The index members are copied unchanged, so they go stale until the archive is rebuilt.
+    """
+    data = source.read_bytes()
+    if not data.startswith(AR_MAGIC):
+        raise RuntimeError(f"{source} is not an ar archive")
+    out = bytearray(AR_MAGIC)
+    position = len(AR_MAGIC)
+    while position < len(data):
+        header = data[position : position + AR_HEADER_SIZE]
+        if len(header) < AR_HEADER_SIZE or header[58:60] != b"`\n":
+            raise RuntimeError(f"Bad archive member header at offset {position}")
+        name = header[:16].rstrip(b" ")
+        size = int(header[48:58].decode().strip())
+        body = data[position + AR_HEADER_SIZE : position + AR_HEADER_SIZE + size]
+        position += AR_HEADER_SIZE + size + size % 2
+        if name not in AR_INDEX_MEMBERS and not name.startswith(b"/<"):
+            body = rename_coff_symbols(body, mapping)
+        out += header[:48] + f"{len(body):<10}".encode() + b"`\n" + body
+        if len(body) % 2:
+            out += b"\n"
+    destination.write_bytes(out)
+
+
+def rewrite_with_objcopy(llvm_bin, source, destination, mapping, workdir):
+    """Rename the mapped symbols of an ELF or Mach-O archive, then rebuild its index."""
+    symbol_map = workdir / "jpeg-symbols.map"
+    symbol_map.write_text(
+        "".join(f"{old} {new}\n" for old, new in mapping.items()), encoding="ascii"
+    )
+    objcopy = find_tool("llvm-objcopy", llvm_bin)
+    subprocess.run(
+        [str(objcopy), f"--redefine-syms={symbol_map}", str(source), str(destination)],
+        check=True,
+    )
+    subprocess.run([str(find_tool("llvm-ar", llvm_bin)), "s", str(destination)], check=True)
+
+
+def rewrite_coff(llvm_bin, source, destination, mapping, workdir):
+    """Rename the mapped symbols of a COFF archive, then rebuild it with llvm-lib.
+
+    llvm-lib writes both index members in the layout link.exe expects; some link.exe versions
+    reject an index regenerated by llvm-ar (LNK1127).
+    """
+    renamed = workdir / "renamed.lib"
+    rename_in_coff_archive(source, renamed, mapping)
+    llvm_lib = find_tool("llvm-lib", llvm_bin)
+    subprocess.run([str(llvm_lib), "/NOLOGO", f"/OUT:{destination}", str(renamed)], check=True)
+
+
+def verify(nm, candidate, original, mapping):
+    """Check that only the mapped symbols changed, in definitions and references alike."""
     expected = Counter()
     for (name, kind), count in original.items():
         expected[(mapping.get(name, name), kind)] += count
+    actual = read_symbols(nm, [candidate])
+    if actual != expected:
+        raise RuntimeError(
+            f"Symbol verification failed: missing={expected - actual}, "
+            f"unexpected={actual - expected}"
+        )
+
+
+def namespace_archive(build_root, output_dir):
+    """Write the namespaced copy of the PDFium archive of `build_root` into `output_dir`."""
+    build_root = build_root.resolve()
+    output_dir = output_dir.resolve()
+    source, jpeg_archives = locate_inputs(build_root)
+    destination = output_dir / source.name
+    if destination == source:
+        raise ValueError("The output directory must not be the directory of the original archive")
+
+    llvm_bin = build_root / "pdfium/third_party/llvm-build/Release+Asserts/bin"
+    nm = find_tool("llvm-nm", llvm_bin)
+    original = read_symbols(nm, [source])
+    mapping = build_symbol_map(nm, source, jpeg_archives, original)
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix=".jpeg-namespace-", dir=output_dir) as tmp:
-        tmp = Path(tmp)
-        symbol_map = tmp / "jpeg-symbols.map"
-        symbol_map.write_text(
-            "".join(f"{old} {new}\n" for old, new in mapping.items()), encoding="ascii"
-        )
-        candidate = tmp / "libpdfium.a"
-        if is_windows:
-            # llvm-objcopy drops the whole symbol table of NASM-assembled COFF objects,
-            # so rename in place instead.
-            rename_in_archive(source, candidate, mapping)
-        else:
-            subprocess.run(
-                [str(objcopy), f"--redefine-syms={symbol_map}", str(source), str(candidate)],
-                check=True,
-            )
-        if is_windows:
-            # Rebuild the archive in Microsoft's format (both linker members), which link.exe
-            # requires; llvm-ar's regenerated index isn't accepted by every link.exe version.
-            renamed_lib = tmp / "renamed.lib"
-            candidate.replace(renamed_lib)
-            subprocess.run([str(lib_tool), "/NOLOGO", f"/OUT:{candidate}", str(renamed_lib)], check=True)
-        else:
-            subprocess.run([str(ar), "s", str(candidate)], check=True)
-        # Check definitions AND cross-member references. Everything outside the map,
-        # including FPDF_* and unresolved system-library symbols, must stay unchanged.
-        actual = symbols(nm, [candidate])
-        if actual != expected:
-            raise RuntimeError(
-                f"Symbol verification failed: missing={expected - actual}, "
-                f"unexpected={actual - expected}"
-            )
-        if names & {name for name, _ in actual}:
-            raise RuntimeError("Original JPEG symbols remain in transformed archive")
-        symbol_map.replace(output_dir / "jpeg-symbols.map")
+    with tempfile.TemporaryDirectory(prefix=".jpeg-namespace-", dir=output_dir) as workdir:
+        workdir = Path(workdir)
+        candidate = workdir / source.name
+        rewrite = rewrite_coff if IS_WINDOWS else rewrite_with_objcopy
+        rewrite(llvm_bin, source, candidate, mapping, workdir)
+        verify(nm, candidate, original, mapping)
         candidate.replace(destination)
-    print(f"Namespaced {len(mapping)} JPEG symbols: {destination}")
-    return destination
+    print(f"Namespaced {len(mapping)} libjpeg-turbo symbols: {destination}")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("build_root", type=Path, help="Built pdfium-binaries checkout")
-    parser.add_argument("output_dir", type=Path, help="Separate, writable output directory")
+    parser.add_argument("build_root", type=Path, help="pdfium-binaries checkout after a build")
+    parser.add_argument("output_dir", type=Path, help="directory for the namespaced archive")
     args = parser.parse_args()
     namespace_archive(args.build_root, args.output_dir)
 

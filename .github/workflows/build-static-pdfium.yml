@@ -17,162 +17,161 @@ permissions:
 
 jobs:
   build:
+    name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
-      max-parallel: 2   # googlesource throttles parallel gclient syncs
+      # googlesource throttles parallel gclient syncs.
+      max-parallel: 2
       matrix:
         include:
-          - { target: linux-x64-glibc,   runner: ubuntu-latest,  os: linux, cpu: x64,   env: glibc, lib_ext: a,   work_dir: /tmp/pdfium-static }
-          - { target: linux-arm64-glibc, runner: ubuntu-latest,  os: linux, cpu: arm64, env: glibc, lib_ext: a,   work_dir: /tmp/pdfium-static }
-          - { target: linux-x64-musl,    runner: ubuntu-latest,  os: linux, cpu: x64,   env: musl,  lib_ext: a,   work_dir: /tmp/pdfium-static }
-          - { target: linux-arm64-musl,  runner: ubuntu-latest,  os: linux, cpu: arm64, env: musl,  lib_ext: a,   work_dir: /tmp/pdfium-static }
-          - { target: mac-arm64,         runner: macos-latest,   os: mac,   cpu: arm64, env: "",    lib_ext: a,   work_dir: /tmp/pdfium-static }
-          - { target: win-x64-v143, runner: windows-latest, os: win, cpu: x64, env: "", lib_ext: lib, work_dir: "C:/pdfium-static", msvc: "14.44" }
-          - { target: win-x64-v142, runner: windows-latest, os: win, cpu: x64, env: "", lib_ext: lib, work_dir: "C:/pdfium-static", msvc: "14.29" }
+          - { target: linux-x64-glibc,   runner: ubuntu-latest,  os: linux, cpu: x64 }
+          - { target: linux-arm64-glibc, runner: ubuntu-latest,  os: linux, cpu: arm64 }
+          - { target: linux-x64-musl,    runner: ubuntu-latest,  os: linux, cpu: x64,   env: musl }
+          - { target: linux-arm64-musl,  runner: ubuntu-latest,  os: linux, cpu: arm64, env: musl }
+          - { target: mac-arm64,         runner: macos-latest,   os: mac,   cpu: arm64 }
+          - { target: win-x64-v143,      runner: windows-latest, os: win,   cpu: x64,   msvc: "14.44" }
+          - { target: win-x64-v142,      runner: windows-latest, os: win,   cpu: x64,   msvc: "14.29" }
     defaults:
       run:
         shell: bash
+    env:
+      PDFIUM_OS: ${{ matrix.os }}
+      PDFIUM_CPU: ${{ matrix.cpu }}
+      PDFIUM_ENV: ${{ matrix.env }}
+      MSVC_TOOLSET: ${{ matrix.msvc }}
+      # Makes depot_tools use the runner's Visual Studio instead of Google's internal toolchain.
+      DEPOT_TOOLS_WIN_TOOLCHAIN: "0"
+      WORK_DIR: ${{ matrix.os == 'win' && 'C:/pdfium-static' || '/tmp/pdfium-static' }}
+      OUT_DIR: ${{ github.workspace }}/out
+      LIB_NAME: ${{ matrix.os == 'win' && 'pdfium.lib' || 'libpdfium.a' }}
+      ASSET: libpdfium-${{ matrix.target }}.${{ matrix.os == 'win' && 'lib' || 'a' }}
     steps:
       - uses: actions/checkout@v6
 
-      - name: Read PDFium release
-        id: rel
-        run: echo "tag=$(tr -d '[:space:]' < core/pdfium-release)" >> "$GITHUB_OUTPUT"
-
-      - name: Check if already published
-        id: exists
+      # A target is up to date once both its library and its checksum are published.
+      - name: Check whether the target needs building
+        id: check
         env:
           GH_TOKEN: ${{ github.token }}
+          FORCE: ${{ inputs.force }}
         run: |
-          rel="pdfium-static-${{ steps.rel.outputs.tag }}"; rel="${rel//\//_}"
-          asset="libpdfium-${{ matrix.target }}.${{ matrix.lib_ext }}"
-          if gh release view "$rel" --json assets --jq '.assets[].name' 2>/dev/null | grep -qx "$asset"; then
-            echo "published=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::$asset already in $rel, skipping (run manually with force=true to rebuild)"
+          release="pdfium-static-$(tr -d '[:space:]' < core/pdfium-release)"
+          release="${release//\//_}"
+          echo "release=$release" >> "$GITHUB_OUTPUT"
+          published="$(gh release view "$release" --json assets --jq '.assets[].name' 2>/dev/null || true)"
+          if [ "$FORCE" != true ] && grep -qxF "$ASSET" <<< "$published" && grep -qxF "$ASSET.sha256" <<< "$published"; then
+            echo "::notice::$ASSET is already published in $release; run the workflow manually with force to rebuild it"
+            echo "build=false" >> "$GITHUB_OUTPUT"
           else
-            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "build=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # Build inputs, not product releases: keep them from being marked as the repo's "Latest".
-      - name: Keep the release marked as a pre-release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          rel="pdfium-static-${{ steps.rel.outputs.tag }}"; rel="${rel//\//_}"
-          if gh release view "$rel" >/dev/null 2>&1; then
-            gh release edit "$rel" --prerelease
-          fi
-
-      - uses: actions/cache@v6
-        if: steps.exists.outputs.published != 'true' || inputs.force
+      # Sources only: Ninja could reuse stale objects from a cached out/ after a toolchain change.
+      - name: Cache the PDFium sources
+        if: steps.check.outputs.build == 'true'
+        uses: actions/cache@v6
         with:
           path: |
-            ${{ matrix.work_dir }}/pdfium-binaries/pdfium
-            !${{ matrix.work_dir }}/pdfium-binaries/pdfium/out
+            ${{ env.WORK_DIR }}/pdfium-binaries/pdfium
+            !${{ env.WORK_DIR }}/pdfium-binaries/pdfium/out
           key: pdfium-src-${{ hashFiles('core/pdfium-release') }}-${{ matrix.target }}
 
-      - name: Prepare Windows build
-        if: runner.os == 'Windows' && (steps.exists.outputs.published != 'true' || inputs.force)
+      # Chromium's checkout has paths beyond Windows' default length limit. The runner's LLVM is the
+      # namespacer's fallback for tools that Chromium's LLVM package lacks.
+      - name: Prepare the Windows build
+        if: runner.os == 'Windows' && steps.check.outputs.build == 'true'
         run: |
           git config --global core.longpaths true
           echo "C:/Program Files/LLVM/bin" >> "$GITHUB_PATH"
-          "/c/Program Files/LLVM/bin/llvm-nm.exe" --version
-        shell: bash
 
-      - uses: actions/setup-python@v6
-        if: runner.os == 'Windows' && (steps.exists.outputs.published != 'true' || inputs.force)
+      - name: Set up Python (Windows)
+        if: runner.os == 'Windows' && steps.check.outputs.build == 'true'
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
+      # Retries the build when it fails on a network error, which googlesource returns under load.
       - name: Build
-        if: steps.exists.outputs.published != 'true' || inputs.force
-        shell: bash
-        env:
-          PDFIUM_ENV: ${{ matrix.env }}
-          PDFIUM_OS: ${{ matrix.os }}
-          PDFIUM_CPU: ${{ matrix.cpu }}
-          OUT_DIR: ${{ github.workspace }}/out/${{ matrix.target }}
-          WORK_DIR: ${{ matrix.work_dir }}
-          DEPOT_TOOLS_WIN_TOOLCHAIN: "0"
-          MSVC_TOOLSET: ${{ matrix.msvc }}
+        if: steps.check.outputs.build == 'true'
         run: |
-          max=5
-          for attempt in $(seq 1 "$max"); do
-            if bash tools/pdfium-static/build.sh 2>&1 | tee build.log; then exit 0; fi
-            tail -n 60 build.log | grep -qE 'HTTP 5[0-9]{2}|RPC failed|Could not resolve host|musl\.cc' || exit 1
-            [ "$attempt" -lt "$max" ] || { echo "::error::Network failures persisted after $max attempts"; exit 1; }
-            wait_s=$(( attempt * 120 + RANDOM % 60 ))
-            echo "::warning::Network failure on attempt $attempt/$max, retrying in ${wait_s}s"
-            rm -rf "$WORK_DIR/pdfium-binaries/_bad_scm" 2>/dev/null || sudo rm -rf "$WORK_DIR/pdfium-binaries/_bad_scm"
-            sleep "$wait_s"
+          max_attempts=5
+          for attempt in $(seq "$max_attempts"); do
+            if bash tools/pdfium-static/build.sh 2>&1 | tee build.log; then
+              exit 0
+            fi
+            if ! tail -n 60 build.log | grep -qE 'HTTP 5[0-9]{2}|RPC failed|Could not resolve host'; then
+              exit 1
+            fi
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              delay=$((attempt * 120 + RANDOM % 60))
+              echo "::warning::Network failure on attempt $attempt/$max_attempts, retrying in ${delay}s"
+              sleep "$delay"
+            fi
           done
+          echo "::error::Network failures persisted after $max_attempts attempts"
           exit 1
 
-      # The Docker build runs as root; give the files back so the cache can save them.
-      - name: Fix ownership
-        if: always() && runner.os != 'Windows' && (steps.exists.outputs.published != 'true' || inputs.force)
-        run: sudo chown -R "$(id -u):$(id -g)" "${{ matrix.work_dir }}" out 2>/dev/null || true
-
-      - name: Show output
-        if: always() && (steps.exists.outputs.published != 'true' || inputs.force)
-        run: |
-          find out -type f 2>/dev/null || true
-          echo "--- staging:"
-          find "${{ matrix.work_dir }}/pdfium-binaries/staging" -type f 2>/dev/null | head -n 50 || true
-          echo "--- jpeg archives:"
-          ls "${{ matrix.work_dir }}/pdfium-binaries/pdfium/out/obj/third_party/libjpeg_turbo" 2>/dev/null || true
-          echo "--- args.gn:"
-          cat "${{ matrix.work_dir }}/pdfium-binaries/staging/args.gn" 2>/dev/null || true
-          echo "--- built libraries:"
-          ls -la "${{ matrix.work_dir }}/pdfium-binaries/pdfium/out/obj/"*.lib 2>/dev/null || true
+      # The Linux build runs as root in Docker; the cache can only save files the runner user can read.
+      - name: Fix ownership (Linux)
+        if: runner.os == 'Linux' && steps.check.outputs.build == 'true'
+        run: sudo chown -R "$(id -u):$(id -g)" "$WORK_DIR"
 
       - name: Pin the target MSVC toolset (Windows)
-        if: runner.os == 'Windows' && (steps.exists.outputs.published != 'true' || inputs.force)
+        if: runner.os == 'Windows' && steps.check.outputs.build == 'true'
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
           toolset: ${{ matrix.msvc }}
-      - name: Check the library against the target toolset (Windows)
-        if: runner.os == 'Windows' && (steps.exists.outputs.published != 'true' || inputs.force)
+
+      # Links a throwaway DLL that pulls in the PDFium API bernard-ledit uses, with the target
+      # toolset's link.exe and runtime libraries. This entry-point-less link also leaves the C
+      # runtime's startup objects unresolved, so only symbols referenced from pdfium.lib count.
+      # The full path avoids Git Bash's GNU `link`.
+      - name: Check the library links with the target toolset (Windows)
+        if: runner.os == 'Windows' && steps.check.outputs.build == 'true'
         run: |
-          lib="$(cygpath -w "$(find "out/${{ matrix.target }}" -name pdfium.lib -print -quit)")"
-          MSYS_NO_PATHCONV=1 lib.exe /NOLOGO /LIST "$lib" > /dev/null
-          # Link a throwaway DLL that pulls in the API we use: unresolved symbols fail here,
-          # with this toolset's link.exe and runtime libraries, before anything is published.
-          # Full path: Git Bash's GNU `link` would otherwise shadow Visual Studio's link.exe.
-          msvc_link="$(cygpath -u "$VCToolsInstallDir")/bin/Hostx64/x64/link.exe"
-          # Only unresolved symbols referenced from pdfium.lib count; errors from the C runtime's
-          # own startup objects come from this artificial entry-point-less link, not the library.
-          MSYS_NO_PATHCONV=1 "$msvc_link" /NOLOGO /DLL /NOENTRY /MACHINE:X64 /OUT:linktest.dll \
+          link_exe="$(cygpath -u "$VCToolsInstallDir")/bin/Hostx64/x64/link.exe"
+          [ -f "$link_exe" ] || { echo "::error::link.exe not found at $link_exe"; exit 1; }
+          MSYS_NO_PATHCONV=1 "$link_exe" /NOLOGO /DLL /NOENTRY /MACHINE:X64 /OUT:linktest.dll \
             /INCLUDE:FPDF_InitLibraryWithConfig /INCLUDE:FPDF_LoadMemDocument64 \
             /INCLUDE:FPDF_RenderPageBitmap /INCLUDE:FPDFText_LoadPage \
             /INCLUDE:FPDFPage_GenerateContent /INCLUDE:FPDF_SaveAsCopy \
-            "$lib" msvcrt.lib msvcprt.lib vcruntime.lib ucrt.lib \
+            "$(cygpath -w "$OUT_DIR/$LIB_NAME")" msvcrt.lib msvcprt.lib vcruntime.lib ucrt.lib \
             gdi32.lib user32.lib advapi32.lib > linktest.log 2>&1 || true
-          if grep -E '^pdfium\.lib\(.*unresolved external symbol' linktest.log; then
-            echo "::error::pdfium.lib needs symbols that toolset ${{ matrix.msvc }} doesn't provide (see above)"
+          if grep -E '(^|[\\/])pdfium\.lib\(.*unresolved external symbol' linktest.log; then
+            echo "::error::pdfium.lib needs symbols that toolset $MSVC_TOOLSET doesn't provide"
             exit 1
           fi
-          echo "pdfium.lib links with toolset ${{ matrix.msvc }}"
+          if grep -E 'fatal error LNK' linktest.log | grep -v LNK1120; then
+            cat linktest.log
+            echo "::error::The link test stopped before resolving pdfium.lib's symbols"
+            exit 1
+          fi
+          echo "pdfium.lib links with toolset $MSVC_TOOLSET"
 
+      # Matrix jobs publish in parallel, so each asset gets its own checksum file, and a job that
+      # loses the race to create the release uploads to the one its sibling created.
       - name: Publish
-        if: steps.exists.outputs.published != 'true' || inputs.force
+        if: steps.check.outputs.build == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE: ${{ steps.check.outputs.release }}
         run: |
-          lib="$(find "out/${{ matrix.target }}" \( -name libpdfium.a -o -name pdfium.lib \) -print -quit)"
-          [ -n "$lib" ] || { echo "::error::PDFium library not found under out/${{ matrix.target }}"; exit 1; }
-          rel="pdfium-static-${{ steps.rel.outputs.tag }}"; rel="${rel//\//_}"
-          asset="libpdfium-${{ matrix.target }}.${{ matrix.lib_ext }}"
-          cp "$lib" "$asset"
-          # One checksum file per asset: matrix jobs publish in parallel, so a shared SHA256SUMS would race.
-          if command -v sha256sum >/dev/null; then sha256sum "$asset"; else shasum -a 256 "$asset"; fi > "$asset.sha256"
-          gh release view "$rel" >/dev/null 2>&1 || gh release create "$rel" --title "$rel" --prerelease \
-            --notes "Static PDFium for bernard-ledit. Build input for CI and local static builds, not a product release."
-          gh release upload "$rel" "$asset" "$asset.sha256" --clobber
+          cp "$OUT_DIR/$LIB_NAME" "$ASSET"
+          if command -v sha256sum >/dev/null; then
+            sha256sum "$ASSET" > "$ASSET.sha256"
+          else
+            shasum -a 256 "$ASSET" > "$ASSET.sha256"
+          fi
+          if ! gh release view "$RELEASE" >/dev/null 2>&1; then
+            gh release create "$RELEASE" --prerelease --title "$RELEASE" \
+              --notes "Static PDFium for bernard-ledit: a build input for CI and local static builds, not a product release." ||
+              gh release view "$RELEASE" >/dev/null
+          fi
+          gh release upload "$RELEASE" "$ASSET" "$ASSET.sha256" --clobber
 
-      - name: Upload build log
+      - name: Upload the build log
         if: failure()
         uses: actions/upload-artifact@v4
         with:

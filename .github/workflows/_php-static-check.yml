@@ -8,14 +8,14 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   php-binding-tests:
     name: Test static PHP binding (${{ matrix.platform.pdfium_target }}, PHP ${{ matrix.php }} ${{ matrix.thread_safety }})
     runs-on: ${{ matrix.platform.runner }}
-    env:
-      CARGO_INCREMENTAL: 0
-      RUSTUP_TOOLCHAIN: "1.99.0"
-
     strategy:
       fail-fast: false
       matrix:
@@ -25,26 +25,17 @@ jobs:
           - { runner: macos-latest,     pdfium_target: mac-arm64 }
         php: [ "8.1", "8.2", "8.3", "8.4", "8.5" ]
         thread_safety: [ "zts", "nts" ]
-
     steps:
       - uses: actions/checkout@v6
         with:
           submodules: recursive
 
       - name: Download static PDFium
-        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          rel="pdfium-static-$(tr -d '[:space:]' < core/pdfium-release)"; rel="${rel//\//_}"
-          asset="libpdfium-${{ matrix.platform.pdfium_target }}.a"
-          dir="$RUNNER_TEMP/pdfium-static"; mkdir -p "$dir"
-          gh release download "$rel" -p "$asset" -p "$asset.sha256" -D "$dir"
-          expected="$(cut -d' ' -f1 "$dir/$asset.sha256")"
-          actual="$(shasum -a 256 "$dir/$asset" | cut -d' ' -f1)"
-          [ "$expected" = "$actual" ] || { echo "::error::$asset checksum mismatch"; exit 1; }
-          mv "$dir/$asset" "$dir/libpdfium.a"
-          echo "PDFIUM_STATIC_LIB_PATH=$dir" >> "$GITHUB_ENV"
+          bash tools/pdfium-static/download.sh ${{ matrix.platform.pdfium_target }} "$RUNNER_TEMP/pdfium-static"
+          echo "PDFIUM_STATIC_LIB_PATH=$RUNNER_TEMP/pdfium-static" >> "$GITHUB_ENV"
 
       - uses: extractions/setup-just@v4
 
@@ -64,46 +55,48 @@ jobs:
         env:
           phpts: ${{ matrix.thread_safety }}
 
-      - name: Get Composer cache directory
-        id: composer-cache
-        shell: bash
-        working-directory: bindings/php
-        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Composer dependencies
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.composer-cache.outputs.dir }}
-          key: composer-${{ runner.os }}-${{ runner.arch }}-php${{ matrix.php }}-${{ matrix.thread_safety }}-${{ hashFiles('bindings/php/composer.json') }}
-          restore-keys: |
-            composer-${{ runner.os }}-${{ runner.arch }}-php${{ matrix.php }}-${{ matrix.thread_safety }}-
-
       - name: Build and test (static PDFium)
         run: just php test-static
 
-      - name: Check the extension is self-contained
-        shell: bash
+      - name: Check the extension doesn't load PDFium dynamically (macOS)
+        if: runner.os == 'macOS'
         run: |
-          if [ "$RUNNER_OS" = macOS ]; then
-            ext=target/release/libbernard_ledit_php.dylib
-            otool -L "$ext"
-            if otool -L "$ext" | grep -qi pdfium; then echo "::error::$ext links pdfium dynamically"; exit 1; fi
-          else
-            ext=target/release/libbernard_ledit_php.so
-            if ldd "$ext" | grep -qi pdfium; then echo "::error::$ext links pdfium dynamically"; exit 1; fi
-            max="$(objdump -T "$ext" | grep -o 'GLIBC_[0-9.]*' | sed 's/GLIBC_//' | sort -Vu | tail -n 1)"
-            echo "Highest glibc symbol: $max"
-            [ "$(printf '%s\n' "$max" 2.35 | sort -V | tail -n 1)" = 2.35 ] || { echo "::error::needs glibc $max > 2.35"; exit 1; }
+          deps="$(otool -L target/release/libbernard_ledit_php.dylib)"
+          echo "$deps"
+          if grep -qi pdfium <<< "$deps"; then
+            echo "::error::The extension links PDFium dynamically"
+            exit 1
           fi
 
+      # The extension must load on the oldest glibc the static PDFium was built against.
+      - name: Check the extension doesn't load PDFium dynamically and runs on glibc 2.35 (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          ext=target/release/libbernard_ledit_php.so
+          deps="$(ldd "$ext")"
+          echo "$deps"
+          if grep -qi pdfium <<< "$deps"; then
+            echo "::error::The extension links PDFium dynamically"
+            exit 1
+          fi
+          newest_glibc="$(objdump -T "$ext" | grep -oE 'GLIBC_[0-9]+(\.[0-9]+)*' | sed 's/GLIBC_//' | sort -Vu | tail -n 1)"
+          echo "Newest glibc symbol version required: $newest_glibc"
+          if [ "$(printf '%s\n' "$newest_glibc" 2.35 | sort -V | tail -n 1)" != 2.35 ]; then
+            echo "::error::The extension requires glibc $newest_glibc, newer than 2.35"
+            exit 1
+          fi
+
+  # Alpine runs through `docker run` rather than a job container: GitHub can't run JavaScript
+  # actions inside Alpine containers on arm64 runners.
   php-binding-tests-musl:
-    name: Test static PHP binding (linux-${{ matrix.arch }}-musl, PHP ${{ matrix.php }} ${{ matrix.thread_safety }})
-    # Don't run inside Alpine containers on arm64 runners.
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    name: Test static PHP binding (${{ matrix.platform.pdfium_target }}, PHP ${{ matrix.php }} ${{ matrix.thread_safety }})
+    runs-on: ${{ matrix.platform.runner }}
     strategy:
       fail-fast: false
       matrix:
-        arch: [ x64, arm64 ]
+        platform:
+          - { runner: ubuntu-latest,    pdfium_target: linux-x64-musl }
+          - { runner: ubuntu-24.04-arm, pdfium_target: linux-arm64-musl }
         php: [ "8.1", "8.2", "8.3", "8.4", "8.5" ]
         thread_safety: [ "zts", "nts" ]
     steps:
@@ -114,47 +107,48 @@ jobs:
       - name: Download static PDFium
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          rel="pdfium-static-$(tr -d '[:space:]' < core/pdfium-release)"; rel="${rel//\//_}"
-          asset="libpdfium-linux-${{ matrix.arch }}-musl.a"
-          mkdir -p .pdfium-static
-          gh release download "$rel" -p "$asset" -p "$asset.sha256" -D .pdfium-static
-          expected="$(cut -d' ' -f1 ".pdfium-static/$asset.sha256")"
-          actual="$(sha256sum ".pdfium-static/$asset" | cut -d' ' -f1)"
-          [ "$expected" = "$actual" ] || { echo "::error::$asset checksum mismatch"; exit 1; }
-          mv ".pdfium-static/$asset" .pdfium-static/libpdfium.a
+        run: bash tools/pdfium-static/download.sh ${{ matrix.platform.pdfium_target }} .pdfium-static
 
+      # Rust links the C runtime statically on musl by default, which a PHP extension must not do.
       - name: Build and test in Alpine
+        env:
+          IMAGE: php:${{ matrix.php }}-${{ matrix.thread_safety == 'zts' && 'zts' || 'cli' }}-alpine
         run: |
-          image="php:${{ matrix.php }}-${{ matrix.thread_safety == 'zts' && 'zts' || 'cli' }}-alpine"
-          docker run --rm -v "$PWD:/w" -w /w -e PDFIUM_STATIC_LIB_PATH=/w/.pdfium-static "$image" sh -euc '
-            apk add --no-cache bash git curl unzip build-base cmake nasm clang-dev linux-headers just rustup libstdc++
-            rustup-init -y --default-toolchain none --profile minimal
-            . "$HOME/.cargo/env"
-            curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-            # Rust links the C runtime statically on musl by default; a PHP extension must not.
-            export RUSTFLAGS="-C target-feature=-crt-static"
-            just php test-static
-            ext=target/release/libbernard_ledit_php.so
-            deps="$(ldd "$ext" 2>/dev/null || true)"
-            echo "$deps"
-            if echo "$deps" | grep -qi pdfium; then echo "links pdfium dynamically" >&2; exit 1; fi
-          '
+          docker run --rm -v "$PWD:/w" -w /w \
+            -e PDFIUM_STATIC_LIB_PATH=/w/.pdfium-static \
+            -e RUSTFLAGS="-C target-feature=-crt-static" \
+            "$IMAGE" sh -euc '
+              apk add --no-cache bash git curl unzip build-base cmake nasm clang-dev linux-headers just rustup libstdc++
+              rustup-init -y --default-toolchain none --profile minimal
+              . "$HOME/.cargo/env"
+              curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+              just php test-static
+              deps="$(ldd target/release/libbernard_ledit_php.so 2>/dev/null || true)"
+              echo "$deps"
+              if echo "$deps" | grep -qi pdfium; then
+                echo "The extension links PDFium dynamically" >&2
+                exit 1
+              fi
+            '
+
   php-binding-tests-windows:
-    name: Test static PHP binding (win-x64, PHP ${{ matrix.php }} ${{ matrix.thread_safety }}, MSVC ${{ contains(fromJSON('["8.1", "8.2", "8.3"]'), matrix.php) && 'v142' || 'v143' }})
+    name: Test static PHP binding (${{ matrix.pdfium_target }}, PHP ${{ matrix.php }} ${{ matrix.thread_safety }})
     runs-on: windows-latest
-    defaults:
-      run:
-        shell: bash
     env:
-      CARGO_INCREMENTAL: 0
-      # ext-php-rs needs nightly on Windows (vectorcall ABI); overrides rust-toolchain.toml.
+      # ext-php-rs needs nightly on Windows (vectorcall ABI); this overrides rust-toolchain.toml.
       RUSTUP_TOOLCHAIN: nightly
     strategy:
       fail-fast: false
       matrix:
         php: [ "8.1", "8.2", "8.3", "8.4", "8.5" ]
         thread_safety: [ "zts", "nts" ]
+        # The extension must link with the MSVC toolset its PHP version was built with.
+        include:
+          - { php: "8.1", msvc: "14.29", pdfium_target: win-x64-v142 }
+          - { php: "8.2", msvc: "14.29", pdfium_target: win-x64-v142 }
+          - { php: "8.3", msvc: "14.29", pdfium_target: win-x64-v142 }
+          - { php: "8.4", msvc: "14.44", pdfium_target: win-x64-v143 }
+          - { php: "8.5", msvc: "14.44", pdfium_target: win-x64-v143 }
     steps:
       - uses: actions/checkout@v6
         with:
@@ -164,17 +158,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          rel="pdfium-static-$(tr -d '[:space:]' < core/pdfium-release)"; rel="${rel//\//_}"
-          # PHP 8.1-8.3 are built with MSVC 14.29 (v142), 8.4+ with 14.44 (v143).
-          target=${{ contains(fromJSON('["8.1", "8.2", "8.3"]'), matrix.php) && 'win-x64-v142' || 'win-x64-v143' }}
-          asset="libpdfium-$target.lib"
-          dir="$RUNNER_TEMP/pdfium-static"; mkdir -p "$dir"
-          gh release download "$rel" -p "$asset" -p "$asset.sha256" -D "$dir"
-          expected="$(cut -d' ' -f1 "$dir/$asset.sha256")"
-          actual="$(sha256sum "$dir/$asset" | cut -d' ' -f1)"
-          [ "$expected" = "$actual" ] || { echo "::error::$asset checksum mismatch"; exit 1; }
-          mv "$dir/$asset" "$dir/pdfium.lib"
-          echo "PDFIUM_STATIC_LIB_PATH=$dir" >> "$GITHUB_ENV"
+          bash tools/pdfium-static/download.sh ${{ matrix.pdfium_target }} "$RUNNER_TEMP/pdfium-static"
+          echo "PDFIUM_STATIC_LIB_PATH=$RUNNER_TEMP/pdfium-static" >> "$GITHUB_ENV"
 
       - uses: extractions/setup-just@v4
 
@@ -184,7 +169,7 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          key: php-static-win-x64-php${{ matrix.php }}-${{ matrix.thread_safety }}
+          key: php-static-${{ matrix.pdfium_target }}-php${{ matrix.php }}-${{ matrix.thread_safety }}
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
@@ -194,21 +179,24 @@ jobs:
         env:
           phpts: ${{ matrix.thread_safety }}
 
-      - name: Pin MSVC toolset to match the PHP build
+      - name: Pin the MSVC toolset of the PHP build
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
-          toolset: ${{ contains(fromJSON('["8.1", "8.2", "8.3"]'), matrix.php) && '14.29' || '14.44' }}
+          toolset: ${{ matrix.msvc }}
 
-      - name: Remove MSYS GNU link.exe
+      # Git Bash puts its GNU link.exe ahead of MSVC's on PATH, where Rust looks up the linker.
+      - name: Remove Git's GNU link.exe
         run: rm -f "/c/Program Files/Git/usr/bin/link.exe"
 
       - name: Build and test (static PDFium)
         run: just php test-static
 
-      - name: Check the extension is self-contained
+      - name: Check the extension doesn't load PDFium dynamically
         run: |
-          ext=target/release/bernard_ledit_php.dll
-          deps="$("/c/Program Files/LLVM/bin/llvm-readobj.exe" --coff-imports "$ext" | grep -i '^ *Name:' || true)"
-          echo "$deps"
-          if echo "$deps" | grep -qi pdfium; then echo "::error::$ext links pdfium dynamically"; exit 1; fi
+          imports="$("/c/Program Files/LLVM/bin/llvm-readobj.exe" --coff-imports target/release/bernard_ledit_php.dll | grep -i '^ *Name:' || true)"
+          echo "$imports"
+          if grep -qi pdfium <<< "$imports"; then
+            echo "::error::The extension links PDFium dynamically"
+            exit 1
+          fi
