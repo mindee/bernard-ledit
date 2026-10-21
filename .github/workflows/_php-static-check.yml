@@ -37,9 +37,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           rel="pdfium-static-$(tr -d '[:space:]' < core/pdfium-release)"; rel="${rel//\//_}"
-          mkdir -p "$RUNNER_TEMP/pdfium-static"
-          gh release download "$rel" -p "libpdfium-${{ matrix.platform.pdfium_target }}.a" -O "$RUNNER_TEMP/pdfium-static/libpdfium.a"
-          echo "PDFIUM_STATIC_LIB_PATH=$RUNNER_TEMP/pdfium-static" >> "$GITHUB_ENV"
+          asset="libpdfium-${{ matrix.platform.pdfium_target }}.a"
+          dir="$RUNNER_TEMP/pdfium-static"; mkdir -p "$dir"
+          gh release download "$rel" -p "$asset" -p "$asset.sha256" -D "$dir"
+          expected="$(cut -d' ' -f1 "$dir/$asset.sha256")"
+          actual="$(shasum -a 256 "$dir/$asset" | cut -d' ' -f1)"
+          [ "$expected" = "$actual" ] || { echo "::error::$asset checksum mismatch"; exit 1; }
+          mv "$dir/$asset" "$dir/libpdfium.a"
+          echo "PDFIUM_STATIC_LIB_PATH=$dir" >> "$GITHUB_ENV"
 
       - uses: extractions/setup-just@v4
 
@@ -111,8 +116,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           rel="pdfium-static-$(tr -d '[:space:]' < core/pdfium-release)"; rel="${rel//\//_}"
+          asset="libpdfium-linux-${{ matrix.arch }}-musl.a"
           mkdir -p .pdfium-static
-          gh release download "$rel" -p "libpdfium-linux-${{ matrix.arch }}-musl.a" -O .pdfium-static/libpdfium.a
+          gh release download "$rel" -p "$asset" -p "$asset.sha256" -D .pdfium-static
+          expected="$(cut -d' ' -f1 ".pdfium-static/$asset.sha256")"
+          actual="$(sha256sum ".pdfium-static/$asset" | cut -d' ' -f1)"
+          [ "$expected" = "$actual" ] || { echo "::error::$asset checksum mismatch"; exit 1; }
+          mv ".pdfium-static/$asset" .pdfium-static/libpdfium.a
 
       - name: Build and test in Alpine
         run: |
@@ -157,10 +167,14 @@ jobs:
           rel="pdfium-static-$(tr -d '[:space:]' < core/pdfium-release)"; rel="${rel//\//_}"
           # PHP 8.1-8.3 are built with MSVC 14.29 (v142), 8.4+ with 14.44 (v143).
           target=${{ contains(fromJSON('["8.1", "8.2", "8.3"]'), matrix.php) && 'win-x64-v142' || 'win-x64-v143' }}
-          mkdir -p "$RUNNER_TEMP/pdfium-static"
-          gh release download "$rel" -p "libpdfium-$target.lib" -O "$RUNNER_TEMP/pdfium-static/pdfium.lib"
-          test -s "$RUNNER_TEMP/pdfium-static/pdfium.lib" || { echo "::error::pdfium.lib missing after download"; exit 1; }
-          echo "PDFIUM_STATIC_LIB_PATH=$RUNNER_TEMP/pdfium-static" >> "$GITHUB_ENV"
+          asset="libpdfium-$target.lib"
+          dir="$RUNNER_TEMP/pdfium-static"; mkdir -p "$dir"
+          gh release download "$rel" -p "$asset" -p "$asset.sha256" -D "$dir"
+          expected="$(cut -d' ' -f1 "$dir/$asset.sha256")"
+          actual="$(sha256sum "$dir/$asset" | cut -d' ' -f1)"
+          [ "$expected" = "$actual" ] || { echo "::error::$asset checksum mismatch"; exit 1; }
+          mv "$dir/$asset" "$dir/pdfium.lib"
+          echo "PDFIUM_STATIC_LIB_PATH=$dir" >> "$GITHUB_ENV"
 
       - uses: extractions/setup-just@v4
 
