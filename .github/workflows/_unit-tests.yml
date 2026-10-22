@@ -31,12 +31,11 @@ jobs:
           restore-keys: |
             pdfium-${{ runner.os }}-
 
-      - name: Install PHP dev headers
+      - name: Install PHP dev headers (Linux)
         if: matrix.os == 'ubuntu-latest'
-        uses: awalsh128/cache-apt-pkgs-action@v1
-        with:
-          packages: php-dev libphp-embed libclang-dev
-          version: 1.1
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends php-dev libphp-embed libclang-dev
 
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@1.99.0
@@ -56,13 +55,15 @@ jobs:
       - name: Make libphp discoverable (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          LIB="$(find /usr/lib /usr/local/lib -name 'libphp*.so*' 2>/dev/null | sort | head -1)"
-          echo "Found: ${LIB}"
-          DIR="$(dirname "${LIB}")"
-          if [ ! -e "${DIR}/libphp.so" ]; then
-            sudo ln -s "${LIB}" "${DIR}/libphp.so"
+          lib="$(find /usr/lib /usr/local/lib -name 'libphp*.so*' 2>/dev/null | sort | head -n 1)"
+          if [ -z "$lib" ]; then
+            echo "::error::No libphp*.so found: libphp-embed is not installed"
+            exit 1
           fi
-          echo "LD_LIBRARY_PATH=${DIR}:${LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+          echo "Found: $lib"
+          dir="$(dirname "$lib")"
+          [ -e "$dir/libphp.so" ] || sudo ln -s "$lib" "$dir/libphp.so"
+          echo "LD_LIBRARY_PATH=$dir:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
 
       - name: Run core tests
         run: just core test
