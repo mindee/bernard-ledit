@@ -16,7 +16,7 @@
 set -euo pipefail
 
 readonly PDFIUM_BINARIES_URL="https://github.com/bblanchon/pdfium-binaries.git"
-readonly DEFAULT_MUSL_URL="https://github.com/mindee/bernard-ledit/releases/download/musl-toolchains"
+readonly DEFAULT_MUSL_URL="https://github.com/mindee/bernard-ledit/releases/download/musl-toolchains-gcc11.2.1-musl1.2.2-gb76f37fd"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd -- "$script_dir/../.." && pwd)"

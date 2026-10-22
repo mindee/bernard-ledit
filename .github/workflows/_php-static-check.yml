@@ -23,6 +23,7 @@ jobs:
           - { runner: ubuntu-latest,    pdfium_target: linux-x64-glibc }
           - { runner: ubuntu-24.04-arm, pdfium_target: linux-arm64-glibc }
           - { runner: macos-latest,     pdfium_target: mac-arm64 }
+          - { runner: macos-15-intel,   pdfium_target: mac-x64 }
         php: [ "8.1", "8.2", "8.3", "8.4", "8.5" ]
         thread_safety: [ "zts", "nts" ]
     steps:

@@ -30,8 +30,10 @@ jobs:
           - { target: linux-x64-musl,    runner: ubuntu-latest,  os: linux, cpu: x64,   env: musl }
           - { target: linux-arm64-musl,  runner: ubuntu-latest,  os: linux, cpu: arm64, env: musl }
           - { target: mac-arm64,         runner: macos-latest,   os: mac,   cpu: arm64 }
+          - { target: mac-x64,           runner: macos-latest,   os: mac,   cpu: x64 }
           - { target: win-x64-v143,      runner: windows-latest, os: win,   cpu: x64,   msvc: "14.44" }
           - { target: win-x64-v142,      runner: windows-latest, os: win,   cpu: x64,   msvc: "14.29" }
+          - { target: win-arm64-v143,    runner: windows-2022,   os: win,   cpu: arm64, msvc: "14.44" }
     defaults:
       run:
         shell: bash
@@ -121,7 +123,7 @@ jobs:
         if: runner.os == 'Windows' && steps.check.outputs.build == 'true'
         uses: ilammy/msvc-dev-cmd@v1
         with:
-          arch: x64
+          arch: ${{ matrix.cpu == 'arm64' && 'amd64_arm64' || 'x64' }}
           toolset: ${{ matrix.msvc }}
 
       # Links a throwaway DLL that pulls in the PDFium API bernard-ledit uses, with the target
@@ -130,10 +132,12 @@ jobs:
       # The full path avoids Git Bash's GNU `link`.
       - name: Check the library links with the target toolset (Windows)
         if: runner.os == 'Windows' && steps.check.outputs.build == 'true'
+        env:
+          MACHINE: ${{ matrix.cpu == 'arm64' && 'ARM64' || 'X64' }}
         run: |
-          link_exe="$(cygpath -u "$VCToolsInstallDir")/bin/Hostx64/x64/link.exe"
+          link_exe="$(cygpath -u "$VCToolsInstallDir")/bin/Hostx64/$PDFIUM_CPU/link.exe"
           [ -f "$link_exe" ] || { echo "::error::link.exe not found at $link_exe"; exit 1; }
-          MSYS_NO_PATHCONV=1 "$link_exe" /NOLOGO /DLL /NOENTRY /MACHINE:X64 /OUT:linktest.dll \
+          MSYS_NO_PATHCONV=1 "$link_exe" /NOLOGO /DLL /NOENTRY "/MACHINE:$MACHINE" /OUT:linktest.dll \
             /INCLUDE:FPDF_InitLibraryWithConfig /INCLUDE:FPDF_LoadMemDocument64 \
             /INCLUDE:FPDF_RenderPageBitmap /INCLUDE:FPDFText_LoadPage \
             /INCLUDE:FPDFPage_GenerateContent /INCLUDE:FPDF_SaveAsCopy \
