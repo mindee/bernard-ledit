@@ -30,14 +30,17 @@ check-deps:
 hack-check:
     cargo hack check -p bernard-ledit --feature-powerset --no-dev-deps
 
-# Tests all feature combinations using nextest.
-# `static-pdfium` is excluded: linking it needs a prebuilt libpdfium.a (PDFIUM_STATIC_LIB_PATH).
-hack-test:
-    cargo hack nextest run -p bernard-ledit --feature-powerset --exclude-features static-pdfium
+# Features that link PDFium statically: linking them needs a prebuilt static library
+# (PDFIUM_STATIC_LIB_PATH), which build-static-pdfium.yml's tests provide.
+static_features := "static-link,static-pdfium,static-pdfium-libcxx,static-pdfium-msvc"
 
-# Tests the core Rust library in release mode (`static-pdfium` excluded, see hack-test)
+# Tests all feature combinations using nextest, except the static-linking ones.
+hack-test:
+    cargo hack nextest run -p bernard-ledit --feature-powerset --exclude-features {{static_features}}
+
+# Tests all feature combinations in release mode, except the static-linking ones.
 hack-test-release:
-    cargo hack nextest run -p bernard-ledit --release --feature-powerset --exclude-features static-pdfium
+    cargo hack nextest run -p bernard-ledit --release --feature-powerset --exclude-features {{static_features}}
 
 # Test the core Rust library
 test:

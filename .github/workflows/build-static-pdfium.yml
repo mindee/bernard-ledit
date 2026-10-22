@@ -1,4 +1,4 @@
-name: Build static PDFium
+name: Static PDFium
 on:
   workflow_dispatch:
     inputs:
@@ -8,32 +8,56 @@ on:
         default: false
   push:
     branches: [ add-php-ext-publish ]
-    paths:
-      - core/pdfium-release
-      - tools/pdfium-static/**
-      - .github/workflows/build-static-pdfium.yml
 permissions:
   contents: write
+# Runs queue instead of building and publishing the same targets side by side.
+concurrency:
+  group: static-pdfium-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
+  # Targets live in tools/pdfium-static/targets.json. win-arm64 builds on windows-2022: the
+  # VS 2026 image behind windows-latest has no ARM64 libraries for the 14.44 toolset.
+  plan:
+    name: Find the targets to build
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.plan.outputs.release }}
+      targets: ${{ steps.plan.outputs.targets }}
+    steps:
+      - uses: actions/checkout@v6
+
+      # A target is up to date once both its library and its checksum are published.
+      - name: List the unpublished targets
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          release="pdfium-static-$(tr -d '[:space:]' < core/pdfium-release)"
+          release="${release//\//_}"
+          published="$(gh release view "$release" --json assets --jq '[.assets[].name]' 2>/dev/null || echo '[]')"
+          targets="$(jq -c --argjson published "$published" --arg force "$FORCE" '
+            def is_published($name): $published | any(.[]; . == $name);
+            map(select(
+              "libpdfium-\(.target).\(if .os == "win" then "lib" else "a" end)" as $asset
+              | $force == "true" or ((is_published($asset) and is_published($asset + ".sha256")) | not)
+            ))' tools/pdfium-static/targets.json)"
+          echo "release=$release" >> "$GITHUB_OUTPUT"
+          echo "targets=$targets" >> "$GITHUB_OUTPUT"
+          echo "To build: $(jq -r 'map(.target) | join(", ")' <<< "$targets")"
+
   build:
     name: Build ${{ matrix.target }}
+    needs: plan
+    if: needs.plan.outputs.targets != '[]'
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       # googlesource throttles parallel gclient syncs.
       max-parallel: 2
       matrix:
-        include:
-          - { target: linux-x64-glibc,   runner: ubuntu-latest,  os: linux, cpu: x64 }
-          - { target: linux-arm64-glibc, runner: ubuntu-latest,  os: linux, cpu: arm64 }
-          - { target: linux-x64-musl,    runner: ubuntu-latest,  os: linux, cpu: x64,   env: musl }
-          - { target: linux-arm64-musl,  runner: ubuntu-latest,  os: linux, cpu: arm64, env: musl }
-          - { target: mac-arm64,         runner: macos-latest,   os: mac,   cpu: arm64 }
-          - { target: mac-x64,           runner: macos-latest,   os: mac,   cpu: x64 }
-          - { target: win-x64-v143,      runner: windows-latest, os: win,   cpu: x64,   msvc: "14.44" }
-          - { target: win-x64-v142,      runner: windows-latest, os: win,   cpu: x64,   msvc: "14.29" }
-          - { target: win-arm64-v143,    runner: windows-2022,   os: win,   cpu: arm64, msvc: "14.44" }
+        include: ${{ fromJSON(needs.plan.outputs.targets) }}
     defaults:
       run:
         shell: bash
@@ -51,27 +75,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      # A target is up to date once both its library and its checksum are published.
-      - name: Check whether the target needs building
-        id: check
-        env:
-          GH_TOKEN: ${{ github.token }}
-          FORCE: ${{ inputs.force }}
-        run: |
-          release="pdfium-static-$(tr -d '[:space:]' < core/pdfium-release)"
-          release="${release//\//_}"
-          echo "release=$release" >> "$GITHUB_OUTPUT"
-          published="$(gh release view "$release" --json assets --jq '.assets[].name' 2>/dev/null || true)"
-          if [ "$FORCE" != true ] && grep -qxF "$ASSET" <<< "$published" && grep -qxF "$ASSET.sha256" <<< "$published"; then
-            echo "::notice::$ASSET is already published in $release; run the workflow manually with force to rebuild it"
-            echo "build=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "build=true" >> "$GITHUB_OUTPUT"
-          fi
-
       # Sources only: Ninja could reuse stale objects from a cached out/ after a toolchain change.
       - name: Cache the PDFium sources
-        if: steps.check.outputs.build == 'true'
         uses: actions/cache@v6
         with:
           path: |
@@ -82,20 +87,19 @@ jobs:
       # Chromium's checkout has paths beyond Windows' default length limit. The runner's LLVM is the
       # namespacer's fallback for tools that Chromium's LLVM package lacks.
       - name: Prepare the Windows build
-        if: runner.os == 'Windows' && steps.check.outputs.build == 'true'
+        if: runner.os == 'Windows'
         run: |
           git config --global core.longpaths true
           echo "C:/Program Files/LLVM/bin" >> "$GITHUB_PATH"
 
       - name: Set up Python (Windows)
-        if: runner.os == 'Windows' && steps.check.outputs.build == 'true'
+        if: runner.os == 'Windows'
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
       # Retries the build when it fails on a network error, which googlesource returns under load.
       - name: Build
-        if: steps.check.outputs.build == 'true'
         run: |
           max_attempts=5
           for attempt in $(seq "$max_attempts"); do
@@ -116,11 +120,11 @@ jobs:
 
       # The Linux build runs as root in Docker; the cache can only save files the runner user can read.
       - name: Fix ownership (Linux)
-        if: runner.os == 'Linux' && steps.check.outputs.build == 'true'
+        if: runner.os == 'Linux'
         run: sudo chown -R "$(id -u):$(id -g)" "$WORK_DIR"
 
       - name: Pin the target MSVC toolset (Windows)
-        if: runner.os == 'Windows' && steps.check.outputs.build == 'true'
+        if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: ${{ matrix.cpu == 'arm64' && 'amd64_arm64' || 'x64' }}
@@ -131,7 +135,7 @@ jobs:
       # runtime's startup objects unresolved, so only symbols referenced from pdfium.lib count.
       # The full path avoids Git Bash's GNU `link`.
       - name: Check the library links with the target toolset (Windows)
-        if: runner.os == 'Windows' && steps.check.outputs.build == 'true'
+        if: runner.os == 'Windows'
         env:
           MACHINE: ${{ matrix.cpu == 'arm64' && 'ARM64' || 'X64' }}
         run: |
@@ -157,10 +161,9 @@ jobs:
       # Matrix jobs publish in parallel, so each asset gets its own checksum file, and a job that
       # loses the race to create the release uploads to the one its sibling created.
       - name: Publish
-        if: steps.check.outputs.build == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE: ${{ steps.check.outputs.release }}
+          RELEASE: ${{ needs.plan.outputs.release }}
         run: |
           cp "$OUT_DIR/$LIB_NAME" "$ASSET"
           if command -v sha256sum >/dev/null; then
@@ -181,3 +184,13 @@ jobs:
         with:
           name: build-log-${{ matrix.target }}
           path: build.log
+
+  # Tests the PHP extension against the published libraries, on the commit that built them. Also
+  # runs when every target was already published (build skipped), but not after a failed build.
+  test:
+    name: Test
+    needs: [ plan, build ]
+    if: ${{ !cancelled() && !failure() }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/_php-static-check.yml

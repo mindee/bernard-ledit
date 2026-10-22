@@ -14,28 +14,28 @@ permissions:
 jobs:
   workflow-lint:
     uses: ./.github/workflows/_workflow_lint.yml
-#  pre-commit:
-#    uses: ./.github/workflows/_pre-commit.yml
-#    needs: workflow-lint
-#
-#  unit-tests:
-#    uses: ./.github/workflows/_unit-tests.yml
-#    needs: pre-commit
-#
-#  python-binding-tests:
-#    uses: ./.github/workflows/_python-binding-tests.yml
-#    needs: pre-commit
-#    with:
-#      python-versions: '["3.9"]'
-#
-#  php-binding-tests:
-#    uses: ./.github/workflows/_php-binding-tests.yml
-#    needs: pre-commit
-#    with:
-#      php-versions: '["8.1"]'
-#
-#  java-binding-tests:
-#    uses: ./.github/workflows/_java-binding-ci.yml
-#    needs: pre-commit
-#    with:
-#      java-versions: '["11"]'
+  pre-commit:
+    uses: ./.github/workflows/_pre-commit.yml
+    needs: workflow-lint
+
+  unit-tests:
+    uses: ./.github/workflows/_unit-tests.yml
+    needs: pre-commit
+
+  python-binding-tests:
+    uses: ./.github/workflows/_python-binding-tests.yml
+    needs: pre-commit
+    with:
+      python-versions: '["3.9"]'
+
+  php-binding-tests:
+    uses: ./.github/workflows/_php-binding-tests.yml
+    needs: pre-commit
+    with:
+      php-versions: '["8.1"]'
+
+  java-binding-tests:
+    uses: ./.github/workflows/_java-binding-ci.yml
+    needs: pre-commit
+    with:
+      java-versions: '["11"]'
