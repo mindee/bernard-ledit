@@ -1,0 +1,11 @@
+[
+  { "target": "linux-x64-glibc",   "runner": "ubuntu-latest",  "os": "linux", "cpu": "x64" },
+  { "target": "linux-arm64-glibc", "runner": "ubuntu-latest",  "os": "linux", "cpu": "arm64" },
+  { "target": "linux-x64-musl",    "runner": "ubuntu-latest",  "os": "linux", "cpu": "x64",   "env": "musl" },
+  { "target": "linux-arm64-musl",  "runner": "ubuntu-latest",  "os": "linux", "cpu": "arm64", "env": "musl" },
+  { "target": "mac-arm64",         "runner": "macos-latest",   "os": "mac",   "cpu": "arm64" },
+  { "target": "mac-x64",           "runner": "macos-latest",   "os": "mac",   "cpu": "x64" },
+  { "target": "win-x64-v143",      "runner": "windows-latest", "os": "win",   "cpu": "x64",   "msvc": "14.44" },
+  { "target": "win-x64-v142",      "runner": "windows-latest", "os": "win",   "cpu": "x64",   "msvc": "14.29" },
+  { "target": "win-arm64-v143",    "runner": "windows-2022",   "os": "win",   "cpu": "arm64", "msvc": "14.44" }
+]

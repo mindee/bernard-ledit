@@ -1,0 +1,196 @@
+name: Static PDFium
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Rebuild and overwrite targets that are already published"
+        type: boolean
+        default: false
+  push:
+    branches: [ add-php-ext-publish ]
+permissions:
+  contents: write
+# Runs queue instead of building and publishing the same targets side by side.
+concurrency:
+  group: static-pdfium-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Targets live in tools/pdfium-static/targets.json. win-arm64 builds on windows-2022: the
+  # VS 2026 image behind windows-latest has no ARM64 libraries for the 14.44 toolset.
+  plan:
+    name: Find the targets to build
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.plan.outputs.release }}
+      targets: ${{ steps.plan.outputs.targets }}
+    steps:
+      - uses: actions/checkout@v6
+
+      # A target is up to date once both its library and its checksum are published.
+      - name: List the unpublished targets
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          release="pdfium-static-$(tr -d '[:space:]' < core/pdfium-release)"
+          release="${release//\//_}"
+          published="$(gh release view "$release" --json assets --jq '[.assets[].name]' 2>/dev/null || echo '[]')"
+          targets="$(jq -c --argjson published "$published" --arg force "$FORCE" '
+            def is_published($name): $published | any(.[]; . == $name);
+            map(select(
+              "libpdfium-\(.target).\(if .os == "win" then "lib" else "a" end)" as $asset
+              | $force == "true" or ((is_published($asset) and is_published($asset + ".sha256")) | not)
+            ))' tools/pdfium-static/targets.json)"
+          echo "release=$release" >> "$GITHUB_OUTPUT"
+          echo "targets=$targets" >> "$GITHUB_OUTPUT"
+          echo "To build: $(jq -r 'map(.target) | join(", ")' <<< "$targets")"
+
+  build:
+    name: Build ${{ matrix.target }}
+    needs: plan
+    if: needs.plan.outputs.targets != '[]'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      # googlesource throttles parallel gclient syncs.
+      max-parallel: 2
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.targets) }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      PDFIUM_OS: ${{ matrix.os }}
+      PDFIUM_CPU: ${{ matrix.cpu }}
+      PDFIUM_ENV: ${{ matrix.env }}
+      MSVC_TOOLSET: ${{ matrix.msvc }}
+      # Makes depot_tools use the runner's Visual Studio instead of Google's internal toolchain.
+      DEPOT_TOOLS_WIN_TOOLCHAIN: "0"
+      WORK_DIR: ${{ matrix.os == 'win' && 'C:/pdfium-static' || '/tmp/pdfium-static' }}
+      OUT_DIR: ${{ github.workspace }}/out
+      LIB_NAME: ${{ matrix.os == 'win' && 'pdfium.lib' || 'libpdfium.a' }}
+      ASSET: libpdfium-${{ matrix.target }}.${{ matrix.os == 'win' && 'lib' || 'a' }}
+    steps:
+      - uses: actions/checkout@v6
+
+      # Sources only: Ninja could reuse stale objects from a cached out/ after a toolchain change.
+      - name: Cache the PDFium sources
+        uses: actions/cache@v6
+        with:
+          path: |
+            ${{ env.WORK_DIR }}/pdfium-binaries/pdfium
+            !${{ env.WORK_DIR }}/pdfium-binaries/pdfium/out
+          key: pdfium-src-${{ hashFiles('core/pdfium-release') }}-${{ matrix.target }}
+
+      # Chromium's checkout has paths beyond Windows' default length limit. The runner's LLVM is the
+      # namespacer's fallback for tools that Chromium's LLVM package lacks.
+      - name: Prepare the Windows build
+        if: runner.os == 'Windows'
+        run: |
+          git config --global core.longpaths true
+          echo "C:/Program Files/LLVM/bin" >> "$GITHUB_PATH"
+
+      - name: Set up Python (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # Retries the build when it fails on a network error, which googlesource returns under load.
+      - name: Build
+        run: |
+          max_attempts=5
+          for attempt in $(seq "$max_attempts"); do
+            if bash tools/pdfium-static/build.sh 2>&1 | tee build.log; then
+              exit 0
+            fi
+            if ! tail -n 60 build.log | grep -qE 'HTTP 5[0-9]{2}|RPC failed|Could not resolve host'; then
+              exit 1
+            fi
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              delay=$((attempt * 120 + RANDOM % 60))
+              echo "::warning::Network failure on attempt $attempt/$max_attempts, retrying in ${delay}s"
+              sleep "$delay"
+            fi
+          done
+          echo "::error::Network failures persisted after $max_attempts attempts"
+          exit 1
+
+      # The Linux build runs as root in Docker; the cache can only save files the runner user can read.
+      - name: Fix ownership (Linux)
+        if: runner.os == 'Linux'
+        run: sudo chown -R "$(id -u):$(id -g)" "$WORK_DIR"
+
+      - name: Pin the target MSVC toolset (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.cpu == 'arm64' && 'amd64_arm64' || 'x64' }}
+          toolset: ${{ matrix.msvc }}
+
+      # Links a throwaway DLL that pulls in the PDFium API bernard-ledit uses, with the target
+      # toolset's link.exe and runtime libraries. This entry-point-less link also leaves the C
+      # runtime's startup objects unresolved, so only symbols referenced from pdfium.lib count.
+      # The full path avoids Git Bash's GNU `link`.
+      - name: Check the library links with the target toolset (Windows)
+        if: runner.os == 'Windows'
+        env:
+          MACHINE: ${{ matrix.cpu == 'arm64' && 'ARM64' || 'X64' }}
+        run: |
+          link_exe="$(cygpath -u "$VCToolsInstallDir")/bin/Hostx64/$PDFIUM_CPU/link.exe"
+          [ -f "$link_exe" ] || { echo "::error::link.exe not found at $link_exe"; exit 1; }
+          MSYS_NO_PATHCONV=1 "$link_exe" /NOLOGO /DLL /NOENTRY "/MACHINE:$MACHINE" /OUT:linktest.dll \
+            /INCLUDE:FPDF_InitLibraryWithConfig /INCLUDE:FPDF_LoadMemDocument64 \
+            /INCLUDE:FPDF_RenderPageBitmap /INCLUDE:FPDFText_LoadPage \
+            /INCLUDE:FPDFPage_GenerateContent /INCLUDE:FPDF_SaveAsCopy \
+            "$(cygpath -w "$OUT_DIR/$LIB_NAME")" msvcrt.lib msvcprt.lib vcruntime.lib ucrt.lib \
+            gdi32.lib user32.lib advapi32.lib > linktest.log 2>&1 || true
+          if grep -E '(^|[\\/])pdfium\.lib\(.*unresolved external symbol' linktest.log; then
+            echo "::error::pdfium.lib needs symbols that toolset $MSVC_TOOLSET doesn't provide"
+            exit 1
+          fi
+          if grep -E 'fatal error LNK' linktest.log | grep -v LNK1120; then
+            cat linktest.log
+            echo "::error::The link test stopped before resolving pdfium.lib's symbols"
+            exit 1
+          fi
+          echo "pdfium.lib links with toolset $MSVC_TOOLSET"
+
+      # Matrix jobs publish in parallel, so each asset gets its own checksum file, and a job that
+      # loses the race to create the release uploads to the one its sibling created.
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE: ${{ needs.plan.outputs.release }}
+        run: |
+          cp "$OUT_DIR/$LIB_NAME" "$ASSET"
+          if command -v sha256sum >/dev/null; then
+            sha256sum "$ASSET" > "$ASSET.sha256"
+          else
+            shasum -a 256 "$ASSET" > "$ASSET.sha256"
+          fi
+          if ! gh release view "$RELEASE" >/dev/null 2>&1; then
+            gh release create "$RELEASE" --prerelease --title "$RELEASE" \
+              --notes "Static PDFium for bernard-ledit: a build input for CI and local static builds, not a product release." ||
+              gh release view "$RELEASE" >/dev/null
+          fi
+          gh release upload "$RELEASE" "$ASSET" "$ASSET.sha256" --clobber
+
+      - name: Upload the build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ matrix.target }}
+          path: build.log
+
+  # Tests the PHP extension against the published libraries, on the commit that built them. Also
+  # runs when every target was already published (build skipped), but not after a failed build.
+  test:
+    name: Test
+    needs: [ plan, build ]
+    if: ${{ !cancelled() && !failure() }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/_php-static-check.yml

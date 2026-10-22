@@ -24,14 +24,16 @@ default = []
 pdf = []
 image = []
 full = ["pdf", "image"]
-static-pdfium = ["pdf", "pdfium-render/static", "pdfium-render/libstdc++"]
+static-link = ["pdf", "pdfium-render/static"]
+static-pdfium = ["static-link", "pdfium-render/libstdc++"]        # Linux (glibc, musl)
+static-pdfium-libcxx = ["static-link", "pdfium-render/libc++"]    # macOS
+static-pdfium-msvc = ["static-link"]   # Windows: MSVC links its C++ runtime itself
 
 [dependencies]
 serde = { version = "1.0.228", features = ["derive"] }
 pdfium-render = "0.9.4"
 thiserror = "2.0.18"
 image = "0.25.9"
-log = "0.4.33"
 mozjpeg = "0.10.13"
 
 [build-dependencies]
@@ -41,7 +43,6 @@ ureq = "3.3.0"
 
 [dev-dependencies]
 test-case = { version = "3.3" }
-cargo-husky = { version = "1", default-features = false, features = ["user-hooks"] }
 
 [lints]
 workspace = true

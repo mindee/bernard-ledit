@@ -44,7 +44,7 @@ pub fn is_initialized() -> bool {
 /// Binds `PDFium` from a shared library on disk. Does NOT work for `static-pdfium`.
 /// # Errors
 /// * `PdfiumError` If `PDFium` library binding fails.
-#[cfg(not(feature = "static-pdfium"))]
+#[cfg(not(feature = "static-link"))]
 pub fn initialize(library_path: &str) -> Result<(), PdfError> {
     if PDFIUM.get().is_some() {
         return Ok(());
@@ -54,7 +54,7 @@ pub fn initialize(library_path: &str) -> Result<(), PdfError> {
     Ok(())
 }
 
-#[cfg(not(feature = "static-pdfium"))]
+#[cfg(not(feature = "static-link"))]
 pub(crate) fn pdfium() -> &'static Pdfium {
     PDFIUM.get_or_init(|| {
         let path = std::env::var("PDFIUM_PATH").unwrap_or_else(|_| env!("PDFIUM_PATH").to_string());
@@ -64,7 +64,7 @@ pub(crate) fn pdfium() -> &'static Pdfium {
     })
 }
 
-#[cfg(feature = "static-pdfium")]
+#[cfg(feature = "static-link")]
 pub(crate) fn pdfium() -> &'static Pdfium {
     PDFIUM.get_or_init(|| {
         let bindings = Pdfium::bind_to_statically_linked_library()
@@ -76,7 +76,7 @@ pub(crate) fn pdfium() -> &'static Pdfium {
 /// Binds the statically linked `PDFium`. Only exists with `static-pdfium`.
 /// # Errors
 /// * `PdfiumError` if binding fails.
-#[cfg(feature = "static-pdfium")]
+#[cfg(feature = "static-link")]
 pub fn initialize_static() -> Result<(), PdfError> {
     if PDFIUM.get().is_some() {
         return Ok(());
