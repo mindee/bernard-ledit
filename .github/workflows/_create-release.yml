@@ -40,7 +40,7 @@ jobs:
 
           if [ -n "${last_tag}" ]; then
             echo "Found last tag: ${last_tag}";
-            log_pattern="(?<=## $tag - ....-..-..)(.|\n)*(?=\n\n## $last_tag)";
+            log_pattern="(?<=## $tag - ....-..-..)(.|\n)*?(?=\n\n## $last_tag -)";
             changes_url="https://github.com/mindee/${repo}/compare/${last_tag}...${tag}"
           else
             echo 'No earlier version tag: first release.';

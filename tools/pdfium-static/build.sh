@@ -9,14 +9,14 @@
 #   PDFIUM_TAG      pdfium-binaries tag; default: the contents of core/pdfium-release
 #   MSVC_TOOLSET    required on Windows: MSVC toolset to compile with, e.g. 14.29
 #   WORK_DIR        checkout and build directory; default: /tmp/pdfium-static
-#   OUT_DIR         output directory for the namespaced library;
+#   OUT_DIR         output directory for the namespaced library and its licenses/ folder;
 #                   default: target/pdfium-static/<tag>/<os>-<cpu>[-<env>]
 #   MUSL_URL        mirror of the musl cross toolchains (musl.cc is unreliable)
 #   SKIP_NAMESPACE  set to 1 to stop after the raw PDFium build
 set -euo pipefail
 
 readonly PDFIUM_BINARIES_URL="https://github.com/bblanchon/pdfium-binaries.git"
-readonly DEFAULT_MUSL_URL="https://github.com/mindee/bernard-ledit/releases/download/musl-toolchains-gcc11.2.1-musl1.2.2-gb76f37fd"
+readonly DEFAULT_MUSL_URL="https://github.com/mindee/bernard-ledit/releases/download/musl-toolchains"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd -- "$script_dir/../.." && pwd)"
@@ -146,6 +146,17 @@ fetch_windows_llvm_tools() {
     echo "warning: could not fetch Chromium's LLVM tools; the namespacer will use the LLVM on PATH" >&2
 }
 
+# Copies the licenses of PDFium and of the third-party code built into it, collected by
+# pdfium-binaries' licenses step, plus pdfium-binaries' own (its patches are built in too).
+# Anyone distributing the library must ship these with it.
+collect_licenses() {
+  local licenses="$binaries/staging/licenses"
+  [ -f "$licenses/pdfium.txt" ] || die "the PDFium build produced no $licenses/pdfium.txt"
+  remove_dir "$OUT_DIR/licenses"
+  cp -R "$licenses" "$OUT_DIR/licenses"
+  cp "$binaries/LICENSE" "$OUT_DIR/licenses/pdfium-binaries.txt"
+}
+
 main() {
   validate_inputs
   mkdir -p "$WORK_DIR"
@@ -174,6 +185,7 @@ main() {
   fi
   mkdir -p "$OUT_DIR"
   "$PYTHON" "$namespacer" "$binaries" "$OUT_DIR"
+  collect_licenses
 }
 
 main "$@"

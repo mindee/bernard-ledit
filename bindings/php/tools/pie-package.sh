@@ -3,10 +3,12 @@
 # this script. The PHP version, thread safety, architecture, OS, libc and, on Windows, compiler are
 # read from that PHP the way PIE reads them, so the asset name matches what PIE looks for.
 #
-# Usage: pie-package.sh <extension> <tag> <output-dir>
-#   extension   the built library: libbernard_ledit_php.so, .dylib, or bernard_ledit_php.dll
-#   tag         the release tag, exactly as written: PIE names assets after it
-#   output-dir  where to write the archive
+# Usage: pie-package.sh <extension> <tag> <output-dir> <pdfium-licenses>
+#   extension        the built library: libbernard_ledit_php.so, .dylib, or bernard_ledit_php.dll
+#   tag              the release tag, exactly as written: PIE names assets after it
+#   output-dir       where to write the archive
+#   pdfium-licenses  the licenses/ folder download.sh saved with the static PDFium it linked;
+#                    the archive ships it, as redistributing PDFium requires
 set -euo pipefail
 
 readonly EXTENSION_NAME="bernard_ledit"
@@ -72,30 +74,25 @@ windows_compiler() {
   printf '%s\n' "$compiler" | tr '[:upper:]' '[:lower:]'
 }
 
-# Zips the given files, without their directories, into the archive named first.
+# Zips the contents of a directory, keeping its subdirectories, into the archive named first.
 create_zip() {
-  local archive="$1"
-  shift
+  local archive="$1" dir="$2"
   if command -v zip >/dev/null; then
-    zip -q -j -X "$archive" "$@"
+    (cd "$dir" && zip -q -r -X "$archive" ./*)
   elif command -v 7z >/dev/null; then
-    local files=()
-    local file
-    for file in "$@"; do
-      files+=("$(native_path "$file")")
-    done
-    7z a -tzip -bso0 -bsp0 "$(native_path "$archive")" "${files[@]}"
+    (cd "$dir" && 7z a -tzip -bso0 -bsp0 "$(native_path "$archive")" ./*)
   else
     die "zip or 7z is required"
   fi
 }
 
 main() {
-  [ $# -eq 3 ] || die "usage: $0 <extension> <tag> <output-dir>"
-  local extension="$1" tag="$2" output_dir="$3"
+  [ $# -eq 4 ] || die "usage: $0 <extension> <tag> <output-dir> <pdfium-licenses>"
+  local extension="$1" tag="$2" output_dir="$3" pdfium_licenses="$4"
   local repo_root php_version thread_safety arch os base
 
   [ -f "$extension" ] || die "no such file: $extension"
+  [ -f "$pdfium_licenses/pdfium.txt" ] || die "no PDFium licenses in $pdfium_licenses"
   [[ "$tag" =~ ^[A-Za-z0-9._+-]+$ ]] || die "unexpected characters in tag '$tag'"
   [ "$(php_eval 'echo PHP_DEBUG;')" = 0 ] || die "this is a debug build of PHP; PIE expects -debug assets for it"
   check_extension_name "$extension"
@@ -111,6 +108,7 @@ main() {
   trap 'rm -rf "${staging:-}"' EXIT
   mkdir -p "$output_dir"
   cp "$repo_root/LICENSE" "$repo_root/THIRD_PARTY_NOTICES" "$staging/"
+  cp -R "$pdfium_licenses" "$staging/licenses"
 
   case "$os" in
     Windows)
@@ -136,7 +134,7 @@ main() {
   esac
 
   rm -f "$output_dir/$base.zip"
-  create_zip "$(cd "$output_dir" && pwd)/$base.zip" "$staging"/*
+  create_zip "$(cd "$output_dir" && pwd)/$base.zip" "$staging"
   echo "Packaged $output_dir/$base.zip"
 }
 

@@ -98,7 +98,7 @@ jobs:
 
       - name: Package for PIE
         if: env.RELEASE_TAG != ''
-        run: bash bindings/php/tools/pie-package.sh "target/release/${{ matrix.platform.extension }}" "$RELEASE_TAG" dist
+        run: bash bindings/php/tools/pie-package.sh "target/release/${{ matrix.platform.extension }}" "$RELEASE_TAG" dist "$PDFIUM_STATIC_LIB_PATH/licenses"
 
       - name: Keep the PIE asset for the release
         if: env.RELEASE_TAG != ''
@@ -154,7 +154,7 @@ jobs:
                 exit 1
               fi
               if [ -n "$RELEASE_TAG" ]; then
-                bash bindings/php/tools/pie-package.sh target/release/libbernard_ledit_php.so "$RELEASE_TAG" dist
+                bash bindings/php/tools/pie-package.sh target/release/libbernard_ledit_php.so "$RELEASE_TAG" dist "$PDFIUM_STATIC_LIB_PATH/licenses"
               fi
             '
 
@@ -238,7 +238,7 @@ jobs:
 
       - name: Package for PIE
         if: env.RELEASE_TAG != ''
-        run: bash bindings/php/tools/pie-package.sh target/release/bernard_ledit_php.dll "$RELEASE_TAG" dist
+        run: bash bindings/php/tools/pie-package.sh target/release/bernard_ledit_php.dll "$RELEASE_TAG" dist "$PDFIUM_STATIC_LIB_PATH/licenses"
 
       - name: Keep the PIE asset for the release
         if: env.RELEASE_TAG != ''
