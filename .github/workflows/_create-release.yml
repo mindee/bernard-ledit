@@ -1,0 +1,76 @@
+# Temporary copy of mindee/client-lib-actions' create-release.yml with fixes not yet upstream: it
+# ignores non-version tags (pdfium-static-*, musl-toolchains-*), handles a first release, marks
+# alpha/beta/rc releases as pre-releases, and escapes the release notes as JSON. Switch back to
+# the shared workflow once it has these fixes.
+name: Create Release
+
+on:
+  workflow_call:
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: '0'
+
+      - name: Install Dependencies
+        run: sudo apt-get install pcregrep
+
+      - name: Create Release
+        run: |
+          repo=$(basename -s .git "$(git remote get-url origin)")
+
+          version_format='^v[0-9]{1,}\.[0-9]{1,}\.[0-9]{1,}([-.](?:alpha|beta|rc)[0-9])?$'
+          tag=$(git describe | grep -oP "${version_format}")
+
+          if [ -z "${tag}" ]; then
+            echo 'Version not found, aborting.';
+            exit 1
+          fi
+          echo "Found current tag: ${tag}";
+
+          # Only version tags count, and pre-releases sort before their release (v1.0.0-rc1 < v1.0.0).
+          last_tag=$(git -c versionsort.suffix=-alpha -c versionsort.suffix=.alpha \
+            -c versionsort.suffix=-beta -c versionsort.suffix=.beta \
+            -c versionsort.suffix=-rc -c versionsort.suffix=.rc \
+            tag --list 'v*' --sort=-v:refname | grep -A1 -xF "${tag}" | sed -n 2p)
+
+          if [ -n "${last_tag}" ]; then
+            echo "Found last tag: ${last_tag}";
+            log_pattern="(?<=## $tag - ....-..-..)(.|\n)*(?=\n\n## $last_tag)";
+            changes_url="https://github.com/mindee/${repo}/compare/${last_tag}...${tag}"
+          else
+            echo 'No earlier version tag: first release.';
+            log_pattern="(?<=## $tag - ....-..-..)(.|\n)*?(?=\n\n## |\n*\z)";
+            changes_url="https://github.com/mindee/${repo}/commits/${tag}"
+          fi
+
+          body=$(pcregrep -M -o "$log_pattern" ./CHANGELOG.md || true);
+
+          if [ -z "${body}" ]; then
+            echo 'Body not found, aborting.';
+            exit 1
+          fi
+          echo 'Found release body.';
+
+          body="${body}"$'\n\n'"**Full Changelog**: ${changes_url}"
+
+          prerelease=false
+          if [[ "${tag}" =~ (alpha|beta|rc) ]]; then
+            prerelease=true
+          fi
+
+          data=$(jq -n --arg tag "${tag}" --arg body "${body}" --argjson prerelease "${prerelease}" \
+            '{tag_name: $tag, name: $tag, body: $body, draft: false, prerelease: $prerelease, generate_release_notes: false}')
+
+          echo 'Posting release ...';
+          curl -L -X POST \
+            --fail-with-body \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -H "Authorization: Bearer ${{ secrets.RELEASE_ACCESS_TOKEN }}" \
+            --data "${data}" \
+            "https://api.github.com/repos/mindee/${repo}/releases"

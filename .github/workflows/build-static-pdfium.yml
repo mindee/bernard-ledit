@@ -7,7 +7,15 @@ on:
         type: boolean
         default: false
   push:
-    branches: [ add-php-ext-publish ]
+    branches: [ main ]
+  # release-php.yml: build what's missing, test, and package the PHP extension for the release.
+  workflow_call:
+    inputs:
+      release-tag:
+        description: "Release tag to package the tested PHP extensions for; empty to only test"
+        type: string
+        required: false
+        default: ""
 permissions:
   contents: write
 # Runs queue instead of building and publishing the same targets side by side.
@@ -194,3 +202,5 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/_php-static-check.yml
+    with:
+      release-tag: ${{ inputs.release-tag || '' }}
