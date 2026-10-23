@@ -14,6 +14,36 @@ pub struct PyPdfDocument {
     inner: Mutex<Option<Document>>,
 }
 
+/// Iterator over the pages of a [`PyPdfDocument`], returned by `iter(pdf)`.
+#[pyclass(name = "PdfPageIterator", module = "bernard_ledit.pdf")]
+pub struct PyPdfPageIterator {
+    doc: Py<PyPdfDocument>,
+    next: u16,
+}
+
+/// Iterator protocol.
+#[pymethods]
+impl PyPdfPageIterator {
+    /// An iterator is its own iterator.
+    // `const fn` breaks pyo3's `#[pymethods]` macro expansion (pyo3 #[pymethods] issue with NonNull)
+    #[allow(clippy::missing_const_for_fn)]
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    /// Returns the next page, or stops once past the last one. The page count is read on each
+    /// call, so pages appended while iterating are included.
+    fn __next__(mut slf: PyRefMut<'_, Self>) -> PyResult<Option<PyPdfPage>> {
+        let doc = slf.doc.bind(slf.py()).clone();
+        if usize::from(slf.next) >= doc.borrow().__len__()? {
+            return Ok(None);
+        }
+        let page = PyPdfDocument::get_page(doc, slf.next)?;
+        slf.next = slf.next.saturating_add(1);
+        Ok(Some(page))
+    }
+}
+
 /// PDF document methods.
 #[pymethods]
 impl PyPdfDocument {
@@ -194,6 +224,14 @@ impl PyPdfDocument {
         *guard = None;
         drop(guard);
         Ok(())
+    }
+
+    /// Iterates over the pages: `for page in pdf:`.
+    fn __iter__(slf: Bound<'_, Self>) -> PyPdfPageIterator {
+        PyPdfPageIterator {
+            doc: slf.unbind(),
+            next: 0,
+        }
     }
 
     /// Compresses a given PDF.

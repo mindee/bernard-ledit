@@ -1,0 +1,4 @@
+# Type aliases for type checkers only: there is no such object at runtime, but annotations
+# (including the SDK's) may use them.
+bernard_ledit\.geometry\.PointInput
+bernard_ledit\.pdf\.PdfInput

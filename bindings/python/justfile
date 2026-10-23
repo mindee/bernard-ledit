@@ -44,12 +44,12 @@ test:
     "$PYTHON_BIN" -m pytest -vvv
     fi
 
-# Format and lint code using ruff
+# Lints with ruff, then reformats files in place; CI runs lint-check instead
 lint:
     ruff check .
     ruff format
 
-# Format and lint code using ruff
+# Checks lint, formatting and types without changing any file: what CI runs
 lint-check:
     ruff check .
     ruff format --check .
@@ -66,3 +66,7 @@ clean:
     rm -rf *.egg-info/
     find . -type d -name "__pycache__" -exec rm -rf {} +
     rm -rf ./**/*.abi3.so
+
+# Check the stubs
+stubs-check:
+    python -m mypy.stubtest bernard_ledit --allowlist stubtest-allowlist.txt

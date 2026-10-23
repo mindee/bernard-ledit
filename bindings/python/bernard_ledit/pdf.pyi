@@ -1,19 +1,37 @@
 import os
 from collections.abc import Iterator
 from types import TracebackType
-from typing import BinaryIO
+from typing import BinaryIO, final
+
+__all__ = [
+    "PageOptionsError",
+    "PageSize",
+    "PdfBitmap",
+    "PdfDocument",
+    "PdfExtractionError",
+    "PdfFixError",
+    "PdfPage",
+    "PdfiumError",
+    "TextChar",
+    "apply_page_options",
+    "compress",
+    "extract_from_page_ranges",
+    "fix_pdf",
+]
 
 class PdfiumError(Exception): ...
 class PdfExtractionError(Exception): ...
 class PdfFixError(ValueError): ...
 class PageOptionsError(ValueError): ...
 
+@final
 class PageSize:
     @property
     def width(self) -> float: ...
     @property
     def height(self) -> float: ...
 
+@final
 class PdfBitmap:
     @property
     def width(self) -> int: ...
@@ -23,9 +41,10 @@ class PdfBitmap:
     def to_png_bytes(self) -> bytes: ...
     def __repr__(self) -> str: ...
 
+@final
 class TextChar:
-    def __init__(
-        self,
+    def __new__(
+        cls,
         char: str,
         font_name: str,
         font_size: float,
@@ -33,8 +52,8 @@ class TextChar:
         stroke_color: tuple[int, int, int, int] | None = None,
         fill_color: tuple[int, int, int, int] | None = None,
         font_flags: int = 0,
-        bounds: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0),
-    ) -> None: ...
+        bounds: tuple[float, float, float, float] = ...,  # (0.0, 0.0, 0.0, 0.0)
+    ) -> TextChar: ...
     @property
     def char(self) -> str: ...
     @property
@@ -53,6 +72,7 @@ class TextChar:
     def bounds(self) -> tuple[float, float, float, float]: ...
     def __repr__(self) -> str: ...
 
+@final
 class PdfPage:
     def get_size(self) -> PageSize: ...
     def is_empty(self) -> bool: ...
@@ -64,9 +84,10 @@ class PdfPage:
 
 PdfInput = bytes | str | os.PathLike | BinaryIO
 
+@final
 class PdfDocument:
-    def __init__(self, input: PdfInput) -> None: ...
-    def __getitem__(self, index: int) -> PdfPage: ...
+    def __new__(cls, input: PdfInput) -> PdfDocument: ...
+    def __getitem__(self, index: int, /) -> PdfPage: ...
     def __iter__(self) -> Iterator[PdfPage]: ...
     @staticmethod
     def new() -> PdfDocument: ...
@@ -88,7 +109,7 @@ class PdfDocument:
         exc_tb: TracebackType | None,
     ) -> bool: ...
     def append_jpeg_page(self, jpeg_byte: bytes) -> None: ...
-    def append_multiple_jpeg_pages(self, jpeg_bytes: list[bytes]) -> None: ...
+    def append_multiple_jpeg_pages(self, jpegs: list[bytes]) -> None: ...
     def save_to_file(self, path: str | os.PathLike) -> None: ...
     def has_text(self) -> bool: ...
     def compress(
@@ -109,5 +130,5 @@ def extract_from_page_ranges(
     data: PdfInput, page_indexes: list[list[int]]
 ) -> list[PdfDocument]: ...
 def apply_page_options(
-    doc: PdfInput, operation: str, on_min_pages: int, page_indexes: list[int]
+    data: PdfInput, operation: str, on_min_pages: int, page_indexes: list[int]
 ) -> tuple[PdfDocument | None, list[int]]: ...

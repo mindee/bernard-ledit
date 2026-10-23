@@ -1,11 +1,21 @@
 import os
-from typing import BinaryIO
+from typing import BinaryIO, final
+
+__all__ = [
+    "Image",
+    "ImageError",
+    "ImageExtractError",
+    "compress",
+    "extract_from_polygons",
+    "guess_format",
+]
 
 class ImageError(Exception): ...
 class ImageExtractError(Exception): ...
 
+@final
 class Image:
-    def __init__(self, data: bytes | BinaryIO) -> None: ...
+    def __new__(cls, data: bytes | BinaryIO) -> Image: ...
     @property
     def size(self) -> tuple[int, int]: ...
     @property
@@ -44,3 +54,6 @@ def extract_from_polygons(
     polygons: list[list[tuple[float, float]]],
     dpi: float = 72.0,
 ) -> list[Image]: ...
+def guess_format(
+    data: bytes | BinaryIO,
+) -> str: ...
