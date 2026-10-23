@@ -35,6 +35,7 @@ jobs:
     uses: ./.github/workflows/build-static-pdfium.yml
     with:
       release-tag: ${{ github.event.release.tag_name }}
+      build-missing: false
 
   # Runs only once every job has passed, so a release never gets a partial set of assets.
   publish:
