@@ -6,6 +6,5 @@
   { "target": "mac-arm64",         "runner": "macos-latest",   "os": "mac",   "cpu": "arm64" },
   { "target": "mac-x64",           "runner": "macos-latest",   "os": "mac",   "cpu": "x64" },
   { "target": "win-x64-v143",      "runner": "windows-latest", "os": "win",   "cpu": "x64",   "msvc": "14.44" },
-  { "target": "win-x64-v142",      "runner": "windows-latest", "os": "win",   "cpu": "x64",   "msvc": "14.29" },
-  { "target": "win-arm64-v143",    "runner": "windows-2022",   "os": "win",   "cpu": "arm64", "msvc": "14.44" }
+  { "target": "win-x64-v142",      "runner": "windows-latest", "os": "win",   "cpu": "x64",   "msvc": "14.29" }
 ]

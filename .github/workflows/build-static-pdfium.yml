@@ -118,8 +118,15 @@ jobs:
           python-version: "3.12"
 
       # Retries the build when it fails on a network error, which googlesource returns under load.
+      # A build that prints nothing for 30 minutes is stuck: the watchdog lists its processes, then
+      # kills Ninja, so the build fails instead of running into the job's 6-hour limit. The step's
+      # own limit leaves time to upload the build log.
       - name: Build
+        timeout-minutes: 300
         run: |
+          bash tools/pdfium-static/watchdog.sh build.log 1800 &
+          watchdog=$!
+          trap 'kill "$watchdog" 2>/dev/null || true' EXIT
           max_attempts=5
           for attempt in $(seq "$max_attempts"); do
             if bash tools/pdfium-static/build.sh 2>&1 | tee build.log; then
@@ -199,7 +206,7 @@ jobs:
           overwrite: true
 
       - name: Upload the build log
-        if: failure()
+        if: failure() || cancelled()
         uses: actions/upload-artifact@v4
         with:
           name: build-log-${{ matrix.target }}
