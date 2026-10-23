@@ -6,22 +6,16 @@ on:
         description: "Rebuild and overwrite targets that are already published"
         type: boolean
         default: false
-  push:
-    branches: [ main ]
-  # release-php.yml: build what's missing, test, and package the PHP extension for the release.
+  # main-dev.yml calls it on every push to main; release-php.yml calls it with the release tag, so
+  # the tested extensions are also packaged for PIE.
   workflow_call:
     inputs:
       release-tag:
         description: "Release tag to package the tested PHP extensions for; empty to only test"
         type: string
-        required: false
         default: ""
 permissions:
   contents: write
-# Runs queue instead of building and publishing the same targets side by side.
-concurrency:
-  group: static-pdfium-${{ github.ref }}
-  cancel-in-progress: false
 
 jobs:
   # Targets live in tools/pdfium-static/targets.json. win-arm64 builds on windows-2022: the
