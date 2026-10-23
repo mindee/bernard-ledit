@@ -6,14 +6,24 @@ on:
         description: "Rebuild and overwrite targets that are already published"
         type: boolean
         default: false
-  push:
-    branches: [ add-php-ext-publish ]
+  # main-dev.yml calls it on every push to main; release-php.yml calls it with the release tag, so
+  # the tested extensions are also packaged for PIE. Version commits and releases only consume the
+  # libraries (build-missing: false): they never wait in the publish queue, so no later push can
+  # cancel them there.
+  workflow_call:
+    inputs:
+      release-tag:
+        description: "Release tag to package the tested PHP extensions for; empty to only test"
+        type: string
+        required: false
+        default: ""
+      build-missing:
+        description: "Build unpublished libraries; when false, fail if any is missing"
+        type: boolean
+        required: false
+        default: true
 permissions:
-  contents: write
-# Runs queue instead of building and publishing the same targets side by side.
-concurrency:
-  group: static-pdfium-${{ github.ref }}
-  cancel-in-progress: false
+  contents: read
 
 jobs:
   # Targets live in tools/pdfium-static/targets.json. win-arm64 builds on windows-2022: the
@@ -27,12 +37,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      # A target is up to date once both its library and its checksum are published.
+      # A target is up to date once its library, its licenses and both checksums are published.
       - name: List the unpublished targets
         id: plan
         env:
           GH_TOKEN: ${{ github.token }}
           FORCE: ${{ inputs.force }}
+          # Empty when dispatched manually, which builds.
+          BUILD_MISSING: ${{ inputs.build-missing }}
         run: |
           release="pdfium-static-$(tr -d '[:space:]' < core/pdfium-release)"
           release="${release//\//_}"
@@ -41,11 +53,18 @@ jobs:
             def is_published($name): $published | any(.[]; . == $name);
             map(select(
               "libpdfium-\(.target).\(if .os == "win" then "lib" else "a" end)" as $asset
-              | $force == "true" or ((is_published($asset) and is_published($asset + ".sha256")) | not)
+              | "libpdfium-\(.target)-licenses.tar.gz" as $licenses
+              | $force == "true"
+                or ([$asset, $asset + ".sha256", $licenses, $licenses + ".sha256"] | all(is_published(.)) | not)
             ))' tools/pdfium-static/targets.json)"
+          missing="$(jq -r 'map(.target) | join(", ")' <<< "$targets")"
+          if [ "$BUILD_MISSING" = false ] && [ "$targets" != '[]' ]; then
+            echo "::error::$release lacks $missing. Version commits and releases don't build static PDFium: wait for a main build to publish it, then re-run the failed jobs."
+            exit 1
+          fi
           echo "release=$release" >> "$GITHUB_OUTPUT"
           echo "targets=$targets" >> "$GITHUB_OUTPUT"
-          echo "To build: $(jq -r 'map(.target) | join(", ")' <<< "$targets")"
+          echo "To build: ${missing:-nothing}"
 
   build:
     name: Build ${{ matrix.target }}
@@ -158,25 +177,26 @@ jobs:
           fi
           echo "pdfium.lib links with toolset $MSVC_TOOLSET"
 
-      # Matrix jobs publish in parallel, so each asset gets its own checksum file, and a job that
-      # loses the race to create the release uploads to the one its sibling created.
-      - name: Publish
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE: ${{ needs.plan.outputs.release }}
+      - name: Prepare the library, its checksum and its licenses
         run: |
-          cp "$OUT_DIR/$LIB_NAME" "$ASSET"
+          mkdir -p publish
+          cp "$OUT_DIR/$LIB_NAME" "publish/$ASSET"
+          cp -R "$OUT_DIR/licenses" publish/licenses
+          cd publish
           if command -v sha256sum >/dev/null; then
             sha256sum "$ASSET" > "$ASSET.sha256"
           else
             shasum -a 256 "$ASSET" > "$ASSET.sha256"
           fi
-          if ! gh release view "$RELEASE" >/dev/null 2>&1; then
-            gh release create "$RELEASE" --prerelease --title "$RELEASE" \
-              --notes "Static PDFium for bernard-ledit: a build input for CI and local static builds, not a product release." ||
-              gh release view "$RELEASE" >/dev/null
-          fi
-          gh release upload "$RELEASE" "$ASSET" "$ASSET.sha256" --clobber
+
+      - name: Keep them for the publish job
+        uses: actions/upload-artifact@v4
+        with:
+          name: static-pdfium-${{ matrix.target }}
+          path: publish/
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: true
 
       - name: Upload the build log
         if: failure()
@@ -185,12 +205,73 @@ jobs:
           name: build-log-${{ matrix.target }}
           path: build.log
 
+  # One publisher per PDFium release and target at a time, whichever run it comes from (main,
+  # release or manual), and it re-checks the release once it holds that slot: the first run to
+  # publish a target wins, and a later one keeps what is there. The library, its licenses and their
+  # checksums are thus always replaced together, by one job. Each target publishes on its own, so
+  # one failed build doesn't hold back the others.
+  publish:
+    name: Publish ${{ matrix.target }}
+    needs: [ plan, build ]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.targets != '[]' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: static-pdfium-publish-${{ needs.plan.outputs.release }}-${{ matrix.target }}
+      cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.targets) }}
+    env:
+      ASSET: libpdfium-${{ matrix.target }}.${{ matrix.os == 'win' && 'lib' || 'a' }}
+      LICENSES: libpdfium-${{ matrix.target }}-licenses.tar.gz
+      RELEASE: ${{ needs.plan.outputs.release }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Get the library this run built
+        uses: actions/download-artifact@v4
+        with:
+          name: static-pdfium-${{ matrix.target }}
+
+      # The licenses travel with the library: whoever redistributes it must ship them.
+      - name: Archive the licenses
+        run: |
+          tar -czf "$LICENSES" licenses
+          sha256sum "$LICENSES" > "$LICENSES.sha256"
+
+      # Replacing happens only on a forced rebuild, or to complete a partly published target.
+      - name: Publish, unless another run already has
+        env:
+          FORCE: ${{ inputs.force }}
+        run: |
+          published="$(gh release view "$RELEASE" --json assets --jq '.assets[].name' 2>/dev/null || true)"
+          complete=true
+          for name in "$ASSET" "$ASSET.sha256" "$LICENSES" "$LICENSES.sha256"; do
+            grep -qxF "$name" <<< "$published" || complete=false
+          done
+          if [ "$FORCE" != true ] && [ "$complete" = true ]; then
+            echo "::notice::$ASSET and its licenses are already published in $RELEASE; keeping them"
+            exit 0
+          fi
+          if ! gh release view "$RELEASE" >/dev/null 2>&1; then
+            gh release create "$RELEASE" --prerelease --title "$RELEASE" \
+              --notes "Static PDFium for bernard-ledit: a build input for CI and local static builds, not a product release." ||
+              gh release view "$RELEASE" >/dev/null
+          fi
+          gh release upload "$RELEASE" "$ASSET" "$ASSET.sha256" "$LICENSES" "$LICENSES.sha256" --clobber
+
   # Tests the PHP extension against the published libraries, on the commit that built them. Also
-  # runs when every target was already published (build skipped), but not after a failed build.
+  # runs when every target was already published (build and publish skipped), but not after a
+  # failed or cancelled build or publish.
   test:
     name: Test
-    needs: [ plan, build ]
-    if: ${{ !cancelled() && !failure() }}
+    needs: [ plan, build, publish ]
+    if: ${{ !cancelled() && !failure() && !contains(needs.*.result, 'cancelled') }}
     permissions:
       contents: read
     uses: ./.github/workflows/_php-static-check.yml
+    with:
+      release-tag: ${{ inputs.release-tag || '' }}

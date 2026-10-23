@@ -6,8 +6,10 @@ on:
       - main
   workflow_dispatch:
 
+# A newer push cancels the run in progress, except for a version commit (:bookmark:), which gets
+# a group of its own: cancelling it would silently skip its tag and release.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}${{ contains(github.event.head_commit.message, ':bookmark:') && format('-{0}', github.sha) || '' }}
   cancel-in-progress: true
 
 permissions:
@@ -46,3 +48,28 @@ jobs:
   hack-test-release:
     uses: ./.github/workflows/_hack-test-release.yml
     needs: unit-tests
+
+  # Builds any missing static PDFium library, then tests the PHP extension against all of them.
+  static-pdfium:
+    uses: ./.github/workflows/build-static-pdfium.yml
+    needs: pre-commit
+    permissions:
+      contents: write
+
+  # Only runs for a ":bookmark: Version X.Y.Z" commit, once everything above has passed.
+  tag:
+    if: contains(github.event.head_commit.message, ':bookmark:')
+    uses: mindee/client-lib-actions/.github/workflows/tag-version.yml@main
+    needs:
+      - python-binding-tests
+      - php-binding-tests
+      - java-binding-tests
+      - hack-test-release
+      - static-pdfium
+    permissions:
+      contents: write
+
+  release:
+    uses: ./.github/workflows/_create-release.yml
+    needs: tag
+    secrets: inherit

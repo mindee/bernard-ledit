@@ -1,7 +1,14 @@
 name: PHP binding tests (static lib build)
 
+# Called by build-static-pdfium.yml once the static libraries are published. With a release tag,
+# each job also packages the extension it tested as a PIE asset, uploaded as a workflow artifact.
 on:
   workflow_call:
+    inputs:
+      release-tag:
+        description: "Release tag to package the tested extensions for; empty to only test"
+        type: string
+        default: ""
   workflow_dispatch:
 
 permissions:
@@ -11,6 +18,9 @@ defaults:
   run:
     shell: bash
 
+env:
+  RELEASE_TAG: ${{ inputs.release-tag }}
+
 jobs:
   php-binding-tests:
     name: Test static PHP binding (${{ matrix.platform.pdfium_target }}, PHP ${{ matrix.php }} ${{ matrix.thread_safety }})
@@ -19,10 +29,10 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - { runner: ubuntu-latest,    pdfium_target: linux-x64-glibc }
-          - { runner: ubuntu-24.04-arm, pdfium_target: linux-arm64-glibc }
-          - { runner: macos-latest,     pdfium_target: mac-arm64 }
-          - { runner: macos-15-intel,   pdfium_target: mac-x64 }
+          - { runner: ubuntu-latest,    pdfium_target: linux-x64-glibc,   extension: libbernard_ledit_php.so }
+          - { runner: ubuntu-24.04-arm, pdfium_target: linux-arm64-glibc, extension: libbernard_ledit_php.so }
+          - { runner: macos-latest,     pdfium_target: mac-arm64,         extension: libbernard_ledit_php.dylib }
+          - { runner: macos-15-intel,   pdfium_target: mac-x64,           extension: libbernard_ledit_php.dylib }
         php: [ "8.1", "8.2", "8.3", "8.4", "8.5" ]
         thread_safety: [ "zts", "nts" ]
     steps:
@@ -86,6 +96,18 @@ jobs:
             exit 1
           fi
 
+      - name: Package for PIE
+        if: env.RELEASE_TAG != ''
+        run: bash bindings/php/tools/pie-package.sh "target/release/${{ matrix.platform.extension }}" "$RELEASE_TAG" dist "$PDFIUM_STATIC_LIB_PATH/licenses"
+
+      - name: Keep the PIE asset for the release
+        if: env.RELEASE_TAG != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: pie-${{ matrix.platform.pdfium_target }}-php${{ matrix.php }}-${{ matrix.thread_safety }}
+          path: dist/
+          if-no-files-found: error
+
   # Alpine runs through `docker run` rather than a job container: GitHub can't run JavaScript
   # actions inside Alpine containers on arm64 runners.
   php-binding-tests-musl:
@@ -110,6 +132,7 @@ jobs:
         run: bash tools/pdfium-static/download.sh ${{ matrix.platform.pdfium_target }} .pdfium-static
 
       # Rust links the C runtime statically on musl by default, which a PHP extension must not do.
+      # Packaging runs in the container too: the asset name comes from the PHP that tested it.
       - name: Build and test in Alpine
         env:
           IMAGE: php:${{ matrix.php }}-${{ matrix.thread_safety == 'zts' && 'zts' || 'cli' }}-alpine
@@ -117,8 +140,9 @@ jobs:
           docker run --rm -v "$PWD:/w" -w /w \
             -e PDFIUM_STATIC_LIB_PATH=/w/.pdfium-static \
             -e RUSTFLAGS="-C target-feature=-crt-static" \
+            -e RELEASE_TAG \
             "$IMAGE" sh -euc '
-              apk add --no-cache bash git curl unzip build-base cmake nasm clang-dev linux-headers just rustup libstdc++
+              apk add --no-cache bash git curl unzip zip build-base cmake nasm clang-dev linux-headers just rustup libstdc++
               rustup-init -y --default-toolchain none --profile minimal
               . "$HOME/.cargo/env"
               curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
@@ -129,7 +153,18 @@ jobs:
                 echo "The extension links PDFium dynamically" >&2
                 exit 1
               fi
+              if [ -n "$RELEASE_TAG" ]; then
+                bash bindings/php/tools/pie-package.sh target/release/libbernard_ledit_php.so "$RELEASE_TAG" dist "$PDFIUM_STATIC_LIB_PATH/licenses"
+              fi
             '
+
+      - name: Keep the PIE asset for the release
+        if: env.RELEASE_TAG != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: pie-${{ matrix.platform.pdfium_target }}-php${{ matrix.php }}-${{ matrix.thread_safety }}
+          path: dist/
+          if-no-files-found: error
 
   php-binding-tests-windows:
     name: Test static PHP binding (${{ matrix.pdfium_target }}, PHP ${{ matrix.php }} ${{ matrix.thread_safety }})
@@ -200,3 +235,15 @@ jobs:
             echo "::error::The extension links PDFium dynamically"
             exit 1
           fi
+
+      - name: Package for PIE
+        if: env.RELEASE_TAG != ''
+        run: bash bindings/php/tools/pie-package.sh target/release/bernard_ledit_php.dll "$RELEASE_TAG" dist "$PDFIUM_STATIC_LIB_PATH/licenses"
+
+      - name: Keep the PIE asset for the release
+        if: env.RELEASE_TAG != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: pie-${{ matrix.pdfium_target }}-php${{ matrix.php }}-${{ matrix.thread_safety }}
+          path: dist/
+          if-no-files-found: error
