@@ -218,7 +218,7 @@ dependencies = [
 
 [[package]]
 name = "bernard-ledit"
-version = "0.1.0-alpha1"
+version = "0.1.0-alpha2"
 dependencies = [
  "flate2",
  "image",
@@ -233,7 +233,7 @@ dependencies = [
 
 [[package]]
 name = "bernard-ledit-dotnet"
-version = "0.1.0-alpha1"
+version = "0.1.0-alpha2"
 dependencies = [
  "bernard-ledit",
  "uniffi",
@@ -241,7 +241,7 @@ dependencies = [
 
 [[package]]
 name = "bernard-ledit-java"
-version = "0.1.0-alpha1"
+version = "0.1.0-alpha2"
 dependencies = [
  "bernard-ledit",
  "jni",
@@ -249,7 +249,7 @@ dependencies = [
 
 [[package]]
 name = "bernard-ledit-node"
-version = "0.1.0-alpha1"
+version = "0.1.0-alpha2"
 dependencies = [
  "bernard-ledit",
  "napi",
@@ -259,7 +259,7 @@ dependencies = [
 
 [[package]]
 name = "bernard-ledit-php"
-version = "0.1.0-alpha1"
+version = "0.1.0-alpha2"
 dependencies = [
  "bernard-ledit",
  "ext-php-rs",
@@ -267,7 +267,7 @@ dependencies = [
 
 [[package]]
 name = "bernard-ledit-python"
-version = "0.1.0-alpha1"
+version = "0.1.0-alpha2"
 dependencies = [
  "bernard-ledit",
  "pyo3",
@@ -275,7 +275,7 @@ dependencies = [
 
 [[package]]
 name = "bernard-ledit-ruby"
-version = "0.1.0-alpha1"
+version = "0.1.0-alpha2"
 dependencies = [
  "bernard-ledit",
  "uniffi",
