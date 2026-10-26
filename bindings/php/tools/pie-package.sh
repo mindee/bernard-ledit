@@ -18,9 +18,10 @@ die() {
   exit 1
 }
 
-# Runs a PHP snippet without php.ini and prints its output.
+# Runs a PHP snippet without php.ini and prints its output. PHP's own warnings go to stderr, so they
+# can't end up in the output.
 php_eval() {
-  php -n -r "$1"
+  php -n -d display_errors=stderr -r "$1"
 }
 
 # Prints a path in the form PHP and 7-Zip accept: Windows programs need Windows paths in Git Bash.
@@ -42,7 +43,7 @@ check_extension_name() {
 # ext-bernard_ledit constraints against.
 check_extension_version() {
   local reported
-  reported="$(php -n -d "extension=$(native_path "$1")" -r "echo phpversion('$EXTENSION_NAME');")"
+    reported="$(php -n -d display_errors=stderr -d "extension=$(native_path "$1")" -r "echo phpversion('$EXTENSION_NAME');")"
   [ "$reported" = "${2#v}" ] || die "$1 reports version '$reported', but the tag $2 means '${2#v}'"
 }
 
@@ -89,12 +90,14 @@ create_zip() {
 main() {
   [ $# -eq 4 ] || die "usage: $0 <extension> <tag> <output-dir> <pdfium-licenses>"
   local extension="$1" tag="$2" output_dir="$3" pdfium_licenses="$4"
-  local repo_root php_version thread_safety arch os base
+  local repo_root php_version thread_safety arch os base debug
 
   [ -f "$extension" ] || die "no such file: $extension"
   [ -f "$pdfium_licenses/pdfium.txt" ] || die "no PDFium licenses in $pdfium_licenses"
   [[ "$tag" =~ ^[A-Za-z0-9._+-]+$ ]] || die "unexpected characters in tag '$tag'"
-  [ "$(php_eval 'echo PHP_DEBUG;')" = 0 ] || die "this is a debug build of PHP; PIE expects -debug assets for it"
+  debug="$(php_eval 'var_export(PHP_DEBUG);')"
+  [ "$debug" = 0 ] || [ "$debug" = false ] ||
+    die "PHP_DEBUG is '$debug': PIE expects -debug assets for a debug build of PHP"
   check_extension_name "$extension"
   check_extension_version "$extension" "$tag"
 
