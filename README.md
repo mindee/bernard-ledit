@@ -6,7 +6,7 @@
 
 > PDF, image, and geometry utilities for the Mindee SDK ecosystem.
 
-Bernard l'Édit is a **Rust core library** with per-language bindings that gives every official Mindee Client Library a single, high-performance foundation for PDF manipulation, image processing, and geometry operations.  It replaces a patchwork of language-specific dependencies (pypdfium2/Pillow, PDFBox, SkiaSharp, Docnet, origami, Imagick, …) with one audited implementation.
+Bernard l'Édit is a **Rust core library** with per-language bindings that gives every official Mindee Client Library a single, high-performance foundation for PDF manipulation, image processing, and geometry operations. It replaces a patchwork of language-specific dependencies (pypdfium2/Pillow, PDFBox, SkiaSharp, Docnet, origami, Imagick, …) with one audited implementation.
 
 > ⚠️ **Status:** under heavy development – APIs may change between minor versions.
 
@@ -34,8 +34,10 @@ Bernard l'Édit is a **Rust core library** with per-language bindings that gives
 ---
 
 ## Features
-| **Image**    | Decode (JPEG, PNG, TIFF, WebP, BMP, GIF, …), crop, resize, encode, compress, save to path or buffer, extract polygon crops from images and PDF pages |
-| **PDF**      | Load, split, merge, rasterise pages to JPEG, embed images, extract text and character metadata, add text overlays, compress scans, extract sub-documents, apply page options, repair broken headers |
+
+| **Image** | Decode (JPEG, PNG, TIFF, WebP, BMP, GIF, …), crop, resize, encode, compress, save to path or buffer, extract polygon crops from images and PDF pages |
+| **PDF** | Load, split, merge, rasterise pages to JPEG, embed images, extract text and character metadata, add text overlays, compress scans, extract sub-documents, apply page options, repair broken headers |
+
 ---
 
 ## Architecture
@@ -56,7 +58,7 @@ bernard-ledit/
     └── ruby/
 ```
 
-The Rust core is the single source of truth.  Language bindings are thin wrappers that expose the same API idiomatically in each language.
+The Rust core is the single source of truth. Language bindings are thin wrappers that expose the same API idiomatically in each language.
 
 ---
 
@@ -64,11 +66,8 @@ The Rust core is the single source of truth.  Language bindings are thin wrapper
 
 ### Installation
 
-```bash
-pip install bernard-ledit
-```
+The Python package is not currently published on PyPI, so `pip install bernard-ledit` will not work. To use it, build the binding from a checkout by following the [Building](#building) instructions below.
 
-The wheel bundles the compiled Rust extension and pdfium – no system dependencies required.
 ### Image API
 
 ```python
@@ -224,13 +223,13 @@ print(len(poly))         # 4
 
 ### Prerequisites
 
-| Tool                                                       | Purpose                              |
-|------------------------------------------------------------|--------------------------------------|
-| Rust 1.99.0 (pinned in `rust-toolchain.toml`)              | Core + all bindings                  |
-| [just](https://github.com/casey/just)                      | Task runner                          |
-| [maturin](https://github.com/PyO3/maturin)                 | Build Python wheels                  |
-| A C compiler + cmake                                       | mozjpeg (bundled, built from source) |
-| Python ≥ 3.9 + virtualenv                                  | Python binding tests                 |
+| Tool                                          | Purpose                              |
+| --------------------------------------------- | ------------------------------------ |
+| Rust 1.99.0 (pinned in `rust-toolchain.toml`) | Core + all bindings                  |
+| [just](https://github.com/casey/just)         | Task runner                          |
+| [maturin](https://github.com/PyO3/maturin)    | Build Python wheels                  |
+| A C compiler + cmake                          | mozjpeg (bundled, built from source) |
+| Python ≥ 3.9 + virtualenv                     | Python binding tests                 |
 
 ### Build
 
@@ -265,14 +264,14 @@ just check         # everything: fmt + lint + build + test
 
 ## Bindings
 
-| Language | Crate / Package        | Status         |
-|----------|------------------------|----------------|
-| Python   | `bernard-ledit` (PyPI) | ✅ Active       |
-| .NET     | `bindings/dotnet`      | 🚧 In progress |
-| Java     | `bindings/java`        | 🚧 In progress |
-| Node.js  | `bindings/nodejs`      | 🚧 In progress |
-| PHP      | `bindings/php`         | 🚧 In progress |
-| Ruby     | `bindings/ruby`        | 🚧 In progress |
+| Language | Crate / Package   | Status                  |
+| -------- | ----------------- | ----------------------- |
+| Python   | `bernard-ledit`   | ✅ Active (source only) |
+| .NET     | `bindings/dotnet` | 🚧 In progress          |
+| Java     | `bindings/java`   | 🚧 In progress          |
+| Node.js  | `bindings/nodejs` | 🚧 In progress          |
+| PHP      | `bindings/php`    | 🚧 In progress          |
+| Ruby     | `bindings/ruby`   | 🚧 In progress          |
 
 ---
 
@@ -288,11 +287,10 @@ The Python GIL additionally protects single-threaded callers.
 
 ## Third-party notices
 
-This distribution bundles mozjpeg (libjpeg-turbo + IJG).  See [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES) for the full attribution text required by their licenses.
+This distribution bundles mozjpeg (libjpeg-turbo + IJG). See [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES) for the full attribution text required by their licenses.
 
 ---
 
 ## License
 
 Apache 2.0 – see [LICENSE](LICENSE).
-

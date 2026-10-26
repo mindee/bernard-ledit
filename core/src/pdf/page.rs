@@ -20,6 +20,23 @@ impl<'a> Page<'a> {
         (self.inner.width().value, self.inner.height().value)
     }
 
+    /// Get the visible crop box in PDF points as (left, bottom, right, top).
+    /// # Errors
+    /// Returns a `PdfError` if the page crop box cannot be determined.
+    pub fn bounding_box(&self) -> Result<(f32, f32, f32, f32), PdfError> {
+        let boundaries = self.inner.boundaries();
+        let bounds = boundaries
+            .crop()
+            .or_else(|_| boundaries.media())?
+            .bounds;
+        Ok((
+            bounds.left().value,
+            bounds.bottom().value,
+            bounds.right().value,
+            bounds.top().value,
+        ))
+    }
+
     /// Check if the page contains neither test nor objects.
     /// # Errors
     /// Returns a `PdfError` if the text can't be extracted.

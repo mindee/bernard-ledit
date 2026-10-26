@@ -35,6 +35,7 @@ pdfium-render = "0.9.4"
 thiserror = "2.0.18"
 image = "0.25.9"
 mozjpeg = "0.10.13"
+zune-heic = "0.5.0"
 
 [build-dependencies]
 tar = "0.4.45"

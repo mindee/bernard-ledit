@@ -30,6 +30,14 @@ impl PyPdfPage {
         Ok(PageSize { width, height })
     }
 
+    fn get_bounding_box(&self, py: Python<'_>) -> PyResult<(f32, f32, f32, f32)> {
+        self.doc.borrow(py).with_doc(|d| {
+            d.page(self.index)
+                .and_then(|p| p.bounding_box())
+                .map_err(|e| format_pdf_err(&e))
+        })?
+    }
+
     fn is_empty(&self, py: Python<'_>) -> PyResult<bool> {
         let emptiness = self.doc.borrow(py).with_doc(|d| {
             d.page(self.index)

@@ -20,6 +20,8 @@ pub struct PyTextChar {
     font_flags: i32,
     #[pyo3(get)]
     bounds: (f32, f32, f32, f32),
+    #[pyo3(get)]
+    tight_bounds: (f32, f32, f32, f32),
 }
 
 #[pymethods]
@@ -34,9 +36,10 @@ impl PyTextChar {
         fill_color = None,
         font_flags = 0,
         bounds = (0.0, 0.0, 0.0, 0.0),
+        tight_bounds = None,
     ))]
     #[allow(clippy::too_many_arguments)]
-    const fn new(
+    fn new(
         char: char,
         font_name: String,
         font_size: f32,
@@ -45,6 +48,7 @@ impl PyTextChar {
         fill_color: Option<[u8; 4]>,
         font_flags: i32,
         bounds: (f32, f32, f32, f32),
+        tight_bounds: Option<(f32, f32, f32, f32)>,
     ) -> Self {
         Self {
             char,
@@ -55,6 +59,7 @@ impl PyTextChar {
             fill_color,
             font_flags,
             bounds,
+            tight_bounds: tight_bounds.unwrap_or(bounds),
         }
     }
 
@@ -77,6 +82,7 @@ impl From<RustTextChar> for PyTextChar {
             fill_color: value.fill_color,
             font_flags: value.font_flags,
             bounds: value.bounds.into(),
+            tight_bounds: value.tight_bounds.into(),
         }
     }
 }
@@ -92,6 +98,7 @@ impl From<&PyTextChar> for RustTextChar {
             fill_color: value.fill_color,
             font_flags: value.font_flags,
             bounds: value.bounds.into(),
+            tight_bounds: value.tight_bounds.into(),
         }
     }
 }

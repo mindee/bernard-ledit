@@ -144,6 +144,8 @@ def test_add_text_updates_text_and_chars(test_data_dir):
     assert len(chars) == 1
     assert chars[0].char == "A"
     assert chars[0].font_name == "Helvetica"
+    assert chars[0].bounds != (0.0, 0.0, 0.0, 0.0)
+    assert chars[0].tight_bounds != (0.0, 0.0, 0.0, 0.0)
 
 
 def test_append_jpeg_page(test_data_dir):

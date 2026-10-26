@@ -443,11 +443,12 @@ namespace {
          * @param array|null $fill_color
          * @param int $font_flags
          * @param array|null $bounds
+         * @param array|null $tight_bounds
          * @throws \Exception Throws a `ValueError` if `stroke_color` or `fill_color` is provided
          * @throws \Exception with a length other than 4, or if `bounds` is provided with a length
          * @throws \Exception other than 4.
          */
-        public function __construct(string $char, string $font_name, float $font_size, int $font_weight, ?array $stroke_color, ?array $fill_color, int $font_flags, ?array $bounds = null) {}
+        public function __construct(string $char, string $font_name, float $font_size, int $font_weight, ?array $stroke_color, ?array $fill_color, int $font_flags, ?array $bounds = null, ?array $tight_bounds = null) {}
 
         /**
          * Default debug info.

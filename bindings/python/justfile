@@ -1,4 +1,4 @@
-set shell := ["bash", "-c"]
+```set shell := ["bash", "-c"]
 
 # List the default tasks
 [private]

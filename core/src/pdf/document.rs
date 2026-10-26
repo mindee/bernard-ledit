@@ -502,6 +502,7 @@ mod tests {
             fill_color: None,
             font_flags: 0,
             bounds: [0.0, 0.0, 10.0, 10.0],
+            tight_bounds: [0.0, 0.0, 10.0, 10.0],
         }];
         doc.add_text(0, &chars).unwrap();
         assert_eq!(
@@ -540,6 +541,7 @@ mod tests {
                 fill_color: None,
                 font_flags: 0,
                 bounds: [0.0, 0.0, 10.0, 10.0],
+                tight_bounds: [0.0, 0.0, 10.0, 10.0],
             },
             TextChar {
                 char: 'C',
@@ -550,6 +552,7 @@ mod tests {
                 fill_color: None,
                 font_flags: 0,
                 bounds: [20.0, 0.0, 30.0, 10.0],
+                tight_bounds: [20.0, 0.0, 30.0, 10.0],
             },
             TextChar {
                 char: 'H',
@@ -560,6 +563,7 @@ mod tests {
                 fill_color: None,
                 font_flags: 1 << 6,
                 bounds: [40.0, 0.0, 50.0, 10.0],
+                tight_bounds: [40.0, 0.0, 50.0, 10.0],
             },
         ];
         doc.add_text(0, &chars).unwrap();

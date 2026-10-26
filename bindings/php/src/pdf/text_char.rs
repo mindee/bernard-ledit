@@ -25,6 +25,8 @@ pub struct PhpTextChar {
     font_flags: i32,
     /// Bounds of the character.
     bounds: (f32, f32, f32, f32),
+    /// Precise bounds of the character.
+    tight_bounds: (f32, f32, f32, f32),
 }
 /// Convert an optional Vec into a fixed 4-element array.
 /// `None` stays `None`; a provided Vec of the wrong length is an error.
@@ -73,7 +75,12 @@ impl PhpTextChar {
         fill_color: Option<Vec<u8>>,
         font_flags: i32,
         bounds: Option<Vec<f32>>,
+        tight_bounds: Option<Vec<f32>>,
     ) -> PhpResult<Self> {
+        let bounds = parse_bounds(bounds).map_err(value_error)?;
+        let tight_bounds = tight_bounds
+            .map_or(Ok(bounds), |values| parse_bounds(Some(values)))
+            .map_err(value_error)?;
         Ok(Self {
             char: char.chars().next().unwrap_or(' '),
             font_name,
@@ -82,7 +89,8 @@ impl PhpTextChar {
             stroke_color: vec_to_array(stroke_color, "stroke_color").map_err(value_error)?,
             fill_color: vec_to_array(fill_color, "fill_color").map_err(value_error)?,
             font_flags,
-            bounds: parse_bounds(bounds).map_err(value_error)?,
+            bounds,
+            tight_bounds,
         })
     }
 
@@ -98,6 +106,7 @@ impl PhpTextChar {
         info.insert("font_flags", self.font_flags.to_string());
 
         info.insert("bounds", format!("{:?}", self.bounds));
+        info.insert("tight_bounds", format!("{:?}", self.tight_bounds));
 
         info.insert(
             "stroke_color",
@@ -131,6 +140,7 @@ impl From<RustTextChar> for PhpTextChar {
             fill_color: value.fill_color,
             font_flags: value.font_flags,
             bounds: value.bounds.into(),
+            tight_bounds: value.tight_bounds.into(),
         }
     }
 }
@@ -146,6 +156,7 @@ impl From<&RustTextChar> for PhpTextChar {
             font_flags: value.font_flags,
             font_name: value.font_name.clone(),
             bounds: value.bounds.into(),
+            tight_bounds: value.tight_bounds.into(),
         }
     }
 }
@@ -160,6 +171,7 @@ impl From<&PhpTextChar> for RustTextChar {
             fill_color: value.fill_color,
             font_flags: value.font_flags,
             bounds: value.bounds.into(),
+            tight_bounds: value.tight_bounds.into(),
         }
     }
 }
@@ -180,6 +192,7 @@ mod tests {
             fill_color: Some([5, 6, 7, 8]),
             font_flags: 32,
             bounds: [0.0, 1.0, 2.0, 3.0],
+            tight_bounds: [0.0, 1.0, 2.0, 3.0],
         }
     }
 

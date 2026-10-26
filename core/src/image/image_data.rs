@@ -1,8 +1,13 @@
 use crate::image::ImageError;
 use ::image::imageops::FilterType;
-use ::image::{DynamicImage, ImageFormat};
+use ::image::{
+    DynamicImage, GrayAlphaImage, GrayImage, ImageDecoder, ImageFormat, RgbImage, RgbaImage,
+};
 use image::ImageReader;
 use std::io::Cursor;
+use zune_heic::HeifDecoder;
+use zune_heic::zune_core::bytestream::ZCursor;
+use zune_heic::zune_core::colorspace::ColorSpace;
 
 /// A decoded raster image plus the format it was decoded from (if known).
 pub struct Image {
@@ -101,6 +106,73 @@ pub fn parse_output_format(name: &str) -> Result<OutputFormat, ImageError> {
     }
     parse_format(name).map(OutputFormat::Image)
 }
+
+fn is_heif(data: &[u8]) -> bool {
+    if data.get(4..8) != Some(b"ftyp") || data.len() < 12 {
+        return false;
+    }
+
+    let declared_size = u32::from_be_bytes(data[..4].try_into().unwrap()) as usize;
+    let box_end = if declared_size == 0 {
+        data.len()
+    } else {
+        declared_size.min(data.len())
+    };
+    let has_brand = |brand: &[u8; 4]| {
+        data.get(8..12) == Some(brand.as_slice())
+            || (16..box_end.saturating_sub(3))
+                .step_by(4)
+                .any(|offset| data.get(offset..offset + 4) == Some(brand.as_slice()))
+    };
+
+    if has_brand(b"avif") || has_brand(b"avis") {
+        return false;
+    }
+
+    [
+        b"heic", b"heix", b"hevc", b"hevx", b"mif1", b"msf1", b"heif",
+    ]
+    .iter()
+    .any(|brand| has_brand(brand))
+}
+
+fn decode_heif(data: &[u8]) -> Result<DynamicImage, ImageError> {
+    let mut decoder = HeifDecoder::new(ZCursor::new(data));
+    let pixels = decoder
+        .decode()
+        .map_err(|error| ImageError::Decode(error.to_string()))?;
+    let width = decoder
+        .width()
+        .and_then(|width| u32::try_from(width).ok())
+        .ok_or_else(|| ImageError::Decode("invalid HEIF image width".to_string()))?;
+    let height = decoder
+        .height()
+        .and_then(|height| u32::try_from(height).ok())
+        .ok_or_else(|| ImageError::Decode("invalid HEIF image height".to_string()))?;
+
+    let invalid_pixels = || ImageError::Decode("invalid HEIF pixel buffer".to_string());
+    match decoder.colorspace() {
+        Some(ColorSpace::RGB) => RgbImage::from_raw(width, height, pixels)
+            .map(DynamicImage::ImageRgb8)
+            .ok_or_else(invalid_pixels),
+        Some(ColorSpace::RGBA) => RgbaImage::from_raw(width, height, pixels)
+            .map(DynamicImage::ImageRgba8)
+            .ok_or_else(invalid_pixels),
+        Some(ColorSpace::Luma) => GrayImage::from_raw(width, height, pixels)
+            .map(DynamicImage::ImageLuma8)
+            .ok_or_else(invalid_pixels),
+        Some(ColorSpace::LumaA) => GrayAlphaImage::from_raw(width, height, pixels)
+            .map(DynamicImage::ImageLumaA8)
+            .ok_or_else(invalid_pixels),
+        Some(colorspace) => Err(ImageError::UnsupportedFormat(format!(
+            "unsupported HEIF output colorspace: {colorspace:?}"
+        ))),
+        None => Err(ImageError::Decode(
+            "missing HEIF output colorspace".to_string(),
+        )),
+    }
+}
+
 impl std::str::FromStr for Filter {
     type Err = ImageError;
 
@@ -134,14 +206,25 @@ impl Image {
     /// # Errors
     /// Returns an error if the image data is invalid or the format is not supported.
     pub fn decode(data: &[u8]) -> Result<Self, ImageError> {
-        let inner = ImageReader::new(Cursor::new(data))
-            .with_guessed_format()
-            .map_err(|e| ImageError::Decode(e.to_string()))?;
         let source_len = Some(data.len());
-        let format = inner.format();
-        let decoded = inner
-            .decode()
-            .map_err(|e| ImageError::Decode(e.to_string()))?;
+        let (format, decoded) = if is_heif(data) {
+            (None, decode_heif(data)?)
+        } else {
+            let reader = ImageReader::new(Cursor::new(data))
+                .with_guessed_format()
+                .map_err(|e| ImageError::Decode(e.to_string()))?;
+            let format = reader.format();
+            let mut decoder = reader
+                .into_decoder()
+                .map_err(|e| ImageError::Decode(e.to_string()))?;
+            let orientation = decoder
+                .orientation()
+                .map_err(|e| ImageError::Decode(e.to_string()))?;
+            let mut decoded = DynamicImage::from_decoder(decoder)
+                .map_err(|e| ImageError::Decode(e.to_string()))?;
+            decoded.apply_orientation(orientation);
+            (format, decoded)
+        };
         Ok(Self {
             inner: decoded,
             format,
@@ -405,6 +488,7 @@ pub fn compress_image(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ::image::metadata::Orientation;
     use ::image::{ImageFormat, RgbImage};
     use std::io::Cursor;
     use std::str::FromStr;
@@ -419,6 +503,51 @@ mod tests {
             .write_to(&mut cursor, format)
             .expect("failed to encode synthetic image");
         cursor.into_inner()
+    }
+
+    fn add_exif_orientation(jpeg: &[u8], orientation: u8) -> Vec<u8> {
+        let exif = [
+            b'E',
+            b'x',
+            b'i',
+            b'f',
+            0,
+            0,
+            b'I',
+            b'I',
+            42,
+            0,
+            8,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0x12,
+            0x01,
+            3,
+            0,
+            1,
+            0,
+            0,
+            0,
+            orientation,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        ];
+        let segment_len = u16::try_from(exif.len() + 2).unwrap();
+        let mut encoded = Vec::with_capacity(jpeg.len() + exif.len() + 4);
+        encoded.extend_from_slice(&jpeg[..2]);
+        encoded.extend_from_slice(&[0xFF, 0xE1]);
+        encoded.extend_from_slice(&segment_len.to_be_bytes());
+        encoded.extend_from_slice(&exif);
+        encoded.extend_from_slice(&jpeg[2..]);
+        encoded
     }
 
     #[test]
@@ -526,6 +655,20 @@ mod tests {
         let img = Image::decode(&bytes).unwrap();
         assert_eq!(img.size(), (20, 10));
         assert_eq!(img.format(), Some(ImageFormat::Png));
+    }
+
+    #[test]
+    fn decode_applies_all_exif_orientations() {
+        let jpeg = synth_bytes(3, 2, ImageFormat::Jpeg);
+        let untransformed = Image::decode(&jpeg).unwrap();
+
+        for exif_orientation in 1..=8 {
+            let encoded = add_exif_orientation(&jpeg, exif_orientation);
+            let actual = Image::decode(&encoded).unwrap();
+            let mut expected = untransformed.inner.clone();
+            expected.apply_orientation(Orientation::from_exif(exif_orientation).unwrap());
+            assert_eq!(actual.inner.to_rgba8(), expected.to_rgba8());
+        }
     }
 
     #[test]

@@ -19,12 +19,15 @@ pub struct TextChar {
     pub font_flags: i32,
     /// Character bounding box.
     pub bounds: [f32; 4],
+    /// Precise character bounding box, taking the glyph shape into account.
+    pub tight_bounds: [f32; 4],
 }
 
 impl TryFrom<PdfPageTextChar<'_>> for TextChar {
     type Error = PdfError;
     fn try_from(char: PdfPageTextChar<'_>) -> Result<Self, Self::Error> {
         let char_bounds = char.loose_bounds()?;
+        let tight_bounds = char.tight_bounds()?;
         Ok(Self {
             char: char
                 .unicode_char()
@@ -46,6 +49,12 @@ impl TryFrom<PdfPageTextChar<'_>> for TextChar {
                 char_bounds.left().value,
                 char_bounds.top().value,
                 char_bounds.right().value,
+            ],
+            tight_bounds: [
+                tight_bounds.bottom().value,
+                tight_bounds.left().value,
+                tight_bounds.top().value,
+                tight_bounds.right().value,
             ],
         })
     }
@@ -81,6 +90,7 @@ impl Default for TextChar {
             fill_color: Some([0, 0, 0, 255]),
             font_flags: 0,
             bounds: [0.0, 0.0, 0.0, 0.0],
+            tight_bounds: [0.0, 0.0, 0.0, 0.0],
         }
     }
 }
