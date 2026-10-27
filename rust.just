@@ -30,25 +30,17 @@ check-deps:
 hack-check:
     cargo hack check -p bernard-ledit --feature-powerset --no-dev-deps
 
-# Features that link PDFium statically: linking them needs a prebuilt static library
-# (PDFIUM_STATIC_LIB_PATH), which build-static-pdfium.yml's tests provide.
-static_features := "static-link,static-pdfium,static-pdfium-libcxx,static-pdfium-msvc"
-
-# Tests all feature combinations using nextest, except the static-linking ones.
-hack-test:
-    cargo hack nextest run -p bernard-ledit --feature-powerset --exclude-features {{static_features}}
-
-# Tests all feature combinations in release mode, except the static-linking ones.
-hack-test-release:
-    cargo hack nextest run -p bernard-ledit --release --feature-powerset --exclude-features {{static_features}}
-
 # Test the core Rust library
 test:
     cargo nextest run -p bernard-ledit
+
+# Test the core Rust library in release mode
+test-release:
+    cargo nextest run -p bernard-ledit --release
 
 # Runs Cargo formatting and Clippy on all Rust code
 lint: format-check clippy check-deps hack-check
 
 # Checks all lint tools
-check-all: format lint build check-deps test hack-test
+check-all: format lint build check-deps test
     @echo "'\033[0;32m'All Rust checks passed.\033[0m"

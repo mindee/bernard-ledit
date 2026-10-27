@@ -44,6 +44,6 @@ jobs:
     with:
       java-versions: '["11", "17", "21"]'
 
-  hack-test-release:
-    uses: ./.github/workflows/_hack-test-release.yml
+  test-release:
+    uses: ./.github/workflows/_test-release.yml
     needs: unit-tests

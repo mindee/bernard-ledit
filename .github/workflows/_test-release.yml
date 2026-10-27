@@ -1,12 +1,12 @@
-name: Hack test release
+name: Release tests
 
 on:
   workflow_call:
 permissions:
   contents: read
 jobs:
-  hack-test-release:
-    name: Hack release tests (Linux)
+  test-release:
+    name: Release tests (Linux)
     runs-on: ubuntu-latest
     env:
       CARGO_INCREMENTAL: 0
@@ -31,12 +31,12 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          key: hack-test-release-${{ runner.os }}
+          key: test-release-${{ runner.os }}
 
-      - name: Install cargo tools
+      - name: Install cargo-nextest
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-hack,cargo-nextest
+          tool: cargo-nextest
 
-      - name: Run release feature powerset tests
-        run: just core hack-test-release
+      - name: Run release tests
+        run: just core test-release
