@@ -1,5 +1,10 @@
 # Bernard l'Édit Changelog
 
+## v0.1.0 - 2026-10-27
+### Changes
+* :tada: first stable release!
+
+
 ## v0.1.0-alpha2 - 2026-10-26
 ### Fixes
 * :bug: fix release script
