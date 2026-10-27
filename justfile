@@ -36,14 +36,13 @@ format:
 check:
     @just core check-all
 
-
 # Runs the important checks and test suites, stopping at the first failure
 check-all:
     #!/usr/bin/env bash
     # Runs the checks CI runs and the binding test suites, cheapest first, and stops at the first
     # failure. Nothing gets formatted or fixed, but a failing PHP stubs check leaves the regenerated
-    # stubs in place. The Python checks need an active virtualenv with maturin; the static PHP build
-    # is tested only when PDFIUM_STATIC_LIB_PATH is set.
+    # stubs in place. The Python checks need an active virtualenv with maturin; the PHP stubs are
+    # checked on Linux only, and the static PHP build only when PDFIUM_STATIC_LIB_PATH is set.
     set -uo pipefail
     trap 'printf "\nInterrupted.\n" >&2; exit 130' INT
     if [ -t 1 ]; then
@@ -97,7 +96,12 @@ check-all:
     run_check just python test
 
     run_check just php build
-    run_check just php stubs-check
+    # The stub generator only runs on Linux (see bindings/php/tools/stubs/generate.sh); CI checks the stubs there.
+    if [ "$(uname -s)" = Linux ]; then
+        run_check just php stubs-check
+    else
+        skip_check "just php stubs-check" "the stub generator runs on Linux only; CI checks it"
+    fi
     run_check just php test
     if [ -n "${PDFIUM_STATIC_LIB_PATH:-}" ]; then
         run_check just php test-static
