@@ -25,10 +25,7 @@ impl<'a> Page<'a> {
     /// Returns a `PdfError` if the page crop box cannot be determined.
     pub fn bounding_box(&self) -> Result<(f32, f32, f32, f32), PdfError> {
         let boundaries = self.inner.boundaries();
-        let bounds = boundaries
-            .crop()
-            .or_else(|_| boundaries.media())?
-            .bounds;
+        let bounds = boundaries.crop().or_else(|_| boundaries.media())?.bounds;
         Ok((
             bounds.left().value,
             bounds.bottom().value,
