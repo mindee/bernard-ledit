@@ -304,3 +304,31 @@ def test_compress_text_pdf_is_noop(test_data_dir):
 
     with PdfDocument(data) as doc:
         assert doc.compress() is None
+
+
+def test_document_iterator_stays_exhausted_after_append(test_data_dir):
+    doc = PdfDocument((test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes())
+    src = PdfDocument((test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes())
+    it = iter(doc)
+
+    assert len(list(it)) == 1
+    doc.import_pages(src, [0])
+
+    # Python requires an exhausted iterator to stay exhausted.
+    with pytest.raises(StopIteration):
+        next(it)
+    # A new iterator sees the appended page.
+    assert len(list(iter(doc))) == 2
+
+
+def test_document_iterator_includes_pages_appended_while_iterating(test_data_dir):
+    doc = PdfDocument((test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes())
+    src = PdfDocument((test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes())
+    it = iter(doc)
+
+    next(it)
+    doc.import_pages(src, [0])
+
+    assert isinstance(next(it), PdfPage)
+    with pytest.raises(StopIteration):
+        next(it)
