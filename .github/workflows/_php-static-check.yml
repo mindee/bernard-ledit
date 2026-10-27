@@ -102,7 +102,7 @@ jobs:
 
       - name: Keep the PIE asset for the release
         if: env.RELEASE_TAG != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pie-${{ matrix.platform.pdfium_target }}-php${{ matrix.php }}-${{ matrix.thread_safety }}
           path: dist/
@@ -160,7 +160,7 @@ jobs:
 
       - name: Keep the PIE asset for the release
         if: env.RELEASE_TAG != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pie-${{ matrix.platform.pdfium_target }}-php${{ matrix.php }}-${{ matrix.thread_safety }}
           path: dist/
@@ -242,7 +242,7 @@ jobs:
 
       - name: Keep the PIE asset for the release
         if: env.RELEASE_TAG != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pie-${{ matrix.pdfium_target }}-php${{ matrix.php }}-${{ matrix.thread_safety }}
           path: dist/
