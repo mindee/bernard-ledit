@@ -8,3 +8,17 @@
 +
 +[patch.crates-io]
 +ext-php-rs-introspection = { path = "../ext-php-rs-introspection-0.2.1" }
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -28,6 +28,11 @@
+ #[cfg(not(windows))]
+ include!("../allowed_bindings.rs");
+
++// PHP 8.4.27 and 8.5.12 added fallible allocators. In an unoptimised build, the extension's
++// `zend_string_init` wrapper references `_femalloc` even though it never calls it.
++#[cfg(not(windows))]
++cargo_php::stub_symbols!(_femalloc, _fecalloc, _ferealloc, _ferealloc2, _safe_femalloc, _safe_ferealloc);
++
+ // Real implementations for PHP allocator functions used during stub generation.
+ // These use the system allocator since PHP's memory manager isn't available.
+

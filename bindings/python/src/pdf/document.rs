@@ -17,8 +17,12 @@ pub struct PyPdfDocument {
 /// Iterator over the pages of a [`PyPdfDocument`], returned by `iter(pdf)`.
 #[pyclass(name = "PdfPageIterator", module = "bernard_ledit.pdf")]
 pub struct PyPdfPageIterator {
+    /// Python document handle.
     doc: Py<PyPdfDocument>,
+    /// Next page.
     next: u16,
+    /// Iterator exhausted.
+    exhausted: bool,
 }
 
 /// Iterator protocol.
@@ -34,8 +38,12 @@ impl PyPdfPageIterator {
     /// Returns the next page, or stops once past the last one. The page count is read on each
     /// call, so pages appended while iterating are included.
     fn __next__(mut slf: PyRefMut<'_, Self>) -> PyResult<Option<PyPdfPage>> {
+        if slf.exhausted {
+            return Ok(None);
+        }
         let doc = slf.doc.bind(slf.py()).clone();
         if usize::from(slf.next) >= doc.borrow().__len__()? {
+            slf.exhausted = true;
             return Ok(None);
         }
         let page = PyPdfDocument::get_page(doc, slf.next)?;
@@ -231,6 +239,7 @@ impl PyPdfDocument {
         PyPdfPageIterator {
             doc: slf.unbind(),
             next: 0,
+            exhausted: false,
         }
     }
 

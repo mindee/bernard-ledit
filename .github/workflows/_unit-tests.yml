@@ -1,50 +1,106 @@
-name: Unit tests
+name: Unit Tests without PDF support
 
 on:
   workflow_call:
 
-permissions:
-  contents: read
+env:
+  # The bernard-ledit release the tests install with PIE.
+  BERNARD_LEDIT_VERSION: "0.1.0-alpha2"
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
-  unit-tests:
-    name: Test (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    env:
-      CARGO_INCREMENTAL: 0
-
+  no-pdf:
+    name: Unit Tests on ${{ matrix.os }} without PDF support (PHP ${{ matrix.php-version }})
+    timeout-minutes: 30
     strategy:
       fail-fast: false
+      # Oldest and newest PHP on each OS: the code without the extension doesn't vary in between.
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+        php-version:
+          - "8.1"
+          - "8.5"
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
         with:
           submodules: recursive
 
-      - name: Cache PDFium binary
-        uses: actions/cache@v6
+      - name: Set up PHP ${{ matrix.php-version }}
+        uses: shivammathur/setup-php@v2
         with:
-          path: core/.pdfium_cache
-          key: pdfium-${{ runner.os }}-${{ hashFiles('core/build.rs') }}
-          restore-keys: |
-            pdfium-${{ runner.os }}-
+          php-version: ${{ matrix.php-version }}
+          extensions: curl, fileinfo, json
 
-      - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@1.99.0
+      - name: Install dependencies
+        uses: ramsey/composer-install@v3
 
-      - uses: extractions/setup-just@v4
+      - name: Unit testing with phpunit
+        env:
+          MINDEE_API_KEY: ${{ secrets.MINDEE_API_KEY_SE_TESTS }}
+        run: php vendor/bin/phpunit -c tests/pdffeatures.xml
 
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
+  with-pdf:
+    name: Unit Tests on ${{ matrix.os }} with PDF support (PHP ${{ matrix.php-version }})
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      # Every PHP version on Linux; the oldest and newest on macOS and Windows. On Windows, they also
+      # cover both compilers the extension is built with (8.1-8.3: VS16, 8.4+: VS17).
+      matrix:
+        os:
+          - ubuntu-latest
+        php-version:
+          - "8.1"
+          - "8.2"
+          - "8.3"
+          - "8.4"
+          - "8.5"
+        include:
+          - { os: macos-latest, php-version: "8.1" }
+          - { os: macos-latest, php-version: "8.5" }
+          - { os: windows-latest, php-version: "8.1" }
+          - { os: windows-latest, php-version: "8.5" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
         with:
-          key: ${{ matrix.os }}
+          submodules: recursive
 
-      - name: Install cargo-nextest
-        uses: taiki-e/install-action@v2
+      - name: Set up PHP ${{ matrix.php-version }}
+        uses: shivammathur/setup-php@v2
         with:
-          tool: cargo-nextest
+          php-version: ${{ matrix.php-version }}
+          extensions: curl, fileinfo, json
+          tools: pie
 
-      - name: Run core tests
-        run: just core test
+      - name: Install bernard-ledit extension
+        if: runner.os != 'Windows'
+        run: bash tools/install-bernard-ledit.sh "$BERNARD_LEDIT_VERSION"
+
+      # The install script is written for Linux and macOS; on Windows, PIE also enables the
+      # extension in php.ini.
+      - name: Install bernard-ledit extension (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          pie install "mindee/bernard-ledit:$env:BERNARD_LEDIT_VERSION"
+          if (-not (php -m | Select-String -Pattern '^bernard_ledit$' -Quiet)) {
+            Write-Error "bernard_ledit did not load"
+            exit 1
+          }
+          php -r 'echo "bernard_ledit ", phpversion("bernard_ledit"), PHP_EOL;'
+
+      - name: Install dependencies
+        uses: ramsey/composer-install@v3
+
+      - name: Unit testing with phpunit
+        env:
+          MINDEE_API_KEY: ${{ secrets.MINDEE_API_KEY_SE_TESTS }}
+        run: php vendor/bin/phpunit -c tests/phpunit.xml

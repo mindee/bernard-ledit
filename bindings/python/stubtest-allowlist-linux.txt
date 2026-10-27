@@ -1,0 +1,4 @@
+# core's build script copies PDFium next to the extension, as bernard_ledit/libpdfium.so, and
+# stubtest takes any .so in the package for an extension module it can't import. Linux only:
+# PDFium is a .dylib on macOS and a .dll on Windows, which stubtest ignores.
+bernard_ledit\.libpdfium
