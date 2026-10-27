@@ -305,6 +305,7 @@ def test_compress_text_pdf_is_noop(test_data_dir):
     with PdfDocument(data) as doc:
         assert doc.compress() is None
 
+
 def test_document_iterator_stays_exhausted_after_append(test_data_dir):
     doc = PdfDocument((test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes())
     src = PdfDocument((test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes())
