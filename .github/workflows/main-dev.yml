@@ -49,14 +49,44 @@ jobs:
     uses: ./.github/workflows/_hack-test-release.yml
     needs: unit-tests
 
+  # The tag a version commit (":bookmark: Version X.Y.Z") gets: v + the workspace version in
+  # Cargo.toml, which the commit message must name. Empty for any other commit.
+  version:
+    name: Read the release version
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Compare the commit message with Cargo.toml
+        id: version
+        env:
+          MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          if [[ "$MESSAGE" != *":bookmark:"* ]]; then
+            echo "tag=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          version="$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["workspace"]["package"]["version"])')"
+          named="$(grep -oE 'Version [0-9]+\.[0-9]+\.[0-9]+([-.](alpha|beta|rc)[0-9])?' <<< "$MESSAGE" | head -n 1 | cut -d' ' -f2 || true)"
+          if [ "$named" != "$version" ]; then
+            echo "::error::The commit message names version '$named', but Cargo.toml has $version"
+            exit 1
+          fi
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
   # Builds any missing static PDFium library, then tests the PHP extension against all of them.
+  # On a version commit, it also packages each tested extension for PIE, as a workflow artifact.
   static-pdfium:
     uses: ./.github/workflows/build-static-pdfium.yml
-    needs: pre-commit
+    needs: [ pre-commit, version ]
+    with:
+      release-tag: ${{ needs.version.outputs.tag }}
     permissions:
       contents: write
 
-  # Only runs for a ":bookmark: Version X.Y.Z" commit, once everything above has passed.
+  # Only runs for a version commit, once everything above has passed, PIE packaging included.
   tag:
     if: contains(github.event.head_commit.message, ':bookmark:')
     uses: mindee/client-lib-actions/.github/workflows/tag-version.yml@main
@@ -69,7 +99,36 @@ jobs:
     permissions:
       contents: write
 
+  # Creates the release as a draft, which nobody sees until publish-release makes it public.
   release:
     uses: ./.github/workflows/_create-release.yml
     needs: tag
-    secrets: inherit
+    permissions:
+      contents: write
+
+  # Uploads the PIE archives static-pdfium packaged, then publishes the release. If this fails, the
+  # release stays a draft: re-run the failed jobs.
+  publish-release:
+    name: Upload the PIE archives and publish the release
+    needs: [ version, release ]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Collect the PIE archives
+        uses: actions/download-artifact@v4
+        with:
+          pattern: pie-*
+          merge-multiple: true
+          path: dist
+
+      - name: Upload them, then publish the release
+        working-directory: dist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          ls -1 ./*.zip
+          sha256sum ./*.zip > SHA256SUMS-php
+          gh release upload "$TAG" ./*.zip SHA256SUMS-php --clobber --repo "$GITHUB_REPOSITORY"
+          gh release edit "$TAG" --draft=false --repo "$GITHUB_REPOSITORY"

@@ -31,12 +31,6 @@ jobs:
           restore-keys: |
             pdfium-${{ runner.os }}-
 
-      - name: Install PHP dev headers (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends php-dev libphp-embed libclang-dev
-
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@1.99.0
 
@@ -51,19 +45,6 @@ jobs:
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-nextest
-
-      - name: Make libphp discoverable (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          lib="$(find /usr/lib /usr/local/lib -name 'libphp*.so*' 2>/dev/null | sort | head -n 1)"
-          if [ -z "$lib" ]; then
-            echo "::error::No libphp*.so found: libphp-embed is not installed"
-            exit 1
-          fi
-          echo "Found: $lib"
-          dir="$(dirname "$lib")"
-          [ -e "$dir/libphp.so" ] || sudo ln -s "$lib" "$dir/libphp.so"
-          echo "LD_LIBRARY_PATH=$dir:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
 
       - name: Run core tests
         run: just core test
