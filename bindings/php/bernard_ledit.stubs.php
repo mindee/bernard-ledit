@@ -1,4 +1,5 @@
 <?php
+// bernard-ledit v0.1.0
 
 // Stubs for bernard_ledit
 
@@ -13,26 +14,27 @@ namespace BernardLedit\Image {
         public function __construct(string $data) {}
 
         /**
-         * Crops a rendered page's image from a given bounding box.
+         * Crops the image to the box from (`$left`, `$top`) to (`$right`, `$bottom`), in pixels; the
+         * right and bottom edges are excluded.
          *
-         * @param int $left
-         * @param int $top
-         * @param int $right
-         * @param int $bottom
+         * @param int<0, 4294967295> $left
+         * @param int<0, 4294967295> $top
+         * @param int<0, 4294967295> $right
+         * @param int<0, 4294967295> $bottom
          * @return \BernardLedit\Image\Image
-         * @throws \ValueError if the box is empty or extends past the image.
+         * @throws \ValueError if a coordinate is out of range, or the box is empty or extends past the image.
          */
         public function crop(int $left, int $top, int $right, int $bottom): \BernardLedit\Image\Image {}
 
         /**
          * Returns the encoded bytes as a PHP string.
          *
-         * @param string $format
-         * @param int $quality
+         * @param string $format An output format: `"JPEG"`, `"PNG"`, `"PDF"`, etc.
+         * @param int<1, 100> $quality Only used by JPEG and PDF.
          * @param bool $optimize
          * @return string
-         * @throws \ValueError if `$format` isn't a supported output format.
-         * @throws \BernardLedit\Image\ImageException if encoding fails, or `$quality` is outside 1-100 for JPEG and PDF.
+         * @throws \ValueError if `$format` isn't a supported output format, or `$quality` is out of range.
+         * @throws \BernardLedit\Image\ImageException if encoding fails.
          */
         public function encode(string $format, int $quality = 85, bool $optimize = true): string {}
 
@@ -51,9 +53,9 @@ namespace BernardLedit\Image {
         public function getHeight(): int {}
 
         /**
-         * Dimensions as `[width, height]`.
+         * Dimensions in pixels.
          *
-         * @return array
+         * @return array{0: int, 1: int} `[$width, $height]`.
          */
         public function getSize(): array {}
 
@@ -65,34 +67,28 @@ namespace BernardLedit\Image {
         public function getWidth(): int {}
 
         /**
-         * Resizes an image using dimensions and a filter.
+         * Resizes the image to `$width` by `$height` pixels, with a Lanczos filter.
          *
-         * @param int $width
-         * @param int $height
+         * @param int<1, 4294967295> $width
+         * @param int<1, 4294967295> $height
          * @return \BernardLedit\Image\Image
-         * @throws \ValueError if `$width` or `$height` is 0.
+         * @throws \ValueError if `$width` or `$height` is out of range.
          */
         public function resize(int $width, int $height): \BernardLedit\Image\Image {}
     }
 
     /**
-     * `BernardLedit\Image\ImageException extends \Exception`: input that isn't an identifiable or
-     * decodable image, and encoding failures.
-     */
-    class ImageException extends \Exception {
-        public function __construct() {}
-    }
-
-    /**
-     * Compresses an image, as `[string $bytes, int $width, int $height]`.
+     * Compresses an image as a JPEG, scaled down to fit `$max_width` and `$max_height`. Returns the
+     * input unchanged if that doesn't make it smaller.
      *
      * @param string $data
-     * @param int $quality
-     * @param int|null $max_width
-     * @param int|null $max_height
+     * @param int<5, 100> $quality
+     * @param int<1, 4294967295>|null $max_width
+     * @param int<1, 4294967295>|null $max_height
      * @param bool|null $optimize
-     * @return array
-     * @throws \BernardLedit\Image\ImageException if `$data` isn't an identifiable image, or can't be decoded; if `$quality` is outside 5-100; or if encoding fails.
+     * @return array{0: string, 1: int, 2: int} `[$bytes, $width, $height]`.
+     * @throws \ValueError if `$quality`, `$max_width` or `$max_height` is out of range.
+     * @throws \BernardLedit\Image\ImageException if `$data` isn't an identifiable image, or can't be decoded or encoded.
      */
     function compress(string $data, int $quality = 85, ?int $max_width = null, ?int $max_height = null, ?bool $optimize = null): array {}
 
@@ -106,14 +102,14 @@ namespace BernardLedit\Image {
     function decode(string $data): \BernardLedit\Image\Image {}
 
     /**
-     * Extracts polygons from page `$page_id` of a PDF or an image.
+     * Crops one image per polygon from page `$page_id` of a PDF, rendered at `$dpi`, or of an image.
      *
      * @param string $data
-     * @param int $page_id
-     * @param array $polygons
-     * @param float $dpi
-     * @return array
-     * @throws \ValueError if a point doesn't have exactly two coordinates, a polygon is empty or falls outside the page, or there's no page `$page_id`.
+     * @param int<0, 65535> $page_id 0 for an image.
+     * @param list<list<array{0: float, 1: float}>> $polygons Points as `[$x, $y]`, relative to the page's width and height.
+     * @param float $dpi A finite number between 1 and 1200; unused for an image.
+     * @return list<\BernardLedit\Image\Image> One image per polygon, in the same order.
+     * @throws \ValueError if `$page_id` or `$dpi` is out of range, a point doesn't have exactly two coordinates, a polygon is empty or falls outside the page, or there's no page `$page_id`.
      * @throws \BernardLedit\Image\ImageException if `$data` is neither a PDF nor an identifiable, decodable image.
      * @throws \BernardLedit\Pdf\PdfiumException if `PDFium` can't be loaded, or can't read or render the PDF.
      */
@@ -130,6 +126,53 @@ namespace BernardLedit\Image {
 }
 
 namespace BernardLedit\Pdf {
+    class PdfBitmap {
+        public function __construct() {}
+
+        /**
+         * Debug info.
+         *
+         * @return array<string, string>
+         */
+        public function __debugInfo(): array {}
+
+        /**
+         * String rep.
+         *
+         * @return string
+         */
+        public function __toString(): string {}
+
+        /**
+         * Height in pixels.
+         *
+         * @return int
+         */
+        public function getHeight(): int {}
+
+        /**
+         * Width in pixels.
+         *
+         * @return int
+         */
+        public function getWidth(): int {}
+
+        /**
+         * Raw RGBA8 pixel buffer (row-major, 4 bytes per pixel).
+         *
+         * @return string
+         */
+        public function toBytes(): string {}
+
+        /**
+         * Encode the bitmap as a PNG byte stream.
+         *
+         * @return string
+         * @throws \BernardLedit\Image\ImageException if PNG encoding fails.
+         */
+        public function toPngBytes(): string {}
+    }
+
     class PdfDocument {
         /**
          * Create a new instance from bytes.
@@ -142,10 +185,10 @@ namespace BernardLedit\Pdf {
         /**
          * Append text to a page.
          *
-         * @param int $page_idx
-         * @param array $chars
+         * @param int<0, 65535> $page_idx
+         * @param list<\BernardLedit\Pdf\TextChar> $chars
          * @return void
-         * @throws \ValueError if there's no page `$page_idx`.
+         * @throws \ValueError if `$page_idx` is out of range, or there's no page `$page_idx`.
          * @throws \BernardLedit\Pdf\PdfiumException if `PDFium` can't add the text.
          * @throws \Exception if the document is closed.
          */
@@ -165,7 +208,7 @@ namespace BernardLedit\Pdf {
         /**
          * Append multiple JPEG pages to the document.
          *
-         * @param array $jpegs
+         * @param list<string> $jpegs
          * @return void
          * @throws \BernardLedit\Image\ImageException if one of `$jpegs` is invalid, truncated or in an unsupported color space.
          * @throws \BernardLedit\Pdf\PdfiumException if `PDFium` can't append a page.
@@ -193,11 +236,12 @@ namespace BernardLedit\Pdf {
          * Recompresses pages that have no text layer (scans) as JPEG.
          * Returns `null` when there is nothing to gain (e.g. text-only documents).
          *
-         * @param int $quality
+         * @param int<5, 100> $quality
          * @param bool $optimize
-         * @param float $dpi
+         * @param float $dpi A finite number between 1 and 1200.
          * @return \BernardLedit\Pdf\PdfDocument|null
-         * @throws \BernardLedit\Image\ImageException if `$quality` is outside 5-100, or JPEG encoding fails.
+         * @throws \ValueError if `$quality` or `$dpi` is out of range.
+         * @throws \BernardLedit\Image\ImageException if JPEG encoding fails.
          * @throws \BernardLedit\Pdf\PdfiumException if `PDFium` can't render a page, or build the new document.
          * @throws \Exception if the document is closed.
          */
@@ -214,9 +258,9 @@ namespace BernardLedit\Pdf {
         /**
          * Return the specified page.
          *
-         * @param int $index
+         * @param int<0, 65535> $index
          * @return \BernardLedit\Pdf\PdfPage
-         * @throws \ValueError if there's no page `$index`.
+         * @throws \ValueError if `$index` is out of range, or there's no page `$index`.
          * @throws \BernardLedit\Pdf\PdfiumException if `PDFium` can't load the page.
          * @throws \Exception if the document is closed.
          */
@@ -262,22 +306,22 @@ namespace BernardLedit\Pdf {
          * Append pages `indexes` of `$src` to `$this`.
          *
          * @param \BernardLedit\Pdf\PdfDocument $src
-         * @param array $indexes
+         * @param list<int<0, 65535>> $indexes
          * @return void
-         * @throws \ValueError if `$src` is this document, or has no page at one of `$indexes`.
+         * @throws \ValueError if an index is out of range, `$src` is this document, or `$src` has no page at one of `$indexes`.
          * @throws \BernardLedit\Pdf\PdfiumException if `PDFium` can't copy the pages.
          * @throws \Exception if either document is closed.
          */
         public function importPages(\BernardLedit\Pdf\PdfDocument $src, array $indexes): void {}
 
         /**
-         * Rasterizes a page from a given index as a JPEG.
+         * Rasterizes a page from a given index as a JPEG, at 72 DPI.
          *
-         * @param int $index
-         * @param int $quality
+         * @param int<0, 65535> $index
+         * @param int<1, 100> $quality
          * @return string
-         * @throws \ValueError if there's no page `$index`.
-         * @throws \BernardLedit\Image\ImageException if `$quality` is above 100, or JPEG encoding fails.
+         * @throws \ValueError if `$index` or `$quality` is out of range, or there's no page `$index`.
+         * @throws \BernardLedit\Image\ImageException if JPEG encoding fails.
          * @throws \BernardLedit\Pdf\PdfiumException if `PDFium` can't render the page.
          * @throws \Exception if the document is closed.
          */
@@ -290,7 +334,7 @@ namespace BernardLedit\Pdf {
         /**
          * Returns the characters on the page.
          *
-         * @return array
+         * @return list<\BernardLedit\Pdf\TextChar>
          * @throws \BernardLedit\Pdf\PdfiumException if `PDFium` can't read the page's characters.
          * @throws \Exception if the document is closed.
          */
@@ -304,9 +348,9 @@ namespace BernardLedit\Pdf {
         public function getIndex(): int {}
 
         /**
-         * `[width, height]` in points.
+         * Dimensions in points.
          *
-         * @return array
+         * @return array{0: float, 1: float} `[$width, $height]`.
          * @throws \BernardLedit\Pdf\PdfiumException if `PDFium` can't load the page.
          * @throws \Exception if the document is closed.
          */
@@ -331,33 +375,59 @@ namespace BernardLedit\Pdf {
         public function isEmpty(): bool {}
 
         /**
-         * Renders the page.
+         * Renders the page, at 72 DPI per unit of `$scale`.
          *
-         * @param float $scale
-         * @return \PdfBitmap
+         * @param float $scale A finite number between 0.01 and 16.
+         * @return \BernardLedit\Pdf\PdfBitmap
+         * @throws \ValueError if `$scale` is out of range.
          * @throws \BernardLedit\Pdf\PdfiumException if `PDFium` can't render the page.
          * @throws \Exception if the document is closed.
          */
-        public function renderToBitmap(float $scale = 1.0): \PdfBitmap {}
+        public function renderToBitmap(float $scale = 1.0): \BernardLedit\Pdf\PdfBitmap {}
     }
 
     /**
-     * `BernardLedit\Pdf\PdfiumException extends \Exception`: `PDFium` can't be loaded, or fails to
-     * read, render or write a document.
+     * Text character representation.
      */
-    class PdfiumException extends \Exception {
-        public function __construct() {}
+    class TextChar {
+        /**
+         * @param string $char Only the first character is kept; `" "` if empty.
+         * @param string $font_name
+         * @param float $font_size
+         * @param int<0, 4294967295> $font_weight
+         * @param array{int<0, 255>, int<0, 255>, int<0, 255>, int<0, 255>}|null $stroke_color RGBA.
+         * @param array{int<0, 255>, int<0, 255>, int<0, 255>, int<0, 255>}|null $fill_color RGBA.
+         * @param int<-2147483648, 2147483647> $font_flags
+         * @param array{float, float, float, float}|null $bounds Zeros if `null`.
+         * @throws \ValueError if `$font_weight` or `$font_flags` is out of range, or `$stroke_color`, `$fill_color` or `$bounds` doesn't have 4 values, or a color value is out of range.
+         */
+        public function __construct(string $char, string $font_name, float $font_size, int $font_weight, ?array $stroke_color, ?array $fill_color, int $font_flags, ?array $bounds = null) {}
+
+        /**
+         * Default debug info.
+         *
+         * @return array<string, string>
+         */
+        public function __debugInfo(): array {}
+
+        /**
+         * String rep.
+         *
+         * @return string
+         */
+        public function __toString(): string {}
     }
 
     /**
-     * Keeps or removes pages. Negative indexes count from the end.
+     * Keeps or removes pages, if the PDF has at least `$on_min_pages` pages. Negative indexes count
+     * from the end, and indexes past the end are skipped.
      *
      * @param string $data
-     * @param string $operation
-     * @param int $on_min_pages
-     * @param array $page_indexes
-     * @return array
-     * @throws \ValueError if `$operation` isn't `KEEP_ONLY` or `REMOVE`, the PDF has no pages, or no pages would be left.
+     * @param string $operation `KEEP_ONLY` or `REMOVE`, case-insensitive.
+     * @param int<0, 4294967295> $on_min_pages
+     * @param list<int<-2147483648, 2147483647>> $page_indexes
+     * @return array{0: \BernardLedit\Pdf\PdfDocument|null, 1: list<int>} The new document, or `null` if the PDF has fewer than `$on_min_pages` pages; and the skipped indexes.
+     * @throws \ValueError if `$on_min_pages` or an index is out of range, `$operation` isn't `KEEP_ONLY` or `REMOVE`, the PDF has no content, or no pages would be left.
      * @throws \BernardLedit\Pdf\PdfiumException if `PDFium` can't be loaded, `$data` isn't a PDF it can read, or it can't build the new document.
      */
     function applyPageOptions(string $data, string $operation, int $on_min_pages, array $page_indexes): array {}
@@ -366,11 +436,12 @@ namespace BernardLedit\Pdf {
      * Compresses PDF bytes. Returns the input unchanged if it can't be made smaller.
      *
      * @param string $data
-     * @param int $quality
+     * @param int<5, 100> $quality
      * @param bool|null $optimize
-     * @param float|null $dpi
+     * @param float|null $dpi A finite number between 1 and 1200; 150 if `null`.
      * @return string
-     * @throws \BernardLedit\Image\ImageException if `$quality` is outside 5-100, or JPEG encoding fails.
+     * @throws \ValueError if `$quality` or `$dpi` is out of range.
+     * @throws \BernardLedit\Image\ImageException if JPEG encoding fails.
      * @throws \BernardLedit\Pdf\PdfiumException if `PDFium` can't be loaded, `$data` isn't a PDF it can read, or it can't render a page or build the new document.
      */
     function compress(string $data, int $quality = 85, ?bool $optimize = null, ?float $dpi = null): string {}
@@ -380,9 +451,9 @@ namespace BernardLedit\Pdf {
      * `data` is a PDF or an image (treated as a one-page document).
      *
      * @param string $data
-     * @param array $page_indexes
-     * @return array
-     * @throws \ValueError if `$page_indexes` or one of its groups is empty, or there's no page at one of the indexes.
+     * @param non-empty-list<non-empty-list<int<0, 65535>>> $page_indexes
+     * @return list<\BernardLedit\Pdf\PdfDocument> One document per group, in the same order.
+     * @throws \ValueError if an index is out of range, `$page_indexes` or one of its groups is empty, or there's no page at one of the indexes.
      * @throws \BernardLedit\Image\ImageException if `$data` is neither a PDF nor an identifiable, decodable image.
      * @throws \BernardLedit\Pdf\PdfiumException if `PDFium` can't be loaded, `$data` is a PDF it can't read, or it can't build the documents.
      */
@@ -392,92 +463,23 @@ namespace BernardLedit\Pdf {
      * Drops every byte before the first `%PDF-` marker.
      *
      * @param string $data
-     * @param int $maximum_offset
+     * @param int<0, max> $maximum_offset How far into `$data` to look for the marker, in bytes.
      * @return string
      * @throws \ValueError if `$maximum_offset` is negative, or there's no marker before it.
      */
     function fixPdf(string $data, int $maximum_offset = 500): string {}
 }
 
-namespace {
-    class PdfBitmap {
-        public function __construct() {}
-
-        /**
-         * Debug info.
-         *
-         * @return array
-         */
-        public function __debugInfo(): array {}
-
-        /**
-         * String rep.
-         *
-         * @return string
-         */
-        public function __toString(): string {}
-
-        /**
-         * Height in pixels.
-         *
-         * @return int
-         */
-        public function getHeight(): int {}
-
-        /**
-         * Width in pixels.
-         *
-         * @return int
-         */
-        public function getWidth(): int {}
-
-        /**
-         * Raw RGBA8 pixel buffer (row-major, 4 bytes per pixel).
-         *
-         * @return string
-         */
-        public function toBytes(): string {}
-
-        /**
-         * Encode the bitmap as a PNG byte stream.
-         *
-         * @return string
-         * @throws \BernardLedit\Image\ImageException if PNG encoding fails.
-         */
-        public function toPngBytes(): string {}
-    }
-
+namespace BernardLedit\Image {
     /**
-     * Text character representation.
+     * Input that isn't an identifiable or decodable image, and encoding failures.
      */
-    class TextChar {
-        /**
-         * Create a new text character.
-         *
-         * @param string $char
-         * @param string $font_name
-         * @param float $font_size
-         * @param int $font_weight
-         * @param array|null $stroke_color
-         * @param array|null $fill_color
-         * @param int $font_flags
-         * @param array|null $bounds
-         * @throws \ValueError if `$stroke_color`, `$fill_color` or `$bounds` is given with a length other than 4.
-         */
-        public function __construct(string $char, string $font_name, float $font_size, int $font_weight, ?array $stroke_color, ?array $fill_color, int $font_flags, ?array $bounds = null) {}
+    class ImageException extends \Exception {}
+}
 
-        /**
-         * Default debug info.
-         *
-         * @return array
-         */
-        public function __debugInfo(): array {}
-
-        /**
-         * String rep.
-         *
-         * @return string
-         */
-        public function __toString(): string {}
-    }
+namespace BernardLedit\Pdf {
+    /**
+     * `PDFium` can't be loaded, or fails to read, render or write a document.
+     */
+    class PdfiumException extends \Exception {}
 }

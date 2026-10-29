@@ -3,6 +3,8 @@
 #![allow(missing_docs)]
 
 use ext_php_rs::prelude::*;
+pub mod args;
+pub mod exceptions;
 pub mod image;
 pub mod pdf;
 
@@ -18,5 +20,8 @@ pub fn get_module(module: ModuleBuilder) -> ModuleBuilder {
 
 fn startup(_ty: i32, mod_num: i32) -> i32 {
     pdf::register_ini(mod_num);
+    if exceptions::register().is_err() {
+        return -1;
+    }
     0
 }

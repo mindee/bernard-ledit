@@ -1,32 +1,109 @@
 --- a/src/stub.rs
 +++ b/src/stub.rs
-@@ -104,11 +104,22 @@ fn finalize_section(result: &mut ParsedRustDoc, section: StdOption<&str>, conten
+@@ -77,16 +77,8 @@ fn finalize_section(result: &mut ParsedRustDoc, section: StdOption<&str>, conten
+     match section_name {
+         "Arguments" => {
+             // Parse argument list: `* `name` - description` or `* name - description`
+-            for line in content {
+-                let trimmed = line.trim();
+-                let item = trimmed
+-                    .strip_prefix("* ")
+-                    .or_else(|| trimmed.strip_prefix("- "));
+-                // Try to extract parameter name and description
+-                // Format: `name` - description OR name - description
+-                if let Some(item) = item
+-                    && let Some((name, desc)) = parse_param_line(item.trim())
+-                {
++            for item in list_items(content) {
++                if let Some((name, desc)) = parse_param_line(&item) {
+                     result.params.insert(name, desc);
+                 }
+             }
+@@ -104,25 +96,14 @@ fn finalize_section(result: &mut ParsedRustDoc, section: StdOption<&str>, conten
              }
          }
          "Errors" => {
 -            // Collect error descriptions for @throws
-+            // One @throws per list item; lines that don't start an item continue the previous one.
-             for line in content {
-                 let trimmed = line.trim();
+-            for line in content {
+-                let trimmed = line.trim();
 -                if !trimmed.is_empty() {
 -                    result.errors.push(trimmed.to_string());
-+                if trimmed.is_empty() {
-+                    continue;
-+                }
-+                let item = trimmed
-+                    .strip_prefix("- ")
-+                    .or_else(|| trimmed.strip_prefix("* "));
-+                match (item, result.errors.last_mut()) {
-+                    (Some(item), _) => result.errors.push(item.trim().to_string()),
-+                    (None, Some(last)) => {
-+                        last.push(' ');
-+                        last.push_str(trimmed);
-+                    }
-+                    (None, None) => result.errors.push(trimmed.to_string()),
-                 }
-             }
+-                }
+-            }
++            // One @throws per list item.
++            result.errors = list_items(content);
          }
-@@ -284,13 +295,32 @@ fn format_phpdoc(
+         "Parameters" => {
+             // Parse parameter list with type overrides
+             // Format: - `name`: `type` description
+-            for line in content {
+-                let trimmed = line.trim();
+-                let item = trimmed
+-                    .strip_prefix("* ")
+-                    .or_else(|| trimmed.strip_prefix("- "));
+-                if let Some(item) = item
+-                    && let Some((name, ty, desc)) = parse_typed_param_line(item.trim())
+-                {
++            for item in list_items(content) {
++                if let Some((name, ty, desc)) = parse_typed_param_line(&item) {
+                     result.param_types.insert(name.clone(), ty);
+                     if !desc.is_empty() {
+                         result.params.insert(name, desc);
+@@ -135,6 +116,30 @@ fn finalize_section(result: &mut ParsedRustDoc, section: StdOption<&str>, conten
+     }
+ }
+
++/// Splits a section into its `- ` or `* ` list items; lines that don't start an item continue the
++/// previous one.
++fn list_items(content: &[String]) -> StdVec<String> {
++    let mut items: StdVec<String> = StdVec::new();
++    for line in content {
++        let trimmed = line.trim();
++        if trimmed.is_empty() {
++            continue;
++        }
++        let item = trimmed
++            .strip_prefix("- ")
++            .or_else(|| trimmed.strip_prefix("* "));
++        match (item, items.last_mut()) {
++            (Some(item), _) => items.push(item.trim().to_string()),
++            (None, Some(last)) => {
++                last.push(' ');
++                last.push_str(trimmed);
++            }
++            (None, None) => items.push(trimmed.to_string()),
++        }
++    }
++    items
++}
++
+ /// Parse a parameter line from rustdoc `# Arguments` section.
+ /// Handles formats like:
+ /// - `name` - description
+@@ -272,35 +277,77 @@ fn format_phpdoc(
+         }
+     }
+
+-    // Output @return tag
++    // Output @return tag; a `# Returns` section that starts with a backticked type overrides it.
+     if let Some(retval) = ret {
+-        let type_str = datatype_to_phpdoc(&retval.ty, retval.nullable);
+-        if let Some(desc) = &parsed.returns {
+-            writeln!(buf, " * @return {type_str} {desc}")?;
+-        } else {
++        let (type_str, desc) = match parsed.returns.as_deref().and_then(split_backticked) {
++            Some((ty, desc)) => (ty.to_string(), desc),
++            None => (
++                datatype_to_phpdoc(&retval.ty, retval.nullable),
++                parsed.returns.as_deref().unwrap_or(""),
++            ),
++        };
++        if desc.is_empty() {
+             writeln!(buf, " * @return {type_str}")?;
++        } else {
++            writeln!(buf, " * @return {type_str} {desc}")?;
+         }
+     }
 
      // Output @throws tags
      for error in &parsed.errors {
@@ -46,21 +123,54 @@
      Ok(parsed.param_types)
  }
 
++/// Splits "`type` rest" into the type and the rest.
++fn split_backticked(text: &str) -> StdOption<(&str, &str)> {
++    let (ty, rest) = text.strip_prefix('`')?.split_once('`')?;
++    Some((ty, rest.trim()))
++}
++
 +/// Splits an item like "`\ValueError` if ..." into the class and the condition.
 +fn split_throws(item: &str) -> StdOption<(&str, &str)> {
-+    let rest = item.strip_prefix('`')?;
-+    let (class, condition) = rest.split_once('`')?;
++    let (class, condition) = split_backticked(item)?;
 +    let valid = class.starts_with('\\')
 +        && class[1..]
 +            .split('\\')
 +            .all(|part| !part.is_empty() && part.chars().all(|c| c.is_alphanumeric() || c == '_'));
-+    valid.then(|| (class, condition.trim()))
++    valid.then_some((class, condition))
 +}
 +
  /// Extract the PHP type from a type override string.
  /// Handles formats like "?string &$name" -> "?string"
  fn extract_php_type(type_str: &str) -> String {
-@@ -477,7 +507,8 @@ impl ToStub for Function {
+     // The type override might contain reference notation like "&$name"
+-    // We want just the type part
+-    type_str
+-        .split_whitespace()
+-        .next()
+-        .unwrap_or("mixed")
+-        .to_string()
++    // We want just the type part, which ends at the first space outside brackets: `int<1, 100>`.
++    let type_str = type_str.trim_start();
++    let mut depth = 0_i32;
++    let end = type_str
++        .char_indices()
++        .find(|&(_, c)| {
++            match c {
++                '<' | '{' | '(' => depth += 1,
++                '>' | '}' | ')' => depth -= 1,
++                _ => {}
++            }
++            c.is_whitespace() && depth == 0
++        })
++        .map_or(type_str.len(), |(i, _)| i);
++    match &type_str[..end] {
++        "" => "mixed".to_string(),
++        ty => ty.to_string(),
++    }
+ }
+
+ /// Convert a `DataType` to `PHPDoc` type string.
+@@ -477,7 +524,8 @@ impl ToStub for Function {
          let params_str = self
              .params
              .iter()
@@ -70,7 +180,7 @@
              .collect::<Result<StdVec<_>, FmtError>>()?
              .join(", ");
 
-@@ -498,6 +529,23 @@ impl ToStub for Function {
+@@ -498,6 +546,23 @@ impl ToStub for Function {
      }
  }
 
@@ -94,7 +204,7 @@
  /// Render a parameter to stub format, with optional type overrides from rustdoc.
  ///
  /// When a parameter's Rust type is `Zval` (which maps to `mixed` in PHP), the
-@@ -794,7 +842,8 @@ impl ToStub for Method {
+@@ -794,7 +859,8 @@ impl ToStub for Method {
          let params_str = self
              .params
              .iter()

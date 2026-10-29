@@ -2,6 +2,7 @@ use super::{
     document::SharedDoc,
     error::{closed_err, map_pdf_err},
 };
+use crate::args;
 use crate::pdf::{bitmap::PhpPdfBitmap, text_char::PhpTextChar};
 use bernard_ledit::pdf::{Page, PdfError};
 use ext_php_rs::prelude::*;
@@ -21,7 +22,9 @@ impl PdfPage {
         self.index
     }
 
-    /// `[width, height]` in points.
+    /// Dimensions in points.
+    /// # Returns
+    /// `array{0: float, 1: float}` `[$width, $height]`.
     /// # Errors
     /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't load the page.
     /// - `\Exception` if the document is closed.
@@ -41,6 +44,8 @@ impl PdfPage {
     }
 
     /// Returns the characters on the page.
+    /// # Returns
+    /// `list<\BernardLedit\Pdf\TextChar>`
     /// # Errors
     /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't read the page's characters.
     /// - `\Exception` if the document is closed.
@@ -56,12 +61,20 @@ impl PdfPage {
         self.with_page(|p| p.text())
     }
 
-    /// Renders the page.
+    /// Renders the page, at 72 DPI per unit of `$scale`.
+    /// # Parameters
+    /// - `scale`: `float` A finite number between 0.01 and 16.
     /// # Errors
+    /// - `\ValueError` if `$scale` is out of range.
     /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't render the page.
     /// - `\Exception` if the document is closed.
-    #[php(defaults(scale = 1.0_f32))]
-    pub fn render_to_bitmap(&self, scale: f32) -> PhpResult<PhpPdfBitmap> {
+    #[php(defaults(scale = 1.0))]
+    #[allow(
+        clippy::cast_possible_truncation,
+        reason = "the range fits in f32, which core takes"
+    )]
+    pub fn render_to_bitmap(&self, scale: f64) -> PhpResult<PhpPdfBitmap> {
+        let scale = args::float("scale", scale, args::MIN_SCALE, args::MAX_SCALE)? as f32;
         self.with_page(|p| p.render_to_bitmap(scale))
             .map(PhpPdfBitmap::from)
     }

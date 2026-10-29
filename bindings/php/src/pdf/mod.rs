@@ -24,7 +24,6 @@ pub const INI_PDFIUM_PATH: &CStr = c"bernard_ledit.pdfium_path";
 /// Register classes and ini entries.
 pub fn register(module: ModuleBuilder) -> ModuleBuilder {
     let module = module
-        .class::<error::PdfiumException>()
         .class::<document::PhpPdfDocument>()
         .class::<page::PdfPage>()
         .class::<bitmap::PhpPdfBitmap>()
@@ -52,7 +51,7 @@ pub(crate) fn ensure_pdfium() -> PhpResult<()> {
     RESULT
         .get_or_init(|| bind_pdfium().map_err(|e| e.to_string()))
         .clone()
-        .map_err(PhpException::from_class::<error::PdfiumException>)
+        .map_err(crate::exceptions::pdfium_exception)
 }
 
 #[cfg(feature = "static-link")]
