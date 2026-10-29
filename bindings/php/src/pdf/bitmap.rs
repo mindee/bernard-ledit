@@ -7,7 +7,7 @@ use ext_php_rs::{php_class, php_impl};
 use std::collections::HashMap;
 
 #[php_class]
-#[php(name = "PdfBitmap")]
+#[php(name = "BernardLedit\\Pdf\\PdfBitmap")]
 pub struct PhpPdfBitmap {
     pub(crate) inner: Bitmap,
 }
@@ -45,6 +45,8 @@ impl PhpPdfBitmap {
     }
 
     /// Debug info.
+    /// # Returns
+    /// `array<string, string>`
     #[must_use]
     pub fn __debug_info(&self) -> HashMap<&'static str, String> {
         let mut info = HashMap::new();

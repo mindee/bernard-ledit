@@ -10,7 +10,7 @@ final class PdfBitmapTest extends TestCase
 {
     private const FIXTURES = TEST_ROOT_PATH . '/file_types';
 
-    private static function renderBitmap(): \PdfBitmap
+    private static function renderBitmap(): \BernardLedit\Pdf\PdfBitmap
     {
         $doc = new PdfDocument(file_get_contents(self::FIXTURES . '/pdf/blank_1.pdf'));
         return $doc->getPage(0)->renderToBitmap();

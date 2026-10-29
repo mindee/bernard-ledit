@@ -45,6 +45,11 @@ if [[ ! -x "$generator" || ! -f "$cache/fingerprint" || "$(cat "$cache/fingerpri
 fi
 
 "$generator" php stubs "$extension" -o "$work/stubs.php"
+# The exception classes aren't #[php_class]es, so the generator doesn't see them (src/exceptions.rs).
+{ echo; sed '1,/^$/d' "$tools/exceptions.stubs.php"; } >> "$work/stubs.php"
+# Names the release on the line after `<?php`, so a vendored copy can be checked against it.
+version="$(php -n -d extension="$extension" -r 'echo phpversion("bernard_ledit");')"
+sed -i "1a // bernard-ledit v$version" "$work/stubs.php"
 php -n -d error_reporting=-1 -d display_errors=stderr -l "$work/stubs.php"
 php -n -d extension="$extension" "$tools/verify.php" snapshot > "$work/api.json"
 php -n -d error_reporting=-1 "$tools/verify.php" check "$work/stubs.php" "$work/api.json"

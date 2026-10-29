@@ -1,12 +1,12 @@
+use crate::args::{self, value_error};
 use bernard_ledit::pdf::TextChar as RustTextChar;
-use ext_php_rs::exception::{PhpException, PhpResult};
-use ext_php_rs::zend::ce;
+use ext_php_rs::exception::PhpResult;
 use ext_php_rs::{php_class, php_impl};
 use std::collections::HashMap;
 
 /// Text character representation.
 #[php_class]
-#[php(name = "TextChar")]
+#[php(name = "BernardLedit\\Pdf\\TextChar")]
 #[derive(Debug, Clone)]
 pub struct PhpTextChar {
     /// Actual character.
@@ -48,44 +48,55 @@ fn parse_bounds(bounds: Option<Vec<f32>>) -> Result<(f32, f32, f32, f32), String
     })
 }
 
-/// Convert an error message into a PHP Exception.
-fn value_error(msg: String) -> PhpException {
-    PhpException::new(msg, 0, ce::value_error())
+/// Convert an optional color into 4 bytes.
+/// `None` stays `None`; a color of the wrong length, or with a value out of range, is an error.
+fn parse_color(color: Option<Vec<i64>>, name: &str) -> PhpResult<Option<[u8; 4]>> {
+    let Some(values) = vec_to_array(color, name).map_err(value_error)? else {
+        return Ok(None);
+    };
+    let bytes = args::ints(name, &values, 0, u8::MAX)?;
+    Ok(<[u8; 4]>::try_from(bytes).ok())
 }
 
 #[php_impl]
 impl PhpTextChar {
-    /// Create a new text character.
-    ///
+    /// # Parameters
+    /// - `char`: `string` Only the first character is kept; `" "` if empty.
+    /// - `font_weight`: `int<0, 4294967295>`
+    /// - `stroke_color`: `array{int<0, 255>, int<0, 255>, int<0, 255>, int<0, 255>}|null` RGBA.
+    /// - `fill_color`: `array{int<0, 255>, int<0, 255>, int<0, 255>, int<0, 255>}|null` RGBA.
+    /// - `font_flags`: `int<-2147483648, 2147483647>`
+    /// - `bounds`: `array{float, float, float, float}|null` Zeros if `null`.
     /// # Errors
-    ///
-    /// - `\ValueError` if `$stroke_color`, `$fill_color` or `$bounds` is given with a length other
-    ///   than 4.
+    /// - `\ValueError` if `$font_weight` or `$font_flags` is out of range, or `$stroke_color`,
+    ///   `$fill_color` or `$bounds` doesn't have 4 values, or a color value is out of range.
     #[allow(clippy::too_many_arguments)]
     #[allow(clippy::needless_pass_by_value)]
     pub fn __construct(
         char: String,
         font_name: String,
         font_size: f32,
-        font_weight: u32,
-        stroke_color: Option<Vec<u8>>,
-        fill_color: Option<Vec<u8>>,
-        font_flags: i32,
+        font_weight: i64,
+        stroke_color: Option<Vec<i64>>,
+        fill_color: Option<Vec<i64>>,
+        font_flags: i64,
         bounds: Option<Vec<f32>>,
     ) -> PhpResult<Self> {
         Ok(Self {
             char: char.chars().next().unwrap_or(' '),
             font_name,
             font_size,
-            font_weight,
-            stroke_color: vec_to_array(stroke_color, "stroke_color").map_err(value_error)?,
-            fill_color: vec_to_array(fill_color, "fill_color").map_err(value_error)?,
-            font_flags,
+            font_weight: args::int("font_weight", font_weight, 0, u32::MAX)?,
+            stroke_color: parse_color(stroke_color, "stroke_color")?,
+            fill_color: parse_color(fill_color, "fill_color")?,
+            font_flags: args::int("font_flags", font_flags, i32::MIN, i32::MAX)?,
             bounds: parse_bounds(bounds).map_err(value_error)?,
         })
     }
 
     /// Default debug info.
+    /// # Returns
+    /// `array<string, string>`
     #[must_use]
     pub fn __debug_info(&self) -> HashMap<&'static str, String> {
         let mut info = HashMap::new();

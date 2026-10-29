@@ -1,15 +1,9 @@
+use crate::args::value_error;
+use crate::exceptions::image_exception;
 use crate::pdf::error::map_pdf_err;
 use bernard_ledit::image::ImageError;
 use bernard_ledit::image::error::ImageExtractError;
-use ext_php_rs::{exception::PhpException, prelude::*, zend::ce};
-
-/// `BernardLedit\Image\ImageException extends \Exception`: input that isn't an identifiable or
-/// decodable image, and encoding failures.
-#[php_class]
-#[php(name = "BernardLedit\\Image\\ImageException")]
-#[php(extends(ce = ce::exception, stub = "\\Exception"))]
-#[derive(Default)]
-pub struct ImageException;
+use ext_php_rs::exception::PhpException;
 
 /// Maps errors for image-related features.
 #[must_use]
@@ -19,18 +13,14 @@ pub fn map_image_err(e: &ImageError) -> PhpException {
         ImageError::UnsupportedFormat(_)
         | ImageError::UnknownFilter(_)
         | ImageError::InvalidCrop { .. }
-        | ImageError::InvalidDimensions { .. } => {
-            PhpException::new(e.to_string(), 0, ce::value_error())
-        }
+        | ImageError::InvalidDimensions { .. } => value_error(e.to_string()),
         ImageError::Io(_) => PhpException::from_message(e.to_string()),
         ImageError::UnknownFormat
         | ImageError::NotEnoughData
         | ImageError::Decode(_)
         | ImageError::Encode(_)
         | ImageError::ProgressiveQualityTooLow { .. }
-        | ImageError::SizeIncreased { .. } => {
-            PhpException::from_class::<ImageException>(e.to_string())
-        }
+        | ImageError::SizeIncreased { .. } => image_exception(e.to_string()),
     }
 }
 
@@ -41,7 +31,7 @@ pub fn format_image_extract_err(e: &ImageExtractError) -> PhpException {
         ImageExtractError::Pdf(inner) => map_pdf_err(inner),
         ImageExtractError::Image(inner) => map_image_err(inner),
         ImageExtractError::PageOutOfRange(_) | ImageExtractError::EmptyPolygon(_) => {
-            PhpException::new(e.to_string(), 0, ce::value_error())
+            value_error(e.to_string())
         }
     }
 }
