@@ -11,10 +11,13 @@ use ext_php_rs::types::Zval;
 use ext_php_rs::zend::ce;
 use ext_php_rs::{php_function, wrap_function};
 
-/// Keeps or removes pages. Negative indexes count from the end.///
+/// Keeps or removes pages. Negative indexes count from the end.
 ///
 /// # Errors
-/// Throws a [`ValueError`] if one or more of the provided values is incorrect.
+/// - `\ValueError` if `$operation` isn't `KEEP_ONLY` or `REMOVE`, the PDF has no pages, or no
+///   pages would be left.
+/// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't be loaded, `$data` isn't a PDF it can
+///   read, or it can't build the new document.
 #[php_function]
 #[php(name = "BernardLedit\\Pdf\\applyPageOptions")]
 #[allow(clippy::needless_pass_by_value)]

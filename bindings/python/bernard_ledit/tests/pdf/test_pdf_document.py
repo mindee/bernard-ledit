@@ -51,7 +51,7 @@ def test_get_page_returns_page(test_data_dir):
 def test_get_page_out_of_bounds_raises(test_data_dir):
     data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
     doc = PdfDocument(data)
-    with pytest.raises(PdfiumError):
+    with pytest.raises(IndexError, match="Page index 99 out of bounds"):
         doc.get_page(99)
 
 
@@ -193,7 +193,7 @@ def test_rasterize_page_out_of_bounds_raises(test_data_dir):
     data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
     doc = PdfDocument(data)
 
-    with pytest.raises(PdfiumError):
+    with pytest.raises(IndexError, match="Page index 99 out of bounds"):
         doc.rasterize_page(99, 85)
 
 

@@ -54,10 +54,8 @@ final class ImageTest extends TestCase
 
     public function testInvalidDataThrowsImageException(): void
     {
-        // Garbage bytes fail format sniffing inside the underlying `image` crate, which the
-        // bindings map to the custom ImageException (not \ValueError — that's reserved for
-        // structurally-valid-but-rejected inputs like UnknownFormat/InvalidCrop/etc.;
-        // see bindings/php/src/image/error.rs).
+        // Input that isn't an identifiable or decodable image is an ImageException everywhere;
+        // \ValueError is for wrong arguments (format names, crop boxes, page indexes, ...).
         $this->expectException(ImageException::class);
         decode('not an image');
     }
@@ -77,9 +75,9 @@ final class ImageTest extends TestCase
         self::assertSame('TIFF', guessFormat(self::loadFileContents('receipt.tiff')));
     }
 
-    public function testGuessFormatGarbageThrowsValueError(): void
+    public function testGuessFormatGarbageThrowsImageException(): void
     {
-        $this->expectException(\ValueError::class);
+        $this->expectException(ImageException::class);
         guessFormat("\x00\x01\x02\x03");
     }
 

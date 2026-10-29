@@ -33,7 +33,7 @@ pub enum PdfError {
     /// An error that occurred when the page count is out of bounds.
     #[error("Page count out of bounds")]
     PageCountOutOfBounds,
-    /// A page index supplied to `import_pages` exceeds the source document's page count.
+    /// A page index exceeds the document's page count.
     #[error("Page index {index} out of bounds (document has {page_count} pages)")]
     PageIndexOutOfBounds {
         /// The index of the page that was out of bounds.
@@ -44,6 +44,9 @@ pub enum PdfError {
     /// An error that occurred when creating a new PDF document.
     #[error("Document creation failed")]
     DocumentCreationFailed,
+    /// An image could not be decoded or encoded.
+    #[error(transparent)]
+    Image(#[from] crate::image::ImageError),
 }
 
 /// An error that can occur when working with images.

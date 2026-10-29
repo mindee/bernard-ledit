@@ -37,7 +37,7 @@ impl From<ImageFormat> for OutputFormat {
 /// # Errors
 /// Returns an error if the image format cannot be determined.
 pub fn guess_format(data: &[u8]) -> Result<ImageFormat, ImageError> {
-    image::guess_format(data).map_err(|e| ImageError::UnsupportedFormat(e.to_string()))
+    image::guess_format(data).map_err(|_| ImageError::UnknownFormat)
 }
 
 /// Stable uppercase name: JPEG, PNG, GIF, WEBP, TIFF, BMP, ICO, ... .
@@ -443,7 +443,7 @@ mod tests {
     fn guess_format_garbage_errors() {
         assert!(matches!(
             guess_format(&[0x00, 0x01, 0x02, 0x03]),
-            Err(ImageError::UnsupportedFormat(_))
+            Err(ImageError::UnknownFormat)
         ));
     }
 

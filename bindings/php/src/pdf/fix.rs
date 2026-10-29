@@ -8,7 +8,7 @@ use ext_php_rs::{php_function, wrap_function};
 
 /// Drops every byte before the first `%PDF-` marker.
 /// # Errors
-/// Throws a [`ValueError`] if there is no marker before `$maximumOffset`.
+/// - `\ValueError` if `$maximum_offset` is negative, or there's no marker before it.
 #[php_function]
 #[php(name = "BernardLedit\\Pdf\\fixPdf")]
 #[php(defaults(maximum_offset = 500))]

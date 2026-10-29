@@ -54,25 +54,25 @@ final class ExtractPolygonsTest extends TestCase
 
     public function testImagePageOutOfRangeThrows(): void
     {
-        $this->expectException(\Throwable::class);
+        $this->expectException(\ValueError::class);
         extractFromPolygons($this->loadFileContents('receipt.jpg'), 1, [self::FULL]);
     }
 
     public function testEmptyPolygonThrows(): void
     {
-        $this->expectException(\Throwable::class);
+        $this->expectException(\ValueError::class);
         extractFromPolygons($this->loadFileContents('receipt.jpg'), 0, [[]]);
     }
 
     public function testMalformedPointThrows(): void
     {
-        $this->expectException(\Throwable::class);
+        $this->expectException(\ValueError::class);
         extractFromPolygons($this->loadFileContents('receipt.jpg'), 0, [[[0.0, 0.0, 0.0]]]);
     }
 
     public function testGarbageThrows(): void
     {
-        $this->expectException(\Throwable::class);
+        $this->expectException(\BernardLedit\Image\ImageException::class);
         extractFromPolygons('not an image', 0, [self::FULL]);
     }
 }

@@ -23,7 +23,8 @@ impl PdfPage {
 
     /// `[width, height]` in points.
     /// # Errors
-    /// Returns a PHP Exception if the `PdfDocument` is closed.
+    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't load the page.
+    /// - `\Exception` if the document is closed.
     pub fn get_size(&self) -> PhpResult<Vec<f64>> {
         self.with_page(|p| {
             let (w, h) = p.size();
@@ -31,30 +32,34 @@ impl PdfPage {
         })
     }
 
-    /// Checks whether the entire document is empty.
+    /// Checks whether the page is empty.
     /// # Errors
-    /// Returns a PHP Exception if the `PdfDocument` is inaccessible.
+    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't read the page.
+    /// - `\Exception` if the document is closed.
     pub fn is_empty(&self) -> PhpResult<bool> {
         self.with_page(|p| p.is_empty())
     }
 
     /// Returns the characters on the page.
     /// # Errors
-    /// Returns a PHP Exception if the `PdfDocument` is inaccessible.
+    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't read the page's characters.
+    /// - `\Exception` if the document is closed.
     pub fn get_chars(&self) -> PhpResult<Vec<PhpTextChar>> {
         self.with_page(|p| Ok(p.chars()?.into_iter().map(PhpTextChar::from).collect()))
     }
 
     /// Returns the text of the page.
     /// # Errors
-    /// Returns a PHP Exception if the `PdfDocument` is inaccessible.
+    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't read the page's text.
+    /// - `\Exception` if the document is closed.
     pub fn get_text(&self) -> PhpResult<String> {
         self.with_page(|p| p.text())
     }
 
     /// Renders the page.
     /// # Errors
-    /// Returns a PHP Exception if the `PdfDocument` is inaccessible.
+    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't render the page.
+    /// - `\Exception` if the document is closed.
     #[php(defaults(scale = 1.0_f32))]
     pub fn render_to_bitmap(&self, scale: f32) -> PhpResult<PhpPdfBitmap> {
         self.with_page(|p| p.render_to_bitmap(scale))

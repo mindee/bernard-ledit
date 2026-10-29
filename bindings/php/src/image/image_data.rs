@@ -24,8 +24,8 @@ impl From<Image> for PhpImage {
 impl PhpImage {
     /// Decodes an image from its encoded bytes: `new Image(string $data)`.
     /// # Errors
-    /// Throws if the data is not a supported image format.
-    /// Throws if the image cannot be decoded.
+    /// - `\BernardLedit\Image\ImageException` if `$data` isn't an identifiable image, or can't be
+    ///   decoded.
     #[allow(clippy::needless_pass_by_value)]
     pub fn __construct(data: BinarySlice<u8>) -> PhpResult<Self> {
         let inner = Image::decode(&data).map_err(|e| map_image_err(&e))?;
@@ -52,15 +52,14 @@ impl PhpImage {
     }
 
     /// Upper-case format name (`"JPEG"`, `"PNG"`, etc.) or `null`.
-    /// # Errors
-    /// Returns an error if the format name cannot be converted to a string.
+    #[must_use]
     pub fn get_format(&self) -> Option<&'static str> {
         self.inner.format().and_then(format_name)
     }
 
     /// Crops a rendered page's image from a given bounding box.
     /// # Errors
-    /// Returns an error if the cropping operation fails.
+    /// - `\ValueError` if the box is empty or extends past the image.
     pub fn crop(&self, left: u32, top: u32, right: u32, bottom: u32) -> PhpResult<Self> {
         self.inner
             .crop(left, top, right, bottom)
@@ -70,7 +69,7 @@ impl PhpImage {
 
     /// Resizes an image using dimensions and a filter.
     /// # Errors
-    /// Returns an error if the resizing operation fails.
+    /// - `\ValueError` if `$width` or `$height` is 0.
     pub fn resize(&self, width: u32, height: u32) -> PhpResult<Self> {
         let filter = Filter::from_str("lanczos").map_err(|e| map_image_err(&e))?;
         self.inner
@@ -81,7 +80,9 @@ impl PhpImage {
 
     /// Returns the encoded bytes as a PHP string.
     /// # Errors
-    /// Returns an error if the encoding operation fails.
+    /// - `\ValueError` if `$format` isn't a supported output format.
+    /// - `\BernardLedit\Image\ImageException` if encoding fails, or `$quality` is outside 1-100 for
+    ///   JPEG and PDF.
     #[php(defaults(quality = 85, optimize = true))]
     pub fn encode(&self, format: &str, quality: u8, optimize: bool) -> PhpResult<Binary<u8>> {
         let fmt = parse_output_format(format).map_err(|e| map_image_err(&e))?;
@@ -102,7 +103,8 @@ impl PhpImage {
 
 /// `BernardLedit\Image\decode(string $data): Image`
 /// # Errors
-/// Returns an error if the decoding operation fails.
+/// - `\BernardLedit\Image\ImageException` if `$data` isn't an identifiable image, or can't be
+///   decoded.
 #[php_function]
 #[php(name = "BernardLedit\\Image\\decode")]
 #[allow(clippy::needless_pass_by_value)]
@@ -114,7 +116,7 @@ pub fn decode(data: BinarySlice<u8>) -> PhpResult<PhpImage> {
 
 /// `BernardLedit\Image\guessFormat(string $data): string`
 /// # Errors
-/// Returns an error if the decoding operation fails.
+/// - `\BernardLedit\Image\ImageException` if `$data` isn't an identifiable image.
 #[php_function]
 #[php(name = "BernardLedit\\Image\\guessFormat")]
 #[allow(clippy::needless_pass_by_value)]
@@ -123,10 +125,10 @@ pub fn guess_format(data: BinarySlice<u8>) -> PhpResult<&'static str> {
     format_name(fmt).ok_or_else(unknown_format_err)
 }
 
-/// Compresses an image.
+/// Compresses an image, as `[string $bytes, int $width, int $height]`.
 /// # Errors
-/// Returns an error if the compression operation fails, or if the resulting dimensions
-/// don't fit in a 32-bit integer.
+/// - `\BernardLedit\Image\ImageException` if `$data` isn't an identifiable image, or can't be
+///   decoded; if `$quality` is outside 5-100; or if encoding fails.
 #[php_function]
 #[php(name = "BernardLedit\\Image\\compress")]
 #[php(defaults(quality = 85, max_width = None, max_height = None, optimize = None))]
@@ -158,9 +160,14 @@ pub fn compress(
     Ok(out)
 }
 
-/// Extracts polygons from an image.
+/// Extracts polygons from page `$page_id` of a PDF or an image.
 /// # Errors
-/// Return an error if the image cannot be decoded or if the polygons cannot be extracted.
+/// - `\ValueError` if a point doesn't have exactly two coordinates, a polygon is empty or falls
+///   outside the page, or there's no page `$page_id`.
+/// - `\BernardLedit\Image\ImageException` if `$data` is neither a PDF nor an identifiable,
+///   decodable image.
+/// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't be loaded, or can't read or render the
+///   PDF.
 #[php_function]
 #[php(defaults(dpi = 72.0))]
 #[php(name = "BernardLedit\\Image\\extractFromPolygons")]
