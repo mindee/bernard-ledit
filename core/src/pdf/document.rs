@@ -1,4 +1,5 @@
-use crate::pdf::error::{PdfBuilderError, PdfError};
+use crate::image::ImageError;
+use crate::pdf::error::{ImageError as JpegError, PdfBuilderError, PdfError};
 use crate::pdf::font_resolver::resolve_builtin_font;
 use crate::pdf::jpeg::encode_jpeg_mozjpeg;
 use crate::pdf::jpeg::{build_jpeg_pdf, build_jpeg_pdf_auto_size};
@@ -53,8 +54,20 @@ impl Document {
     /// # Errors
     /// Returns a [`PdfError`] if getting the page fails.
     pub fn page(&self, index: u16) -> Result<Page<'_>, PdfError> {
-        let p = self.inner.pages().get(index.into())?;
+        let p = self.inner.pages().get(self.page_index(index)?)?;
         Ok(Page::new(p))
+    }
+
+    /// Returns `index` as a `PDFium` page index.
+    ///
+    /// # Errors
+    /// Returns [`PdfError::PageIndexOutOfBounds`] if the document has no such page.
+    fn page_index(&self, index: u16) -> Result<PdfPageIndex, PdfError> {
+        let page_count = self.page_count()?;
+        if index >= page_count {
+            return Err(PdfError::PageIndexOutOfBounds { index, page_count });
+        }
+        Ok(index.into())
     }
 
     /// Retrieves all pages.
@@ -183,6 +196,9 @@ impl Document {
     /// # Errors
     /// Returns a `PdfError` if the font name is not a valid built-in font name.
     pub fn add_text(&mut self, page_idx: i32, chars: &[TextChar]) -> Result<(), PdfError> {
+        let index = u16::try_from(page_idx)
+            .map_err(|_| PdfError::Other(format!("Invalid page index: {page_idx}")))?;
+        let index = self.page_index(index)?;
         let resolved: Vec<PdfFontBuiltin> = chars
             .iter()
             .map(|c| resolve_builtin_font(&c.font_name, c.font_weight, c.font_flags))
@@ -196,7 +212,7 @@ impl Document {
             }
         }
 
-        let mut page = self.inner.pages_mut().get(PdfPageIndex::from(page_idx))?;
+        let mut page = self.inner.pages_mut().get(index)?;
         let page_height = page.height();
         page.set_content_regeneration_strategy(PdfPageContentRegenerationStrategy::Manual);
         {
@@ -229,15 +245,17 @@ impl Document {
     /// Returns a [`PdfError`] if the page cannot be rendered.
     pub fn rasterize_page(&self, page_index: u16, quality: u8) -> Result<Vec<u8>, PdfError> {
         if quality > 100 {
-            return Err(PdfError::Other(
-                "Quality must be between 0 and 100".to_string(),
-            ));
+            return Err(ImageError::Encode(format!(
+                "invalid JPEG quality: {quality} (expected 0..=100)"
+            ))
+            .into());
         }
 
+        let index = self.page_index(page_index)?;
         let _lock = crate::pdf::NATIVE_LOCK
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let page = self.inner.pages().get(page_index.into())?;
+        let page = self.inner.pages().get(index)?;
         let config = PdfRenderConfig::new();
         let bitmap = page.render_with_config(&config)?;
         let rgb_image = bitmap.as_image()?.into_rgb8();
@@ -248,7 +266,7 @@ impl Document {
             quality,
             true,
         )
-        .map_err(|e| PdfError::Other(format!("Failed to encode JPEG: {e}")))
+        .map_err(|e| ImageError::Encode(e.to_string()).into())
     }
 
     /// Appends a JPEG as a new page.
@@ -257,8 +275,7 @@ impl Document {
     /// # Errors
     /// Returns a [`PdfError`] if the JPEG is invalid or the page cannot be appended.
     pub fn append_jpeg_page(&mut self, jpeg_bytes: &[u8]) -> Result<(), PdfError> {
-        let doc = Self::from_jpeg_autosize(jpeg_bytes)
-            .map_err(|e| PdfError::Other(format!("Invalid JPEG: {e}")))?;
+        let doc = Self::from_jpeg_autosize(jpeg_bytes).map_err(jpeg_page_err)?;
         self.inner.pages_mut().append(&doc.inner)?;
         Ok(())
     }
@@ -274,8 +291,7 @@ impl Document {
         w_pt: f32,
         h_pt: f32,
     ) -> Result<(), PdfError> {
-        let doc = Self::from_jpeg(jpeg, f64::from(w_pt), f64::from(h_pt))
-            .map_err(|e| PdfError::Other(format!("Invalid JPEG: {e}")))?;
+        let doc = Self::from_jpeg(jpeg, f64::from(w_pt), f64::from(h_pt)).map_err(jpeg_page_err)?;
         self.inner.pages_mut().append(&doc.inner)?;
         Ok(())
     }
@@ -374,8 +390,7 @@ impl Document {
                 let page = self.page(i)?;
                 let (w_pt, h_pt) = page.size();
                 let img = page.render_image(dpi / 72.0)?;
-                let (jpeg, _, _) = encode_jpeg_scaled(&img, quality, None, None, optimize)
-                    .map_err(|e| PdfError::Other(e.to_string()))?;
+                let (jpeg, _, _) = encode_jpeg_scaled(&img, quality, None, None, optimize)?;
                 out.append_jpeg_page_sized(&jpeg, w_pt, h_pt)?;
             } else {
                 out.append_page(&self.inner, i.into())?;
@@ -385,10 +400,22 @@ impl Document {
     }
 }
 
+/// Reports JPEG data that can't be embedded as a decode error, and keeps PDF errors as they are.
+fn jpeg_page_err(e: PdfBuilderError) -> PdfError {
+    match e {
+        PdfBuilderError::Pdf(inner) => inner,
+        PdfBuilderError::Image(
+            inner @ (JpegError::InvalidJpeg | JpegError::UnsupportedColorSpace(_)),
+        ) => ImageError::Decode(format!("invalid JPEG: {inner}")).into(),
+        other => PdfError::Other(other.to_string()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::image::ImageError;
     use crate::pdf::text_char::TextChar;
-    use crate::pdf::{Document, pdfium};
+    use crate::pdf::{Document, PdfError, pdfium};
 
     #[test]
     fn test_loads_from_jpeg() {
@@ -486,6 +513,34 @@ mod tests {
         let doc = Document::from_bytes(bytes_doc_1.to_vec()).unwrap();
         let mut doc2 = Document::from_bytes(bytes_doc_2.to_vec()).unwrap();
         doc2.import_pages(&doc, &[100, 101, 102]).unwrap();
+    }
+    #[test]
+    fn test_page_out_of_bounds() {
+        pdfium();
+        let bytes = test_data_bytes!("file_types/pdf/blank_1.pdf");
+        let mut doc = Document::from_bytes(bytes.to_vec()).unwrap();
+        let out_of_bounds = |r: Result<(), PdfError>| {
+            matches!(
+                r,
+                Err(PdfError::PageIndexOutOfBounds {
+                    index: 1,
+                    page_count: 1
+                })
+            )
+        };
+        assert!(out_of_bounds(doc.page(1).map(|_| ())));
+        assert!(out_of_bounds(doc.rasterize_page(1, 85).map(|_| ())));
+        assert!(out_of_bounds(doc.add_text(1, &[])));
+    }
+
+    #[test]
+    fn test_append_invalid_jpeg_is_decode_error() {
+        pdfium();
+        let mut doc = Document::new().unwrap();
+        assert!(matches!(
+            doc.append_jpeg_page(b"not a jpeg"),
+            Err(PdfError::Image(ImageError::Decode(_)))
+        ));
     }
 
     #[test]

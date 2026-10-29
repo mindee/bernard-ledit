@@ -25,7 +25,6 @@ pub const INI_PDFIUM_PATH: &CStr = c"bernard_ledit.pdfium_path";
 pub fn register(module: ModuleBuilder) -> ModuleBuilder {
     let module = module
         .class::<error::PdfiumException>()
-        .class::<error::PdfExtractException>()
         .class::<document::PhpPdfDocument>()
         .class::<page::PdfPage>()
         .class::<bitmap::PhpPdfBitmap>()

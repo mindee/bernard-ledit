@@ -1,7 +1,8 @@
+use crate::image::error::map_image_err;
+use bernard_ledit::image::ImageError;
 use bernard_ledit::pdf::Bitmap;
 use ext_php_rs::binary::Binary;
-use ext_php_rs::exception::{PhpException, PhpResult};
-use ext_php_rs::zend::ce;
+use ext_php_rs::exception::PhpResult;
 use ext_php_rs::{php_class, php_impl};
 use std::collections::HashMap;
 
@@ -33,12 +34,12 @@ impl PhpPdfBitmap {
 
     /// Encode the bitmap as a PNG byte stream.
     /// # Errors
-    /// Returns a PHP Exception if the conversion fails.
+    /// - `\BernardLedit\Image\ImageException` if PNG encoding fails.
     pub fn to_png_bytes(&self) -> PhpResult<Binary<u8>> {
         let bytes = self
             .inner
             .to_png_bytes()
-            .map_err(|e| PhpException::new(e.to_string(), 0, ce::value_error()))?;
+            .map_err(|e| map_image_err(&ImageError::Encode(e.to_string())))?;
 
         Ok(bytes.into())
     }

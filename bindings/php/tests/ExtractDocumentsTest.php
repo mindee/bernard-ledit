@@ -61,7 +61,7 @@ final class ExtractDocumentsTest extends TestCase
 
     public function testIndexOutOfRangeThrows(): void
     {
-        $this->expectException(\Throwable::class); // PageIndexOutOfBounds goes through map_pdf_err
+        $this->expectException(\ValueError::class);
         extractFromPageRanges($this->loadFileContents('pdf/multipage.pdf'), [[12]]);
     }
 

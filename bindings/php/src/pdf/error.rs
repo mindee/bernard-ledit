@@ -1,8 +1,10 @@
-use crate::image::error::{ImageException, ImageExtractException};
+use crate::image::error::{ImageException, format_image_extract_err, map_image_err};
 use bernard_ledit::pdf::PdfError;
-use bernard_ledit::pdf::error::PdfExtractError;
+use bernard_ledit::pdf::error::{ImageError as JpegError, PdfBuilderError, PdfExtractError};
 use ext_php_rs::{exception::PhpException, prelude::*, zend::ce};
 
+/// `BernardLedit\Pdf\PdfiumException extends \Exception`: `PDFium` can't be loaded, or fails to
+/// read, render or write a document.
 #[php_class]
 #[php(name = "BernardLedit\\Pdf\\PdfiumException")]
 #[php(extends(ce = ce::exception, stub = "\\Exception"))]
@@ -22,6 +24,7 @@ pub fn map_pdf_err(e: &PdfError) -> PhpException {
         PdfError::PageCountOutOfBounds | PdfError::PageIndexOutOfBounds { .. } => {
             PhpException::new(e.to_string(), 0, ce::value_error())
         }
+        PdfError::Image(inner) => map_image_err(inner),
         PdfError::Io(_) | PdfError::DocumentCreationFailed => {
             PhpException::from_message(e.to_string())
         }
@@ -31,25 +34,33 @@ pub fn map_pdf_err(e: &PdfError) -> PhpException {
     }
 }
 
-#[php_class]
-#[php(name = "BernardLedit\\Pdf\\PdfExtractException")]
-#[php(extends(ce = ce::exception, stub = "\\Exception"))]
-#[derive(Default)]
-pub struct PdfExtractException;
+/// Returns a PHP Exception for the given `PdfBuilderError`.
+fn map_builder_err(e: &PdfBuilderError) -> PhpException {
+    match e {
+        PdfBuilderError::Pdf(inner) => map_pdf_err(inner),
+        PdfBuilderError::Image(JpegError::InvalidJpeg | JpegError::UnsupportedColorSpace(_)) => {
+            PhpException::from_class::<ImageException>(e.to_string())
+        }
+        PdfBuilderError::Image(JpegError::AddObject) => {
+            PhpException::from_class::<PdfiumException>(e.to_string())
+        }
+        PdfBuilderError::PageOutOfRange(_) | PdfBuilderError::EmptyPolygon(_) => {
+            PhpException::new(e.to_string(), 0, ce::value_error())
+        }
+    }
+}
 
-/// Returns a PHP Exception for the given `PdfExtractError`.
+/// Returns a PHP Exception for the given `PdfExtractError`: wrapped errors keep the class they
+/// have everywhere else.
 #[must_use]
 pub fn format_pdf_extract_err(e: &PdfExtractError) -> PhpException {
     match e {
-        PdfExtractError::Pdf { .. } | PdfExtractError::Builder { .. } => {
-            PhpException::from_class::<PdfExtractException>(e.to_string())
-        }
-        PdfExtractError::ImageExtract { .. } => {
-            PhpException::from_class::<ImageExtractException>(e.to_string())
-        }
-        PdfExtractError::EmptyGroup { .. } | PdfExtractError::NoGroups => {
+        PdfExtractError::Pdf(inner) => map_pdf_err(inner),
+        PdfExtractError::Builder(inner) => map_builder_err(inner),
+        PdfExtractError::Image(inner) => map_image_err(inner),
+        PdfExtractError::ImageExtract(inner) => format_image_extract_err(inner),
+        PdfExtractError::EmptyGroup(_) | PdfExtractError::NoGroups => {
             PhpException::new(e.to_string(), 0, ce::value_error())
         }
-        PdfExtractError::Image(_) => PhpException::from_class::<ImageException>(e.to_string()),
     }
 }

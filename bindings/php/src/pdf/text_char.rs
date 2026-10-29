@@ -59,9 +59,8 @@ impl PhpTextChar {
     ///
     /// # Errors
     ///
-    /// Throws a `ValueError` if `stroke_color` or `fill_color` is provided
-    /// with a length other than 4, or if `bounds` is provided with a length
-    /// other than 4.
+    /// - `\ValueError` if `$stroke_color`, `$fill_color` or `$bounds` is given with a length other
+    ///   than 4.
     #[allow(clippy::too_many_arguments)]
     #[allow(clippy::needless_pass_by_value)]
     pub fn __construct(

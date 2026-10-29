@@ -20,7 +20,8 @@ pub struct PhpPdfDocument {
 impl PhpPdfDocument {
     /// Create a new instance from bytes.
     /// # Errors
-    /// Returns a PHP Exception if the creation fails.
+    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't be loaded, or `$data` isn't a PDF it
+    ///   can read.
     #[allow(clippy::needless_pass_by_value)]
     pub fn __construct(data: BinarySlice<u8>) -> PhpResult<Self> {
         super::ensure_pdfium()?;
@@ -30,7 +31,8 @@ impl PhpPdfDocument {
 
     /// `PdfDocument::create()` empty document (new is reserved).
     /// # Errors
-    /// Returns a PHP Exception if the creation fails.
+    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't be loaded, or can't create a
+    ///   document.
     pub fn create() -> PhpResult<Self> {
         super::ensure_pdfium()?;
         Document::new().map(Self::wrap).map_err(|e| map_pdf_err(&e))
@@ -38,14 +40,17 @@ impl PhpPdfDocument {
 
     /// Returns the page count.
     /// # Errors
-    /// Returns a PHP Exception if the count fails.
+    /// - `\ValueError` if the document has more than 65535 pages.
+    /// - `\Exception` if the document is closed.
     pub fn get_page_count(&self) -> PhpResult<u16> {
         self.with_doc(|d| d.page_count().map_err(|e| map_pdf_err(&e)))?
     }
 
     /// Return the specified page.
     /// # Errors
-    /// Returns a PHP Exception if the page cannot be retrieved.
+    /// - `\ValueError` if there's no page `$index`.
+    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't load the page.
+    /// - `\Exception` if the document is closed.
     pub fn get_page(&self, index: u16) -> PhpResult<PdfPage> {
         self.with_doc(|d| d.page(index).map(|_| ()).map_err(|e| map_pdf_err(&e)))??;
         Ok(PdfPage {
@@ -56,7 +61,9 @@ impl PhpPdfDocument {
 
     /// Append pages `indexes` of `$src` to `$this`.
     /// # Errors
-    /// Returns a PHP Exception if the import fails.
+    /// - `\ValueError` if `$src` is this document, or has no page at one of `$indexes`.
+    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't copy the pages.
+    /// - `\Exception` if either document is closed.
     #[allow(clippy::significant_drop_tightening)]
     #[allow(clippy::needless_pass_by_value)]
     #[allow(clippy::use_self)]
@@ -77,7 +84,8 @@ impl PhpPdfDocument {
 
     /// Returns the PDF bytes (PHP writes files itself and keeps I/O out of Rust).
     /// # Errors
-    /// Returns a PHP Exception if the save fails.
+    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't save the document.
+    /// - `\Exception` if the document is closed.
     pub fn as_bytes(&self) -> PhpResult<Binary<u8>> {
         let mut out: Vec<u8> = Vec::new();
         self.with_doc(|d| d.save(&mut out).map_err(|e| map_pdf_err(&e)))??;
@@ -86,7 +94,10 @@ impl PhpPdfDocument {
 
     /// Rasterizes a page from a given index as a JPEG.
     /// # Errors
-    /// Returns a PHP Exception if the rasterization fails.
+    /// - `\ValueError` if there's no page `$index`.
+    /// - `\BernardLedit\Image\ImageException` if `$quality` is above 100, or JPEG encoding fails.
+    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't render the page.
+    /// - `\Exception` if the document is closed.
     pub fn rasterize_page_to_jpeg_bytes(&self, index: u16, quality: u8) -> PhpResult<Binary<u8>> {
         self.with_doc(|d| {
             d.rasterize_page(index, quality)
@@ -95,9 +106,12 @@ impl PhpPdfDocument {
         .map(Binary::new)
     }
 
-    /// Appends a sequence of JPEG pages as pages to the document.
+    /// Appends a JPEG as a page of the document.
     /// # Errors
-    /// Returns a PHP Exception if the append fails.
+    /// - `\BernardLedit\Image\ImageException` if `$jpeg` is invalid, truncated or in an unsupported
+    ///   color space.
+    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't append the page.
+    /// - `\Exception` if the document is closed.
     #[allow(clippy::needless_pass_by_value)]
     pub fn append_jpeg_page(&self, jpeg: BinarySlice<u8>) -> PhpResult<()> {
         self.with_doc_mut(|d| d.append_jpeg_page(&jpeg).map_err(|e| map_pdf_err(&e)))?
@@ -105,7 +119,10 @@ impl PhpPdfDocument {
 
     /// Append multiple JPEG pages to the document.
     /// # Errors
-    /// Returns a PHP Exception if the append fails.
+    /// - `\BernardLedit\Image\ImageException` if one of `$jpegs` is invalid, truncated or in an
+    ///   unsupported color space.
+    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't append a page.
+    /// - `\Exception` if the document is closed.
     #[allow(clippy::needless_pass_by_value)]
     pub fn append_multiple_jpeg_pages(&self, jpegs: Vec<BinarySlice<u8>>) -> PhpResult<()> {
         let vec_slices: Vec<&[u8]> = jpegs.iter().map(|jpeg| jpeg.as_ref()).collect();
@@ -118,14 +135,17 @@ impl PhpPdfDocument {
 
     /// Retrieves the entire text from a document as a string.
     /// # Errors
-    /// Returns a PHP Exception if the text retrieval fails.
+    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't read a page's text.
+    /// - `\Exception` if the document is closed.
     pub fn get_text(&self) -> PhpResult<String> {
         self.with_doc(|d| d.text().map_err(|e| map_pdf_err(&e)))?
     }
 
     /// Append text to a page.
     /// # Errors
-    /// Returns a PHP Exception if the text append fails.
+    /// - `\ValueError` if there's no page `$page_idx`.
+    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't add the text.
+    /// - `\Exception` if the document is closed.
     #[allow(clippy::needless_pass_by_value)]
     pub fn add_text(&self, page_idx: u16, chars: Vec<&PhpTextChar>) -> PhpResult<()> {
         let contiguous_chars: Vec<TextChar> = chars.into_iter().map(Into::into).collect();
@@ -139,31 +159,35 @@ impl PhpPdfDocument {
 
     /// Check if the document has any text.
     /// # Errors
-    /// Returns a PHP Exception if the check fails.
+    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't read a page.
+    /// - `\Exception` if the document is closed.
     pub fn has_text(&self) -> PhpResult<bool> {
         self.with_doc(|d| d.has_text().map_err(|e| map_pdf_err(&e)))?
     }
 
     /// Returns true if the document has no content.
     /// # Errors
-    /// Returns a PHP Exception if the check fails.
+    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't read a page.
+    /// - `\Exception` if the document is closed.
     pub fn has_no_content(&self) -> PhpResult<bool> {
         self.with_doc(|d| d.has_no_content().map_err(|e| map_pdf_err(&e)))?
     }
 
-    /// Close the document.
-    /// # Errors
-    /// Returns a PHP Exception if the close fails.
-    pub fn close(&self) -> PhpResult<()> {
-        let mut g = self.inner.lock().map_err(|_| closed_err())?;
-        *g = None;
-        drop(g);
-        Ok(())
+    /// Close the document. Closing it again does nothing.
+    pub fn close(&self) {
+        *self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = None;
     }
     /// Recompresses pages that have no text layer (scans) as JPEG.
     /// Returns `null` when there is nothing to gain (e.g. text-only documents).
     /// # Errors
-    /// Returns a PHP Exception if rendering or encoding fails.
+    /// - `\BernardLedit\Image\ImageException` if `$quality` is outside 5-100, or JPEG encoding
+    ///   fails.
+    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't render a page, or build the new
+    ///   document.
+    /// - `\Exception` if the document is closed.
     #[php(defaults(quality = 85, optimize = true, dpi = 150.0))]
     #[allow(
         clippy::cast_possible_truncation,
@@ -203,7 +227,9 @@ impl PhpPdfDocument {
 
 /// Compresses PDF bytes. Returns the input unchanged if it can't be made smaller.
 /// # Errors
-/// Returns a PHP Exception if the PDF is invalid or compression fails.
+/// - `\BernardLedit\Image\ImageException` if `$quality` is outside 5-100, or JPEG encoding fails.
+/// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't be loaded, `$data` isn't a PDF it can
+///   read, or it can't render a page or build the new document.
 #[php_function]
 #[php(name = "BernardLedit\\Pdf\\compress")]
 #[php(defaults(quality = 85, optimize = None, dpi = None))]
@@ -241,10 +267,12 @@ pub fn compress(
 /// Builds one new document per group of 0-indexed page numbers.
 /// `data` is a PDF or an image (treated as a one-page document).
 /// # Errors
-/// Throws if no groups are given.
-/// Throws if a group is empty.
-/// Throws if a page index is out of range.
-/// Throws if the data is neither a valid PDF nor a supported image.
+/// - `\ValueError` if `$page_indexes` or one of its groups is empty, or there's no page at one of
+///   the indexes.
+/// - `\BernardLedit\Image\ImageException` if `$data` is neither a PDF nor an identifiable,
+///   decodable image.
+/// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't be loaded, `$data` is a PDF it can't
+///   read, or it can't build the documents.
 #[php_function]
 #[php(name = "BernardLedit\\Pdf\\extractFromPageRanges")]
 #[allow(clippy::needless_pass_by_value)]

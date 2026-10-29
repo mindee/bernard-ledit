@@ -48,10 +48,11 @@ final class PdfDocumentTest extends TestCase
         self::assertSame(0, $page->getIndex());
     }
 
-    public function testGetPageOutOfBoundsThrowsPdfiumException(): void
+    public function testGetPageOutOfBoundsThrowsValueError(): void
     {
         $doc = new PdfDocument(self::pdf('blank_1.pdf'));
-        $this->expectException(PdfiumException::class);
+        $this->expectException(\ValueError::class);
+        $this->expectExceptionMessage('Page index 99 out of bounds (document has 1 pages)');
         $doc->getPage(99);
     }
 
@@ -141,7 +142,7 @@ final class PdfDocumentTest extends TestCase
     public function testAppendJpegPageInvalidDataThrows(): void
     {
         $doc = PdfDocument::create();
-        $this->expectException(PdfiumException::class);
+        $this->expectException(\BernardLedit\Image\ImageException::class);
         $doc->appendJpegPage('not a valid jpeg');
     }
 
@@ -188,10 +189,10 @@ final class PdfDocumentTest extends TestCase
         self::assertSame("\xFF\xD8", substr($jpeg, 0, 2));
     }
 
-    public function testRasterizePageOutOfBoundsThrowsPdfiumException(): void
+    public function testRasterizePageOutOfBoundsThrowsValueError(): void
     {
         $doc = new PdfDocument(self::pdf('blank_1.pdf'));
-        $this->expectException(PdfiumException::class);
+        $this->expectException(\ValueError::class);
         $doc->rasterizePageToJpegBytes(99, 85);
     }
 
