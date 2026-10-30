@@ -29,5 +29,9 @@ generate:
 test: deps generate
     PDFIUM_PATH="$({{uniffi}} pdfium-path)" bundle exec ruby -Ilib -Itest test/smoke_test.rb
 
+# Checks the Ruby files' syntax, with warnings.
+lint:
+    for file in bernard_ledit.gemspec Gemfile test/*.rb; do ruby -wc "$file" > /dev/null || exit 1; done
+
 # Runs the checks CI runs.
-ci: test
+ci: lint test

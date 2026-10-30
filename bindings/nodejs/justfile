@@ -32,5 +32,8 @@ test: generate
 typecheck: generate
     npm run typecheck
 
+# Lints the package: for now, a type-check.
+lint: typecheck
+
 # Runs the checks CI runs.
-ci: typecheck test
+ci: lint test

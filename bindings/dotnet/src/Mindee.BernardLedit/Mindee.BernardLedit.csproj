@@ -8,6 +8,7 @@
     <TargetFrameworks>net8.0;net472</TargetFrameworks>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Nullable>enable</Nullable>
+    <RollForward>Major</RollForward>
     <PackageId>Mindee.BernardLedit</PackageId>
     <Version>0.1.0</Version>
     <Authors>Mindee</Authors>

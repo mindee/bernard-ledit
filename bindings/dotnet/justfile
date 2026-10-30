@@ -3,8 +3,9 @@ set shell := ["bash", "-c"]
 uniffi := "just -f ../uniffi/justfile"
 # The C# generator, pinned to the UniFFI version bindings/uniffi uses.
 bindgen_cs_tag := "v0.11.1+v0.31.0"
-bindgen_cs := justfile_directory() / "../../target/uniffi-bindgen-cs/bin/uniffi-bindgen-cs"
+bindgen_cs := module_directory() / "../../target/uniffi-bindgen-cs/bin/uniffi-bindgen-cs"
 generated := "src/Mindee.BernardLedit/Generated"
+format_exclude := "--exclude tests/Mindee.BernardLedit.Tests/bin/ tests/Mindee.BernardLedit.Tests/obj/"
 
 # Lists the recipes.
 [private]
@@ -27,7 +28,7 @@ generate: bindgen
     rm -rf {{generated}}
     # uniffi-bindgen-cs reads the crate's Cargo metadata from the current directory.
     cd ../uniffi && "{{bindgen_cs}}" --library "$({{uniffi}} library-path)" \
-        --out-dir "{{justfile_directory()}}/{{generated}}" --no-format
+        --out-dir "{{module_directory()}}/{{generated}}" --no-format
 
 # Builds the library.
 build: generate
@@ -38,5 +39,13 @@ test: generate
     PDFIUM_PATH="$({{uniffi}} pdfium-path)" dotnet test tests/Mindee.BernardLedit.Tests \
         -p:NativeLibrary="$({{uniffi}} library-path)"
 
+# Formats the hand-written C#: everything under tests/, build output aside.
+format:
+    dotnet format whitespace --folder --include tests/ {{format_exclude}}
+
+# Checks the hand-written C#'s formatting.
+lint:
+    dotnet format whitespace --folder --verify-no-changes --include tests/ {{format_exclude}}
+
 # Runs the checks CI runs.
-ci: test
+ci: lint test
