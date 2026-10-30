@@ -1,5 +1,6 @@
 # Ruby (bindings/ruby)
-**/*.gem
-**/.bundle/
-**/vendor/bundle/
-**/Gemfile.lock
+Gemfile.lock
+vendor/
+*.gem
+# `just ruby generate` writes the bindings and links the library here.
+lib/

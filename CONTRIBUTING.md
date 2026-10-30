@@ -58,41 +58,16 @@ sudo apt install php-dev libclang-dev
 sudo dnf install php-devel clang-devel
 ```
 
-#### Node.js (`bindings/nodejs`)
+#### Java, .NET, Node.js and Ruby (`bindings/uniffi`)
 
-NAPI-RS requires a Node.js runtime. Install it via your system package manager or [nvm](https://github.com/nvm-sh/nvm):
+These four packages share one UniFFI library; [bindings/uniffi](bindings/uniffi/README.md) explains how
+it fits together. Each package only needs its own toolchain, plus Rust:
 
-```bash
-# Debian / Ubuntu
-sudo apt install nodejs npm
-```
-
-#### Java (`bindings/java`)
-
-A JDK is required to run the generated UniFFI bindings. Any JDK 11+ distribution works:
-
-```bash
-# Debian / Ubuntu
-sudo apt install default-jdk
-```
-
-#### .NET (`bindings/dotnet`)
-
-The .NET SDK 8.0+ is required:
-
-```bash
-# See https://learn.microsoft.com/en-us/dotnet/core/install/linux
-sudo apt install dotnet-sdk-8.0
-```
-
-#### Ruby (`bindings/ruby`)
-
-Ruby 3.1+ and Bundler are required:
-
-```bash
-# Debian / Ubuntu
-sudo apt install ruby ruby-dev bundler
-```
+- **Java:** JDK 11+ and Maven (`sudo apt install default-jdk maven`).
+- **.NET:** the .NET SDK 8.0+ (see https://learn.microsoft.com/en-us/dotnet/core/install/linux).
+  The first `just dotnet generate` installs uniffi-bindgen-cs into `target/`.
+- **Node.js:** Node.js 20.6+ and npm (`sudo apt install nodejs npm`, or nvm).
+- **Ruby:** Ruby 3.2+, its headers and Bundler (`sudo apt install ruby ruby-dev bundler`).
 
 ---
 
@@ -105,8 +80,11 @@ just build
 # Python binding (installs into the active virtualenv via maturin develop)
 just python build
 
-# Java binding
+# Java, .NET, Node.js and Ruby bindings: build the UniFFI library and generate each package's code
 just java build
+just dotnet build
+just nodejs generate
+just ruby generate
 ```
 
 ---
@@ -119,6 +97,13 @@ just test
 
 # Python binding
 just python test
+
+# UniFFI crate, then the Java, .NET, Node.js and Ruby smoke tests
+just uniffi test
+just java test
+just dotnet test
+just nodejs test
+just ruby test
 
 # Full Rust check (all feature combinations, lint, tests)
 just check

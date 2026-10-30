@@ -391,10 +391,12 @@ just php stubs-check       # fails if the committed PHP stubs are out of date
 |----------|------------------------|----------------------------------------------------|
 | Python   | `bernard-ledit` (PyPI) | ✅ Active                                          |
 | PHP      | `bindings/php`         | ✅ Active, used by the PHP SDK; PIE release coming |
-| Java     | `bindings/java`        | 🚧 In progress (geometry)                          |
-| .NET     | `bindings/dotnet`      | 🚧 In progress                                     |
-| Node.js  | `bindings/nodejs`      | 🚧 In progress                                     |
-| Ruby     | `bindings/ruby`        | 🚧 In progress                                     |
+| Java     | `bindings/java`        | 🚧 In progress: UniFFI, first API slice            |
+| .NET     | `bindings/dotnet`      | 🚧 In progress: UniFFI, first API slice            |
+| Node.js  | `bindings/nodejs`      | 🚧 In progress: UniFFI, first API slice            |
+| Ruby     | `bindings/ruby`        | 🚧 In progress: UniFFI, first API slice            |
+
+Java, .NET, Node.js and Ruby share one UniFFI library: see [bindings/uniffi](bindings/uniffi/README.md).
 
 ---
 

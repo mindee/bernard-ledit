@@ -1,0 +1,38 @@
+[package]
+name = "bernard-ledit-uniffi"
+description = "UniFFI bindings for Bernard l'Édit: one library for the Java, .NET, Node.js and Ruby packages."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish = false
+
+[lib]
+name = "bernard_ledit_uniffi"
+crate-type = ["cdylib", "lib"]
+
+[[bin]]
+# Kotlin and Ruby generators, built from the same UniFFI version as the library.
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+required-features = ["cli"]
+
+[dependencies]
+bernard-ledit = { path = "../../core", features = ["full"] }
+thiserror = "2.0.18"
+# Pinned to the newest UniFFI release that every generator supports: uniffi-bindgen-cs
+# v0.11.x and uniffi-bindgen-react-native 0.31.0-x stop at 0.31. Bump all of them together.
+uniffi = "=0.31.2"
+
+[features]
+cli = ["uniffi/cli"]
+static-link = ["bernard-ledit/static-link"]
+static-pdfium = ["static-link", "bernard-ledit/static-pdfium"]
+static-pdfium-libcxx = ["static-link", "bernard-ledit/static-pdfium-libcxx"]
+static-pdfium-msvc = ["static-link", "bernard-ledit/static-pdfium-msvc"]
+
+[lints]
+workspace = true

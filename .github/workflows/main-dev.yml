@@ -39,8 +39,8 @@ jobs:
     with:
       php-versions: '["8.1", "8.2", "8.3", "8.4", "8.5"]'
 
-  java-binding-tests:
-    uses: ./.github/workflows/_java-binding-ci.yml
+  uniffi-binding-tests:
+    uses: ./.github/workflows/_uniffi-binding-tests.yml
     needs: pre-commit
     with:
       java-versions: '["11", "17", "21"]'
@@ -93,7 +93,7 @@ jobs:
     needs:
       - python-binding-tests
       - php-binding-tests
-      - java-binding-tests
+      - uniffi-binding-tests
       - hack-test-release
       - static-pdfium
     permissions:

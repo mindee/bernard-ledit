@@ -1,0 +1,62 @@
+set shell := ["bash", "-c"]
+
+lib_file := if os() == "macos" { "libbernard_ledit_uniffi.dylib" } else if os() == "windows" { "bernard_ledit_uniffi.dll" } else { "libbernard_ledit_uniffi.so" }
+target_dir := justfile_directory() / "../../target/debug"
+library := target_dir / lib_file
+bindgen := target_dir / "uniffi-bindgen" + if os() == "windows" { ".exe" } else { "" }
+
+# Where core's build downloads the dynamic PDFium the debug library loads.
+pdfium_release := replace(`tr -d '[:space:]' < ../../core/pdfium-release`, "/", "_")
+pdfium_target := if os() == "macos" {
+    if arch() == "aarch64" { "mac-arm64" } else { "mac-x64" }
+} else if os() == "windows" {
+    "win-x64"
+} else {
+    if arch() == "aarch64" { "linux-arm64" } else { "linux-x64" }
+}
+pdfium_dir := "../../core/.pdfium_cache/" + pdfium_release + "/" + pdfium_target
+pdfium_lib := if os() == "macos" { "libpdfium.dylib" } else if os() == "windows" { "pdfium.dll" } else { "libpdfium.so" }
+
+# Lists the recipes.
+[private]
+default:
+    @just --list
+
+# Builds the debug library, and UniFFI's own generator (Kotlin, Ruby) at the same UniFFI version.
+build:
+    cargo build -p bernard-ledit-uniffi --features cli
+
+# Generates UniFFI's own LANGUAGE bindings (kotlin, ruby) into OUT_DIR.
+generate LANGUAGE OUT_DIR: build
+    "{{bindgen}}" generate --library "{{library}}" --language {{LANGUAGE}} --no-format --out-dir "{{OUT_DIR}}"
+
+# Prints the debug library's path.
+library-path:
+    @echo "$(realpath "{{library}}")"
+
+# Prints the debug library's directory.
+library-dir:
+    @echo "$(realpath "{{target_dir}}")"
+
+# Prints the path of the dynamic PDFium, downloading it through core's build if it's missing.
+pdfium-path:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    find_pdfium() {
+        find "{{pdfium_dir}}" -name "{{pdfium_lib}}" 2>/dev/null | head -n 1 || true
+    }
+    lib="$(find_pdfium)"
+    if [ -z "$lib" ]; then
+        just -f ../../justfile core build >&2
+        lib="$(find_pdfium)"
+    fi
+    [ -n "$lib" ] || { echo "{{pdfium_lib}} not found in {{pdfium_dir}}" >&2; exit 1; }
+    realpath "$lib"
+
+# Runs clippy on the crate.
+lint:
+    cargo clippy -p bernard-ledit-uniffi --all-targets --features cli -- -D warnings
+
+# Runs the crate's unit tests.
+test:
+    cargo test -p bernard-ledit-uniffi

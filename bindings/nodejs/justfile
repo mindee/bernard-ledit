@@ -1,0 +1,36 @@
+set shell := ["bash", "-c"]
+
+uniffi := "just -f ../uniffi/justfile"
+
+# Lists the recipes.
+[private]
+default:
+    @just --list
+
+# Installs the npm dependencies on first use.
+[private]
+deps:
+    [ -d node_modules ] || npm ci
+
+# Generates the TypeScript bindings into generated/, next to a link to the debug library.
+generate: deps
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{uniffi}} build
+    lib="$({{uniffi}} library-path)"
+    rm -rf generated
+    # ubrn reads the crate's Cargo metadata from the current directory.
+    (cd ../uniffi && ../nodejs/node_modules/.bin/ubrn generate napi bindings --library "$lib" \
+        --ts-dir ../nodejs/generated --lib-colocated --no-format)
+    ln -s "$lib" generated/
+
+# Runs the smoke tests against the debug library and the dynamic PDFium.
+test: generate
+    PDFIUM_PATH="$({{uniffi}} pdfium-path)" npm test
+
+# Type-checks the generated bindings and the tests.
+typecheck: generate
+    npm run typecheck
+
+# Runs the checks CI runs.
+ci: typecheck test
