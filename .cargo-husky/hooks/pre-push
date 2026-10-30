@@ -26,6 +26,11 @@ if changed_matches '(\.rs$|^Cargo\.(toml|lock)$|/Cargo\.toml$|^deny\.toml$|^rust
     just core test
 fi
 
+if changed_matches '^bindings/uniffi/'; then
+    echo "Running UniFFI crate tests..."
+    just uniffi test
+fi
+
 if changed_matches '^bindings/java/'; then
     echo "Running Java tests..."
     just java test

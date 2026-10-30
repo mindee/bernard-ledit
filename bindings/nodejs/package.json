@@ -1,0 +1,32 @@
+{
+  "name": "@mindee/bernard-ledit",
+  "version": "0.1.0",
+  "description": "Node.js bindings for Bernard l'Édit: PDF and image utilities.",
+  "license": "MIT",
+  "author": "Mindee <opensource@mindee.com>",
+  "homepage": "https://github.com/mindee/bernard-ledit",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mindee/bernard-ledit.git",
+    "directory": "bindings/nodejs"
+  },
+  "type": "module",
+  "main": "generated/index.ts",
+  "engines": {
+    "node": ">= 20.1"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@ubjs/core": "0.31.0-6",
+    "@ubjs/node": "0.31.0-6"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.21",
+    "tsx": "4.20.3",
+    "typescript": "5.8.3",
+    "uniffi-bindgen-react-native": "0.31.0-6"
+  }
+}

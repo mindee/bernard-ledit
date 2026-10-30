@@ -41,8 +41,6 @@ highlight = "all"
 # Known exceptions for duplicate versions (populate as needed)
 skip = [
     { name = "cargo_metadata" },
-    { name = "cargo-platform" },
-    { name = "convert_case" },
     { name = "getrandom" },
     { name = "itertools" },
     { name = "libloading" },
@@ -53,6 +51,8 @@ skip = [
     { name = "thiserror" },
     { name = "thiserror-impl" },
     { name = "windows-sys" },
+    # uniffi 0.31's toml uses winnow 0.7, and toml_parser winnow 1.0.
+    { name = "winnow" },
 ]
 skip-tree = []
 
