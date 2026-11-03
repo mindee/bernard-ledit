@@ -1,0 +1,155 @@
+name: UniFFI binding tests
+
+# The Java, .NET, Node.js and Ruby packages: each builds bindings/uniffi, generates its bindings
+# from the library, and runs its smoke tests against the debug build and the dynamic PDFium.
+
+on:
+  workflow_call:
+    inputs:
+      java-versions:
+        required: true
+        type: string
+        description: "A JSON-formatted string array of Java versions to test"
+
+  workflow_dispatch:
+    inputs:
+      java-versions:
+        description: "A JSON-formatted string array of Java versions to test"
+        type: string
+        default: '["11", "17", "21"]'
+
+permissions:
+  contents: read
+
+env:
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  java:
+    name: Java ${{ matrix.java }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
+        java: ${{ fromJSON(inputs.java-versions) }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: extractions/setup-just@v4
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@1.99.0
+      - name: Cache PDFium binary
+        uses: actions/cache@v6
+        with:
+          path: core/.pdfium_cache
+          key: pdfium-${{ runner.os }}-${{ hashFiles('core/build.rs', 'core/pdfium-release') }}
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: uniffi-${{ matrix.os }}
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+          cache-dependency-path: bindings/java/pom.xml
+      - name: Run Java checks and tests
+        run: just java ci
+
+  dotnet:
+    name: .NET (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: extractions/setup-just@v4
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@1.99.0
+      - name: Cache PDFium binary
+        uses: actions/cache@v6
+        with:
+          path: core/.pdfium_cache
+          key: pdfium-${{ runner.os }}-${{ hashFiles('core/build.rs', 'core/pdfium-release') }}
+      - name: Cache Rust dependencies and uniffi-bindgen-cs
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: uniffi-${{ matrix.os }}
+          cache-directories: target/uniffi-bindgen-cs
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 8.0.x
+      - name: Run .NET tests
+        run: just dotnet ci
+
+  nodejs:
+    name: Node.js (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: extractions/setup-just@v4
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@1.99.0
+      - name: Cache PDFium binary
+        uses: actions/cache@v6
+        with:
+          path: core/.pdfium_cache
+          key: pdfium-${{ runner.os }}-${{ hashFiles('core/build.rs', 'core/pdfium-release') }}
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: uniffi-${{ matrix.os }}
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          # mindee-api-nodejs supports Node.js 20.1+; the tests need 20.6+ for --import.
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: bindings/nodejs/package-lock.json
+      - name: Run Node.js checks and tests
+        run: just nodejs ci
+
+  ruby:
+    name: Ruby (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: extractions/setup-just@v4
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@1.99.0
+      - name: Cache PDFium binary
+        uses: actions/cache@v6
+        with:
+          path: core/.pdfium_cache
+          key: pdfium-${{ runner.os }}-${{ hashFiles('core/build.rs', 'core/pdfium-release') }}
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: uniffi-${{ matrix.os }}
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          # mindee-api-ruby supports Ruby 3.2+.
+          ruby-version: "3.2"
+      - name: Run Ruby tests
+        run: just ruby ci

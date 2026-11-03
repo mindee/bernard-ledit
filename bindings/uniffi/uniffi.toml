@@ -1,0 +1,13 @@
+# Per-language settings for the generated bindings.
+
+[bindings.kotlin]
+package_name = "com.mindee.bernardledit"
+
+[bindings.csharp]
+namespace = "Mindee.BernardLedit"
+# Holds the free functions: `BernardLedit.GuessFormat(...)`.
+global_methods_class_name = "BernardLedit"
+access_modifier = "public"
+
+[bindings.ruby]
+cdylib_name = "bernard_ledit_uniffi"

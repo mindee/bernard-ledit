@@ -5,8 +5,16 @@ set shell := ["bash", "-c"]
 default:
     @just --list
 
-# Java binding commands
+# Shared UniFFI library behind the Java, .NET, Node.js and Ruby bindings
+mod uniffi "bindings/uniffi/justfile"
+# Java binding commands (UniFFI, through its Kotlin bindings)
 mod java "bindings/java/justfile"
+# .NET binding commands (UniFFI)
+mod dotnet "bindings/dotnet/justfile"
+# Node.js binding commands (UniFFI)
+mod nodejs "bindings/nodejs/justfile"
+# Ruby binding commands (UniFFI)
+mod ruby "bindings/ruby/justfile"
 # Python binding commands
 mod python "bindings/python/justfile"
 # PHP binding commands
@@ -108,6 +116,18 @@ check-all:
     else
         skip_check "just php test-static" "set PDFIUM_STATIC_LIB_PATH (see tools/pdfium-static/download.sh)"
     fi
+
+    run_check just uniffi lint
+    run_check just uniffi test
+    # The UniFFI packages, each when its toolchain is installed.
+    for package in "java mvn" "dotnet dotnet" "nodejs npm" "ruby bundle"; do
+        read -r name tool <<< "$package"
+        if command -v "$tool" > /dev/null; then
+            run_check just "$name" ci
+        else
+            skip_check "just $name ci" "$tool isn't installed"
+        fi
+    done
 
     print_summary
     printf '\n%sAll checks passed.%s\n' "$green" "$reset"

@@ -1,35 +1,46 @@
 set shell := ["bash", "-c"]
 
-# List the default tasks
+uniffi := "just -f ../uniffi/justfile"
+generated := "target/generated-sources/uniffi"
+
+# Lists the recipes.
 [private]
 default:
     @just --list
 
-# Builds Java bindings
-build:
-    cd bernard-ledit && mvn clean package
+# Generates UniFFI's Kotlin bindings, which Java calls; `BernardLedit` holds the free functions.
+generate:
+    rm -rf {{generated}}
+    {{uniffi}} generate kotlin "$PWD/{{generated}}"
+    perl -pi -e 's/^(\@file:Suppress\("NAME_SHADOWING"\))$/$1\n\@file:JvmName("BernardLedit")/' \
+        {{generated}}/com/mindee/bernardledit/bernard_ledit.kt
 
-# Cleans Java build artifacts
-clean:
-    cd bernard-ledit && mvn clean
+# Builds the jar.
+build: generate
+    mvn --no-transfer-progress package -DskipTests
 
-# Formats Java code
+# Runs the smoke tests against the debug library and the dynamic PDFium.
+test: generate
+    PDFIUM_PATH="$({{uniffi}} pdfium-path)" mvn --no-transfer-progress test \
+        -DargLine="-Djna.library.path=$({{uniffi}} library-dir)"
+
+# Formats the Java tests.
 format:
-    cd bernard-ledit && mvn spotless:apply
+    mvn --no-transfer-progress spotless:apply
 
-# Checks format for Java code
+# Checks the Java tests' formatting.
 format-check:
-    cd bernard-ledit && mvn spotless:check
+    mvn --no-transfer-progress spotless:check
 
-# Lints Java code
+# Lints the Java tests.
 lint:
-    cd bernard-ledit && mvn spotless:check pmd:check
+    mvn --no-transfer-progress spotless:check pmd:check
 
-# Test Java bindings
-test:
-    cd bernard-ledit && mvn test -DargLine="-Djava.library.path=../../target/debug"
+# Runs the checks CI runs.
+ci: generate
+    PDFIUM_PATH="$({{uniffi}} pdfium-path)" mvn --no-transfer-progress spotless:check pmd:check test \
+        -DargLine="-Djna.library.path=$({{uniffi}} library-dir)"
 
-# Combined CI check: format, lint and test in a single Maven run
-ci:
-    cd bernard-ledit && mvn --no-transfer-progress spotless:check pmd:check test -DargLine="-Djava.library.path=../../target/debug"
-
+# Removes build artifacts.
+clean:
+    mvn --no-transfer-progress clean

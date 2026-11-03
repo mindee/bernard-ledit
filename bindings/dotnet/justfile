@@ -1,0 +1,51 @@
+set shell := ["bash", "-c"]
+
+uniffi := "just -f ../uniffi/justfile"
+# The C# generator, pinned to the UniFFI version bindings/uniffi uses.
+bindgen_cs_tag := "v0.11.1+v0.31.0"
+bindgen_cs := module_directory() / "../../target/uniffi-bindgen-cs/bin/uniffi-bindgen-cs"
+generated := "src/Mindee.BernardLedit/Generated"
+format_exclude := "--exclude tests/Mindee.BernardLedit.Tests/bin/ tests/Mindee.BernardLedit.Tests/obj/"
+
+# Lists the recipes.
+[private]
+default:
+    @just --list
+
+# Installs uniffi-bindgen-cs into target/ on first use.
+[private]
+bindgen:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ ! -x "{{bindgen_cs}}" ] || ! "{{bindgen_cs}}" --version | grep -qF "{{trim_start_match(bindgen_cs_tag, "v")}}"; then
+        cargo install uniffi-bindgen-cs --locked --git https://github.com/NordSecurity/uniffi-bindgen-cs \
+            --tag "{{bindgen_cs_tag}}" --root "$(dirname "$(dirname "{{bindgen_cs}}")")"
+    fi
+
+# Generates the C# bindings into src/Mindee.BernardLedit/Generated/.
+generate: bindgen
+    {{uniffi}} build
+    rm -rf {{generated}}
+    # uniffi-bindgen-cs reads the crate's Cargo metadata from the current directory.
+    cd ../uniffi && "{{bindgen_cs}}" --library "$({{uniffi}} library-path)" \
+        --out-dir "{{module_directory()}}/{{generated}}" --no-format
+
+# Builds the library.
+build: generate
+    dotnet build src/Mindee.BernardLedit
+
+# Runs the smoke tests against the debug library and the dynamic PDFium.
+test: generate
+    PDFIUM_PATH="$({{uniffi}} pdfium-path)" dotnet test tests/Mindee.BernardLedit.Tests \
+        -p:NativeLibrary="$({{uniffi}} library-path)"
+
+# Formats the hand-written C#: everything under tests/, build output aside.
+format:
+    dotnet format whitespace --folder --include tests/ {{format_exclude}}
+
+# Checks the hand-written C#'s formatting.
+lint:
+    dotnet format whitespace --folder --verify-no-changes --include tests/ {{format_exclude}}
+
+# Runs the checks CI runs.
+ci: lint test

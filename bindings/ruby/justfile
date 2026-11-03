@@ -1,0 +1,37 @@
+set shell := ["bash", "-c"]
+
+uniffi := "just -f ../uniffi/justfile"
+
+# Lists the recipes.
+[private]
+default:
+    @just --list
+
+# Installs the gems on first use.
+[private]
+deps:
+    bundle check > /dev/null || bundle install
+
+# Generates the Ruby bindings into lib/, next to a link to the debug library they load first.
+generate:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rm -rf lib
+    {{uniffi}} generate ruby "$PWD/lib"
+    lib="$({{uniffi}} library-path)"
+    ln -s "$lib" lib/
+    # Loads the library shipped next to the bindings, then falls back to the system search path.
+    perl -pi -e 's{^(\s*)ffi_lib .bernard_ledit_uniffi.$}{$1ffi_lib [File.expand_path("'"$(basename "$lib")"'", __dir__), "bernard_ledit_uniffi"]}' \
+        lib/bernard_ledit.rb
+    grep -q '__dir__' lib/bernard_ledit.rb
+
+# Runs the smoke tests against the debug library and the dynamic PDFium.
+test: deps generate
+    PDFIUM_PATH="$({{uniffi}} pdfium-path)" bundle exec ruby -Ilib -Itest test/smoke_test.rb
+
+# Checks the Ruby files' syntax, with warnings.
+lint:
+    for file in bernard_ledit.gemspec Gemfile test/*.rb; do ruby -wc "$file" > /dev/null || exit 1; done
+
+# Runs the checks CI runs.
+ci: lint test

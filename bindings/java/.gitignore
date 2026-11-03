@@ -1,6 +1,4 @@
 # Java (bindings/java)
+target/
 **/*.class
 **/*.jar
-**/.gradle/
-**/build/
-**/.mvn/

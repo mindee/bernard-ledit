@@ -1,9 +1,5 @@
 # .NET (bindings/dotnet)
-**/bin/
-**/obj/
-**/*.dll
-**/*.exe
-**/*.pdb
-**/*.nupkg
-**/.vs/
-**/*.user
+bin/
+obj/
+# `just dotnet generate` writes the C# bindings here.
+src/Mindee.BernardLedit/Generated/

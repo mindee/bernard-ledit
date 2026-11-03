@@ -2,12 +2,9 @@
 resolver = "3"
 members = [
     "core",
-    "bindings/dotnet",
-    "bindings/java",
-    "bindings/nodejs",
     "bindings/php",
     "bindings/python",
-    "bindings/ruby",
+    "bindings/uniffi",
 ]
 [workspace.package]
 version = "0.1.0"
