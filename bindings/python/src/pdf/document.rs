@@ -248,10 +248,10 @@ impl PyPdfDocument {
     /// Returns an error if the image data is invalid or if the operation fails.
     /// # Panics
     /// If the compression process encounters an unexpected error.
-    #[pyo3(signature = (quality = 85, optimize = true, dpi = 150.0))]
-    fn compress(&self, quality: u8, optimize: bool, dpi: f32) -> PyResult<Option<Self>> {
+    #[pyo3(signature = (quality = 85, dpi = 150.0))]
+    fn compress(&self, quality: u8, dpi: f32) -> PyResult<Option<Self>> {
         let out = self
-            .with_doc(|d| d.compress(quality, dpi, optimize))?
+            .with_doc(|d| d.compress(quality, dpi))?
             .map_err(|e| format_pdf_err(&e))?;
         Ok(out.map(|doc| Self {
             inner: Mutex::new(Some(doc)),
@@ -325,14 +325,11 @@ impl PyPdfDocument {
 /// # Errors
 /// Returns [`PdfError`] if the PDF cannot be compressed.
 #[pyfunction]
-#[pyo3(signature = (data, quality = 85, optimize = true, dpi = 150.0))]
-pub fn compress(data: PdfInput<'_>, quality: u8, optimize: bool, dpi: f32) -> PyResult<Vec<u8>> {
+#[pyo3(signature = (data, quality = 85, dpi = 150.0))]
+pub fn compress(data: PdfInput<'_>, quality: u8, dpi: f32) -> PyResult<Vec<u8>> {
     let data = data.into_vec()?;
     let doc = Document::from_bytes(data.clone()).map_err(|e| format_pdf_err(&e))?;
-    let Some(out) = doc
-        .compress(quality, dpi, optimize)
-        .map_err(|e| format_pdf_err(&e))?
-    else {
+    let Some(out) = doc.compress(quality, dpi).map_err(|e| format_pdf_err(&e))? else {
         return Ok(data);
     };
     let bytes = out.to_bytes().map_err(|e| format_pdf_err(&e))?;

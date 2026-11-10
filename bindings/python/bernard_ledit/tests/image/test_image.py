@@ -194,16 +194,9 @@ def test_encode_jpeg_roundtrip_keeps_size(png_bytes):
 
 def test_encode_lower_quality_is_not_larger(jpg_bytes):
     img = Image(jpg_bytes)
-    high = img.encode("JPEG", quality=95, optimize=False)
-    low = img.encode("JPEG", quality=20, optimize=False)
+    high = img.encode("JPEG", quality=95)
+    low = img.encode("JPEG", quality=20)
     assert len(low) <= len(high)
-
-
-def test_encode_optimize_is_not_larger(jpg_bytes):
-    img = Image(jpg_bytes)
-    plain = img.encode("JPEG", quality=85, optimize=False)
-    optimized = img.encode("JPEG", quality=85, optimize=True)
-    assert len(optimized) <= len(plain)
 
 
 def test_encode_unknown_format_errors(jpg_bytes):

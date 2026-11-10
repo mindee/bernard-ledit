@@ -31,12 +31,11 @@ namespace BernardLedit\Image {
          *
          * @param string $format An output format: `"JPEG"`, `"PNG"`, `"PDF"`, etc.
          * @param int<1, 100> $quality Only used by JPEG and PDF.
-         * @param bool $optimize
          * @return string
          * @throws \ValueError if `$format` isn't a supported output format, or `$quality` is out of range.
          * @throws \BernardLedit\Image\ImageException if encoding fails.
          */
-        public function encode(string $format, int $quality = 85, bool $optimize = true): string {}
+        public function encode(string $format, int $quality = 85): string {}
 
         /**
          * Upper-case format name (`"JPEG"`, `"PNG"`, etc.) or `null`.
@@ -237,7 +236,6 @@ namespace BernardLedit\Pdf {
          * Returns `null` when there is nothing to gain (e.g. text-only documents).
          *
          * @param int<5, 100> $quality
-         * @param bool $optimize
          * @param float $dpi A finite number between 1 and 1200.
          * @return \BernardLedit\Pdf\PdfDocument|null
          * @throws \ValueError if `$quality` or `$dpi` is out of range.
@@ -245,7 +243,7 @@ namespace BernardLedit\Pdf {
          * @throws \BernardLedit\Pdf\PdfiumException if `PDFium` can't render a page, or build the new document.
          * @throws \Exception if the document is closed.
          */
-        public function compress(int $quality = 85, bool $optimize = true, float $dpi = 150.0): ?\BernardLedit\Pdf\PdfDocument {}
+        public function compress(int $quality = 85, float $dpi = 150.0): ?\BernardLedit\Pdf\PdfDocument {}
 
         /**
          * `PdfDocument::create()` empty document (new is reserved).
@@ -437,14 +435,13 @@ namespace BernardLedit\Pdf {
      *
      * @param string $data
      * @param int<5, 100> $quality
-     * @param bool|null $optimize
      * @param float|null $dpi A finite number between 1 and 1200; 150 if `null`.
      * @return string
      * @throws \ValueError if `$quality` or `$dpi` is out of range.
      * @throws \BernardLedit\Image\ImageException if JPEG encoding fails.
      * @throws \BernardLedit\Pdf\PdfiumException if `PDFium` can't be loaded, `$data` isn't a PDF it can read, or it can't render a page or build the new document.
      */
-    function compress(string $data, int $quality = 85, ?bool $optimize = null, ?float $dpi = null): string {}
+    function compress(string $data, int $quality = 85, ?float $dpi = null): string {}
 
     /**
      * Builds one new document per group of 0-indexed page numbers.

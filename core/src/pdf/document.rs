@@ -1,5 +1,4 @@
-use crate::image::ImageError;
-use crate::image::mozjpeg::encode_mozjpeg;
+use crate::image::{Image, ImageError};
 use crate::pdf::error::{ImageError as JpegError, PdfBuilderError, PdfError};
 use crate::pdf::font_resolver::resolve_builtin_font;
 use crate::pdf::jpeg::{build_jpeg_pdf, build_jpeg_pdf_auto_size};
@@ -7,6 +6,7 @@ use crate::pdf::text_char::TextChar;
 use crate::pdf::{page::Page, pdfium};
 
 use crate::image::image_data::encode_jpeg_scaled;
+use ::image::{DynamicImage, ImageFormat};
 use pdfium_render::prelude::*;
 
 /// A struct that represents a PDF document.
@@ -261,14 +261,9 @@ impl Document {
             let bitmap = page.render_with_config(&config)?;
             bitmap.as_image()?.into_rgb8()
         };
-        encode_mozjpeg(
-            rgb_image.as_raw(),
-            rgb_image.width(),
-            rgb_image.height(),
-            quality,
-            true,
-        )
-        .map_err(|e| ImageError::Encode(e.to_string()).into())
+        Image::from_dynamic(DynamicImage::ImageRgb8(rgb_image))
+            .encode(ImageFormat::Jpeg, quality.max(1))
+            .map_err(Into::into)
     }
 
     /// Appends a JPEG as a new page.
@@ -371,12 +366,7 @@ impl Document {
     ///
     /// # Errors
     /// Returns an error if the PDF cannot be parsed, rasterized, or re-assembled.
-    pub fn compress(
-        &self,
-        quality: u8,
-        dpi: f32,
-        optimize: bool,
-    ) -> Result<Option<Self>, PdfError> {
+    pub fn compress(&self, quality: u8, dpi: f32) -> Result<Option<Self>, PdfError> {
         let len = self.page_count()?;
         let needs_work: Vec<bool> = (0..len)
             .map(|i| Ok(self.inner.pages().get(i.into())?.text()?.is_empty()))
@@ -392,7 +382,7 @@ impl Document {
                 let page = self.page(i)?;
                 let (w_pt, h_pt) = page.size();
                 let img = page.render_image(dpi / 72.0)?;
-                let (jpeg, _, _) = encode_jpeg_scaled(&img, quality, None, None, optimize)?;
+                let (jpeg, _, _) = encode_jpeg_scaled(&img, quality, None, None)?;
                 out.append_jpeg_page_sized(&jpeg, w_pt, h_pt)?;
             } else {
                 out.append_page(&self.inner, i.into())?;

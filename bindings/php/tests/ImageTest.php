@@ -148,14 +148,6 @@ final class ImageTest extends TestCase
         self::assertSame("\xFF\xD8\xFF", substr($out, 0, 3));
     }
 
-    public function testEncodeOptimizeReducesJpegSize(): void
-    {
-        $img = decode(self::makePng(256, 256));
-        $unoptimized = $img->encode('JPEG', 85, false);
-        $optimized = $img->encode('JPEG', 85, true);
-        self::assertLessThanOrEqual(strlen($unoptimized), strlen($optimized));
-    }
-
     public function testEncodeUnknownFormatThrowsValueError(): void
     {
         $img = decode(self::makePng(16, 16));
@@ -180,7 +172,7 @@ final class ImageTest extends TestCase
         self::assertSame(50, $h);
     }
 
-    public function testMozjpegAndPdfiumJpegRoundtrip(): void
+    public function testJpegAndPdfiumRoundtrip(): void
     {
         $png = self::makePng(64, 48);
         [$jpeg] = compress($png, 90);
@@ -188,7 +180,7 @@ final class ImageTest extends TestCase
         $doc->appendJpegPage($jpeg);
         $reloaded = new PdfDocument($doc->asBytes());
 
-        // Exercise PDFium's JPEG decoder and mozjpeg's encoder in the same process.
+        // Exercise PDFium's JPEG decoder and encoder in the same process.
         $bitmap = $reloaded->getPage(0)->renderToBitmap();
         self::assertSame([64, 48], decode($bitmap->toPngBytes())->getSize());
         self::assertGreaterThan(4, strlen(count_chars($bitmap->toBytes(), 3)));

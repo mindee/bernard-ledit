@@ -1,7 +1,8 @@
 use crate::common::OutputFormat;
 use crate::image::ImageError;
+use ::image::codecs::jpeg::JpegEncoder;
 use ::image::imageops::FilterType;
-use ::image::{DynamicImage, ImageFormat};
+use ::image::{DynamicImage, ExtendedColorType, ImageFormat};
 use image::ImageReader;
 use std::io::Cursor;
 
@@ -179,23 +180,15 @@ impl Image {
         &self,
         format: impl Into<OutputFormat>,
         quality: u8,
-        optimize: bool,
     ) -> Result<Vec<u8>, ImageError> {
         match format.into() {
-            OutputFormat::Pdf => self.encode_pdf(quality, optimize),
-            OutputFormat::Image(image_format) => {
-                self.encode_raster(image_format, quality, optimize)
-            }
+            OutputFormat::Pdf => self.encode_pdf(quality),
+            OutputFormat::Image(image_format) => self.encode_raster(image_format, quality),
         }
     }
 
     /// Encode to a raster `format` at `quality` (quality only affects JPEG).
-    fn encode_raster(
-        &self,
-        format: ImageFormat,
-        quality: u8,
-        optimize: bool,
-    ) -> Result<Vec<u8>, ImageError> {
+    fn encode_raster(&self, format: ImageFormat, quality: u8) -> Result<Vec<u8>, ImageError> {
         if format == ImageFormat::Jpeg {
             if !(1..=100).contains(&quality) {
                 return Err(ImageError::Encode(format!(
@@ -203,14 +196,16 @@ impl Image {
                 )));
             }
             let rgb_image = self.inner.to_rgb8();
-            crate::image::mozjpeg::encode_mozjpeg(
-                rgb_image.as_raw(),
-                rgb_image.width(),
-                rgb_image.height(),
-                quality,
-                optimize,
-            )
-            .map_err(|e| ImageError::Encode(e.to_string()))
+            let mut cursor = Cursor::new(Vec::new());
+            JpegEncoder::new_with_quality(&mut cursor, quality)
+                .encode(
+                    rgb_image.as_raw(),
+                    rgb_image.width(),
+                    rgb_image.height(),
+                    ExtendedColorType::Rgb8,
+                )
+                .map_err(|e| ImageError::Encode(e.to_string()))?;
+            Ok(cursor.into_inner())
         } else {
             let mut cursor = Cursor::new(Vec::new());
             self.inner
@@ -222,8 +217,8 @@ impl Image {
 
     /// Encode as a single-page PDF that embeds the image as a JPEG via
     /// `/Filter /DCTDecode`. The page maps one image pixel to one PDF point.
-    fn encode_pdf(&self, quality: u8, optimize: bool) -> Result<Vec<u8>, ImageError> {
-        let jpeg_bytes = self.encode_raster(ImageFormat::Jpeg, quality, optimize)?;
+    fn encode_pdf(&self, quality: u8) -> Result<Vec<u8>, ImageError> {
+        let jpeg_bytes = self.encode_raster(ImageFormat::Jpeg, quality)?;
         crate::pdf::jpeg::build_jpeg_pdf_auto_size(&jpeg_bytes)
             .map_err(|e| ImageError::Encode(e.to_string()))
     }
@@ -265,14 +260,13 @@ pub fn encode_jpeg_scaled(
     quality: u8,
     max_width: Option<u32>,
     max_height: Option<u32>,
-    optimize: bool,
 ) -> Result<(Vec<u8>, u32, u32), ImageError> {
     if quality < 5 {
         return Err(ImageError::ProgressiveQualityTooLow { quality });
     }
     let scaled = downscale_to_fit(img, max_width, max_height);
     let (w, h) = scaled.size();
-    let jpeg = scaled.encode(ImageFormat::Jpeg, quality, optimize)?;
+    let jpeg = scaled.encode(ImageFormat::Jpeg, quality)?;
     Ok((jpeg, w, h))
 }
 
@@ -322,7 +316,7 @@ pub fn compress_decoded(
 
     let mut q = quality;
     loop {
-        let jpeg = scaled.encode(ImageFormat::Jpeg, q, optimize)?;
+        let jpeg = scaled.encode(ImageFormat::Jpeg, q)?;
         if budget.is_none_or(|b| jpeg.len() < b) {
             return Ok(Some((jpeg, w, h)));
         }
@@ -350,6 +344,7 @@ pub fn compress_image(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::common::parse_output_format;
     use ::image::{ImageFormat, RgbImage};
     use std::io::Cursor;
 
@@ -523,7 +518,7 @@ mod tests {
     fn encode_jpeg_has_magic_bytes() {
         let bytes = synth_bytes(16, 16, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
-        let out = img.encode(ImageFormat::Jpeg, 85, false).unwrap();
+        let out = img.encode(ImageFormat::Jpeg, 85).unwrap();
         assert_eq!(&out[0..3], &[0xFF, 0xD8, 0xFF]);
     }
 
@@ -531,30 +526,15 @@ mod tests {
     fn encode_png_has_magic_bytes() {
         let bytes = synth_bytes(16, 16, ImageFormat::Jpeg);
         let img = Image::decode(&bytes).unwrap();
-        let out = img.encode(ImageFormat::Png, 85, false).unwrap();
+        let out = img.encode(ImageFormat::Png, 85).unwrap();
         assert_eq!(&out[0..8], b"\x89PNG\r\n\x1a\n");
-    }
-
-    #[test]
-    fn encode_optimize_flag_reduces_jpeg_size() {
-        // Use a large enough image for optimized Huffman to make a measurable difference.
-        let bytes = synth_bytes(256, 256, ImageFormat::Png);
-        let img = Image::decode(&bytes).unwrap();
-        let unoptimized = img.encode(ImageFormat::Jpeg, 85, false).unwrap();
-        let optimized = img.encode(ImageFormat::Jpeg, 85, true).unwrap();
-        assert!(
-            optimized.len() <= unoptimized.len(),
-            "optimized JPEG ({} bytes) should be <= unoptimized ({} bytes)",
-            optimized.len(),
-            unoptimized.len(),
-        );
     }
 
     #[test]
     fn encode_jpeg_roundtrips_to_decodable() {
         let bytes = synth_bytes(24, 12, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
-        let jpeg = img.encode(ImageFormat::Jpeg, 90, false).unwrap();
+        let jpeg = img.encode(ImageFormat::Jpeg, 90).unwrap();
         let reloaded = Image::decode(&jpeg).unwrap();
         assert_eq!(reloaded.size(), (24, 12));
         assert_eq!(reloaded.format(), Some(ImageFormat::Jpeg));
@@ -564,7 +544,7 @@ mod tests {
     fn encode_pdf_has_magic_bytes_and_embeds_jpeg() {
         let bytes = synth_bytes(24, 12, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
-        let pdf = img.encode(OutputFormat::Pdf, 85, false).unwrap();
+        let pdf = img.encode(OutputFormat::Pdf, 85).unwrap();
         assert!(pdf.starts_with(b"%PDF-1.4\n"), "PDF header missing");
         assert!(pdf.ends_with(b"%%EOF\n"), "PDF %%EOF marker missing");
         assert!(
@@ -577,7 +557,7 @@ mod tests {
     fn encode_pdf_media_box_matches_image_size() {
         let bytes = synth_bytes(40, 25, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
-        let pdf = img.encode(OutputFormat::Pdf, 85, false).unwrap();
+        let pdf = img.encode(OutputFormat::Pdf, 85).unwrap();
         assert!(
             String::from_utf8_lossy(&pdf).contains("/MediaBox [0 0 40 25]"),
             "PDF page size should map 1 pixel to 1 point"
@@ -590,7 +570,7 @@ mod tests {
         let img = Image::decode(&bytes).unwrap();
         let format = parse_output_format("pdf").unwrap();
         assert_eq!(format, OutputFormat::Pdf);
-        let pdf = img.encode(format, 85, false).unwrap();
+        let pdf = img.encode(format, 85).unwrap();
         assert!(pdf.starts_with(b"%PDF-1.4\n"));
     }
 
@@ -599,7 +579,7 @@ mod tests {
         let bytes = synth_bytes(16, 16, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
         assert!(matches!(
-            img.encode(OutputFormat::Pdf, 0, false),
+            img.encode(OutputFormat::Pdf, 0),
             Err(ImageError::Encode(_))
         ));
     }
@@ -659,7 +639,7 @@ mod tests {
     fn compress_does_not_upscale() {
         let bytes = synth_bytes(30, 30, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
-        let (_, w, h) = encode_jpeg_scaled(&img, 85, Some(500), Some(500), false).unwrap();
+        let (_, w, h) = encode_jpeg_scaled(&img, 85, Some(500), Some(500)).unwrap();
         assert_eq!((w, h), (30, 30));
     }
 
@@ -667,7 +647,7 @@ mod tests {
     fn compress_no_bounds_keeps_dimensions() {
         let bytes = synth_bytes(64, 48, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
-        let (_, w, h) = encode_jpeg_scaled(&img, 85, None, None, false).unwrap();
+        let (_, w, h) = encode_jpeg_scaled(&img, 85, None, None).unwrap();
         assert_eq!((w, h), (64, 48));
     }
     #[test]

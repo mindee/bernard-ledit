@@ -115,7 +115,6 @@ class PdfDocument:
     def compress(
         self,
         quality: int = 85,
-        optimize: bool = True,
         dpi: float = 150.0,
     ) -> PdfDocument | None: ...
 
@@ -123,7 +122,6 @@ def fix_pdf(data: bytes | BinaryIO, maximum_offset: int = 500) -> bytes: ...
 def compress(
     data: PdfInput,
     quality: int = 85,
-    optimize: bool = True,
     dpi: float = 150.0,
 ) -> bytes: ...
 def extract_from_page_ranges(

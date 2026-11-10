@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds a static, JPEG-namespaced PDFium library for one target with bblanchon/pdfium-binaries:
+# Builds a static PDFium library for one target with bblanchon/pdfium-binaries:
 # inside an ubuntu:22.04 container on Linux, natively on macOS and Windows.
 #
 # Environment (all optional unless stated):
@@ -9,10 +9,9 @@
 #   PDFIUM_TAG      pdfium-binaries tag; default: the contents of core/pdfium-release
 #   MSVC_TOOLSET    required on Windows: MSVC toolset to compile with, e.g. 14.29
 #   WORK_DIR        checkout and build directory; default: /tmp/pdfium-static
-#   OUT_DIR         output directory for the namespaced library and its licenses/ folder;
+#   OUT_DIR         output directory for the library and its licenses/ folder;
 #                   default: target/pdfium-static/<tag>/<os>-<cpu>[-<env>]
 #   MUSL_URL        mirror of the musl cross toolchains (musl.cc is unreliable)
-#   SKIP_NAMESPACE  set to 1 to stop after the raw PDFium build
 set -euo pipefail
 
 readonly PDFIUM_BINARIES_URL="https://github.com/bblanchon/pdfium-binaries.git"
@@ -20,7 +19,6 @@ readonly DEFAULT_MUSL_URL="https://github.com/mindee/bernard-ledit/releases/down
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd -- "$script_dir/../.." && pwd)"
-namespacer="$script_dir/namespace_pdfium_jpeg.py"
 
 PDFIUM_OS="${PDFIUM_OS:-linux}"
 PDFIUM_CPU="${PDFIUM_CPU:-x64}"
@@ -52,7 +50,6 @@ validate_inputs() {
     linux- | linux-musl | mac- | win-) ;;
     *) die "unsupported target: PDFIUM_OS='$PDFIUM_OS', PDFIUM_ENV='$PDFIUM_ENV'" ;;
   esac
-  [ -f "$namespacer" ] || die "missing $namespacer"
   if [ "$PDFIUM_OS" = linux ]; then
     command -v docker >/dev/null || die "docker is required"
   fi
@@ -139,13 +136,6 @@ verify_windows_crt() {
   fi
 }
 
-# Windows: fetches Chromium's llvm-nm, which matches the compiler that built the objects. The
-# namespacer falls back to the LLVM on PATH if this download fails.
-fetch_windows_llvm_tools() {
-  (cd "$binaries/pdfium" && "$PYTHON" tools/clang/scripts/update.py --package=objdump) ||
-    echo "warning: could not fetch Chromium's LLVM tools; the namespacer will use the LLVM on PATH" >&2
-}
-
 # Copies the licenses of PDFium and of the third-party code built into it, collected by
 # pdfium-binaries' licenses step, plus pdfium-binaries' own (its patches are built in too).
 # Anyone distributing the library must ship these with it.
@@ -175,16 +165,17 @@ main() {
       patch_windows_toolchain
       build_natively
       verify_windows_crt
-      fetch_windows_llvm_tools
       ;;
   esac
 
-  if [ "${SKIP_NAMESPACE:-0}" = 1 ]; then
-    echo "Raw PDFium build left in $binaries"
-    return
+  if [ "$PDFIUM_OS" = win ]; then
+    library="$binaries/pdfium/out/obj/pdfium.lib"
+  else
+    library="$binaries/staging/lib/libpdfium.a"
   fi
+  [ -f "$library" ] || die "PDFium library not found: $library"
   mkdir -p "$OUT_DIR"
-  "$PYTHON" "$namespacer" "$binaries" "$OUT_DIR"
+  cp "$library" "$OUT_DIR/"
   collect_licenses
 }
 

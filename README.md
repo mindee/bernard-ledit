@@ -34,7 +34,6 @@ audited implementation.
   - [CI](#ci)
 - [Bindings](#bindings)
 - [Thread safety](#thread-safety)
-- [Third-party notices](#third-party-notices)
 - [License](#license)
 
 ---
@@ -69,7 +68,7 @@ bernard-ledit/
 │   ├── nodejs/
 │   └── ruby/
 ├── tools/
-│   └── pdfium-static/      # Builds, namespaces and downloads static PDFium libraries
+│   └── pdfium-static/      # Builds and downloads static PDFium libraries
 └── .github/workflows/      # CI, see below
 ```
 
@@ -106,7 +105,7 @@ cropped = img.crop(left=0, top=0, right=960, bottom=540)
 resized = img.resize(640, 360)  # exact size, Lanczos filter
 
 # --- encode ---
-jpeg_bytes = img.encode("JPEG", quality=85)  # optimize=True by default (mozjpeg)
+jpeg_bytes = img.encode("JPEG", quality=85)
 png_bytes = img.encode("PNG")
 pdf_bytes = img.encode("PDF")  # single-page PDF via DCTDecode
 
@@ -203,7 +202,7 @@ from bernard_ledit.pdf import (
 # --- compress ---
 # Only pages without a text layer (scans) are rasterised and re-encoded as JPEG.
 # Returns the input unchanged if the result would not be smaller.
-smaller = compress(pdf_bytes, quality=85, optimize=True, dpi=150.0)
+smaller = compress(pdf_bytes, quality=85, dpi=150.0)
 # The method form returns a new PdfDocument, or None when there is nothing to gain.
 with PdfDocument(pdf_bytes) as doc:
     result = doc.compress(quality=85)
@@ -288,8 +287,7 @@ PDFium comes from [bblanchon/pdfium-binaries](https://github.com/bblanchon/pdfiu
 
 Static libraries are prebuilt by [`build-static-pdfium.yml`](.github/workflows/build-static-pdfium.yml) and published,
 each with a `.sha256` checksum, to the `pdfium-static-<release>` GitHub release of this repository (e.g.
-`pdfium-static-chromium_8076`). PDFium's bundled libjpeg-turbo symbols are renamed with a `bernard_pdfium_` prefix, so
-they cannot clash with mozjpeg.
+`pdfium-static-chromium_8076`). Each target's archive is published with its corresponding license bundle.
 
 | Target              | For                                        |
 | ------------------- | ------------------------------------------ |
@@ -325,7 +323,7 @@ PDFIUM_OS=linux PDFIUM_CPU=x64 bash tools/pdfium-static/build.sh
 | Rust 1.99.0 (pinned in `rust-toolchain.toml`)            | Core + all bindings                         |
 | Rust nightly                                             | PHP binding on Windows only (ext-php-rs)    |
 | [just](https://github.com/casey/just)                    | Task runner                                 |
-| A C compiler + cmake + nasm                              | mozjpeg (bundled, built from source)        |
+| A C compiler + cmake + nasm                              | Building static PDFium libraries            |
 | [maturin](https://github.com/PyO3/maturin)               | Build Python wheels                         |
 | Python ≥ 3.9 + virtualenv                                | Python binding tests                        |
 | PHP ≥ 8.1 with its dev headers (`php-config`) + Composer | PHP binding build and tests                 |
@@ -400,18 +398,11 @@ just php stubs-check       # fails if the committed PHP stubs are out of date
 
 ## Thread safety
 
-PDFium rendering and mozjpeg encoding each use a separate process-wide mutex.
+PDFium rendering calls are serialized by a process-wide mutex.
 The Python GIL additionally protects single-threaded callers.
 
 **Safe:** single-threaded Python, Python `threading` (GIL held in Rust), separate `multiprocessing` workers.  
 **Avoid:** `os.fork()` after a `PdfDocument` has been opened in the parent process.
-
----
-
-## Third-party notices
-
-This distribution bundles mozjpeg (libjpeg-turbo + IJG). See [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES) for the full
-attribution text required by their licenses.
 
 ---
 

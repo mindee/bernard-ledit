@@ -125,7 +125,7 @@ just check
 ```
 
 > **Note:** Rust tests run single-threaded (`RUST_TEST_THREADS=1` via `.cargo/config.toml`).
-> PDFium rendering and mozjpeg encoding are guarded by separate process-wide mutexes.
+> PDFium rendering is guarded by a process-wide mutex.
 > Do not override this when running the test suite.
 
 ---
@@ -165,7 +165,7 @@ operations where code files were edited.
 2. Make your changes with tests where applicable.
 3. Ensure `just lint` and `just test` pass (and `just python lint-check` + `just python test` for Python changes).
 4. Add a `CHANGELOG.md` entry.
-5. If you added a dependency, update `THIRD_PARTY_NOTICES` if required by its license.
+5. If a dependency requires attribution, include it in the release or package metadata.
 6. Open a pull request against **`dev`** using the provided template.
 
 > **Branch strategy:** `main` is the release branch — only `dev` is merged into it (via the release PR template).

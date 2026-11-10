@@ -102,13 +102,13 @@ impl PhpImage {
     /// - `\ValueError` if `$format` isn't a supported output format, or `$quality` is out of
     ///   range.
     /// - `\BernardLedit\Image\ImageException` if encoding fails.
-    #[php(defaults(quality = 85, optimize = true))]
-    pub fn encode(&self, format: &str, quality: i64, optimize: bool) -> PhpResult<Binary<u8>> {
+    #[php(defaults(quality = 85))]
+    pub fn encode(&self, format: &str, quality: i64) -> PhpResult<Binary<u8>> {
         let quality = args::quality(quality, 1)?;
         let fmt = parse_output_format(format).map_err(|e| map_image_err(&e))?;
         let bytes = self
             .inner
-            .encode(fmt, quality, optimize)
+            .encode(fmt, quality)
             .map_err(|e| map_image_err(&e))?;
         Ok(Binary::new(bytes))
     }

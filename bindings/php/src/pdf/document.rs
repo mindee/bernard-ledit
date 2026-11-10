@@ -208,12 +208,12 @@ impl PhpPdfDocument {
     /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't render a page, or build the new
     ///   document.
     /// - `\Exception` if the document is closed.
-    #[php(defaults(quality = 85, optimize = true, dpi = 150.0))]
-    pub fn compress(&self, quality: i64, optimize: bool, dpi: f64) -> PhpResult<Option<Self>> {
+    #[php(defaults(quality = 85, dpi = 150.0))]
+    pub fn compress(&self, quality: i64, dpi: f64) -> PhpResult<Option<Self>> {
         let quality = args::quality(quality, 5)?;
         let dpi = args::dpi(dpi)?;
         let out = self
-            .with_doc(|d| d.compress(quality, dpi, optimize))?
+            .with_doc(|d| d.compress(quality, dpi))?
             .map_err(|e| map_pdf_err(&e))?;
         Ok(out.map(Self::wrap))
     }
@@ -254,22 +254,14 @@ impl PhpPdfDocument {
 ///   read, or it can't render a page or build the new document.
 #[php_function]
 #[php(name = "BernardLedit\\Pdf\\compress")]
-#[php(defaults(quality = 85, optimize = None, dpi = None))]
+#[php(defaults(quality = 85, dpi = None))]
 #[allow(clippy::needless_pass_by_value)]
-pub fn compress(
-    data: BinarySlice<u8>,
-    quality: i64,
-    optimize: Option<bool>,
-    dpi: Option<f64>,
-) -> PhpResult<Binary<u8>> {
+pub fn compress(data: BinarySlice<u8>, quality: i64, dpi: Option<f64>) -> PhpResult<Binary<u8>> {
     let quality = args::quality(quality, 5)?;
     let dpi = args::dpi(dpi.unwrap_or(150.0))?;
     super::ensure_pdfium()?;
     let doc = Document::from_bytes(data.to_vec()).map_err(|e| map_pdf_err(&e))?;
-    let Some(out) = doc
-        .compress(quality, dpi, optimize.unwrap_or(true))
-        .map_err(|e| map_pdf_err(&e))?
-    else {
+    let Some(out) = doc.compress(quality, dpi).map_err(|e| map_pdf_err(&e))? else {
         return Ok(Binary::new(data.to_vec()));
     };
     let bytes = out.to_bytes().map_err(|e| map_pdf_err(&e))?;
