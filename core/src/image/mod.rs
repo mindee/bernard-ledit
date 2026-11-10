@@ -6,6 +6,8 @@ pub mod error;
 pub mod extract;
 /// Image module.
 pub mod image_data;
+/// mozjpeg encoding module.
+pub(crate) mod mozjpeg;
 
 pub use crate::common::parse_output_format;
 pub use ::image::imageops::FilterType;

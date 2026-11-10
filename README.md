@@ -20,18 +20,18 @@ audited implementation.
 - [Features](#features)
 - [Architecture](#architecture)
 - [Python binding](#python-binding)
-    - [Installation](#installation)
-    - [Image API](#image-api)
-    - [PDF API](#pdf-api)
-    - [Geometry API](#geometry-api-deprecated)
+  - [Installation](#installation)
+  - [Image API](#image-api)
+  - [PDF API](#pdf-api)
+  - [Geometry API](#geometry-api-deprecated)
 - [PHP binding](#php-binding)
 - [PDFium: dynamic and static builds](#pdfium-dynamic-and-static-builds)
 - [Development](#development)
-    - [Prerequisites](#prerequisites)
-    - [Build](#build)
-    - [Test](#test)
-    - [Lint](#lint)
-    - [CI](#ci)
+  - [Prerequisites](#prerequisites)
+  - [Build](#build)
+  - [Test](#test)
+  - [Lint](#lint)
+  - [CI](#ci)
 - [Bindings](#bindings)
 - [Thread safety](#thread-safety)
 - [Third-party notices](#third-party-notices)
@@ -42,7 +42,7 @@ audited implementation.
 ## Features
 
 | Area         | Capabilities                                                                                                                                                                                        |
-|--------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Image**    | Decode (JPEG, PNG, TIFF, WebP, BMP, GIF, …), crop, resize, encode, compress, save to path or buffer, extract polygon crops from images and PDF pages                                                |
 | **PDF**      | Load, split, merge, rasterise pages to JPEG, embed images, extract text and character metadata, add text overlays, compress scans, extract sub-documents, apply page options, repair broken headers |
 | **Geometry** | Point and polygon primitives, currently not in use.                                                                                                                                                 |
@@ -281,7 +281,7 @@ PDFium comes from [bblanchon/pdfium-binaries](https://github.com/bblanchon/pdfiu
 `core/pdfium-release`](core/pdfium-release). Builds use it in one of two ways:
 
 |                   | Dynamic (default)                                                                                                       | Static                                                                                                                                        |
-|-------------------|-------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Used for**      | Development and tests                                                                                                   | Released packages                                                                                                                             |
 | **How**           | `core/build.rs` downloads the shared library into `core/.pdfium_cache`; the binding loads it at runtime (`PDFIUM_PATH`) | PDFium is linked into the binding at build time: `PDFIUM_STATIC_LIB_PATH` points to the library, and a static feature selects the C++ runtime |
 | **Cargo feature** | none                                                                                                                    | `static-pdfium` (Linux, libstdc++), `static-pdfium-libcxx` (macOS, libc++), `static-pdfium-msvc` (Windows)                                    |
@@ -292,7 +292,7 @@ each with a `.sha256` checksum, to the `pdfium-static-<release>` GitHub release 
 they cannot clash with mozjpeg.
 
 | Target              | For                                        |
-|---------------------|--------------------------------------------|
+| ------------------- | ------------------------------------------ |
 | `linux-x64-glibc`   | Linux x86_64, glibc 2.35+                  |
 | `linux-arm64-glibc` | Linux arm64, glibc 2.35+                   |
 | `linux-x64-musl`    | Alpine x86_64                              |
@@ -321,7 +321,7 @@ PDFIUM_OS=linux PDFIUM_CPU=x64 bash tools/pdfium-static/build.sh
 ### Prerequisites
 
 | Tool                                                     | Purpose                                     |
-|----------------------------------------------------------|---------------------------------------------|
+| -------------------------------------------------------- | ------------------------------------------- |
 | Rust 1.99.0 (pinned in `rust-toolchain.toml`)            | Core + all bindings                         |
 | Rust nightly                                             | PHP binding on Windows only (ext-php-rs)    |
 | [just](https://github.com/casey/just)                    | Task runner                                 |
@@ -378,7 +378,7 @@ just php stubs-check       # fails if the committed PHP stubs are out of date
 ### CI
 
 | Workflow                           | What it does                                                                                                              |
-|------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `pull-request.yml`, `main-dev.yml` | Entry points: run the unit tests, binding tests and linters                                                               |
 | `build-static-pdfium.yml`          | Builds and publishes any missing static PDFium library, then runs `_php-static-check.yml` against the published libraries |
 | `_php-static-check.yml`            | Builds and tests the PHP extension with static PDFium: PHP 8.1 – 8.5, ZTS and NTS, on every target with a PHP build       |
@@ -388,7 +388,7 @@ just php stubs-check       # fails if the committed PHP stubs are out of date
 ## Bindings
 
 | Language | Crate / Package        | Status                                             |
-|----------|------------------------|----------------------------------------------------|
+| -------- | ---------------------- | -------------------------------------------------- |
 | Python   | `bernard-ledit` (PyPI) | ✅ Active                                          |
 | PHP      | `bindings/php`         | ✅ Active, used by the PHP SDK; PIE release coming |
 | Java     | `bindings/java`        | 🚧 In progress (geometry)                          |
@@ -400,7 +400,7 @@ just php stubs-check       # fails if the committed PHP stubs are out of date
 
 ## Thread safety
 
-All pdfium rendering and mozjpeg encoding calls are serialized behind process-wide mutexes.
+PDFium rendering and mozjpeg encoding each use a separate process-wide mutex.
 The Python GIL additionally protects single-threaded callers.
 
 **Safe:** single-threaded Python, Python `threading` (GIL held in Rust), separate `multiprocessing` workers.  

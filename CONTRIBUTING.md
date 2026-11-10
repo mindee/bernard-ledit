@@ -125,7 +125,7 @@ just check
 ```
 
 > **Note:** Rust tests run single-threaded (`RUST_TEST_THREADS=1` via `.cargo/config.toml`).
-> This is required because pdfium's renderer and mozjpeg are not safe for concurrent use.
+> PDFium rendering and mozjpeg encoding are guarded by separate process-wide mutexes.
 > Do not override this when running the test suite.
 
 ---

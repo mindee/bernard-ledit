@@ -203,10 +203,7 @@ impl Image {
                 )));
             }
             let rgb_image = self.inner.to_rgb8();
-            let _lock = crate::pdf::NATIVE_LOCK
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            crate::pdf::jpeg::encode_jpeg_mozjpeg(
+            crate::image::mozjpeg::encode_mozjpeg(
                 rgb_image.as_raw(),
                 rgb_image.width(),
                 rgb_image.height(),

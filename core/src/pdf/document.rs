@@ -1,7 +1,7 @@
 use crate::image::ImageError;
+use crate::image::mozjpeg::encode_mozjpeg;
 use crate::pdf::error::{ImageError as JpegError, PdfBuilderError, PdfError};
 use crate::pdf::font_resolver::resolve_builtin_font;
-use crate::pdf::jpeg::encode_jpeg_mozjpeg;
 use crate::pdf::jpeg::{build_jpeg_pdf, build_jpeg_pdf_auto_size};
 use crate::pdf::text_char::TextChar;
 use crate::pdf::{page::Page, pdfium};
@@ -252,14 +252,16 @@ impl Document {
         }
 
         let index = self.page_index(page_index)?;
-        let _lock = crate::pdf::NATIVE_LOCK
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let page = self.inner.pages().get(index)?;
-        let config = PdfRenderConfig::new();
-        let bitmap = page.render_with_config(&config)?;
-        let rgb_image = bitmap.as_image()?.into_rgb8();
-        encode_jpeg_mozjpeg(
+        let rgb_image = {
+            let _pdfium_lock = crate::pdf::NATIVE_LOCK
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            let page = self.inner.pages().get(index)?;
+            let config = PdfRenderConfig::new();
+            let bitmap = page.render_with_config(&config)?;
+            bitmap.as_image()?.into_rgb8()
+        };
+        encode_mozjpeg(
             rgb_image.as_raw(),
             rgb_image.width(),
             rgb_image.height(),

@@ -32,7 +32,7 @@ use pdfium_render::prelude::*;
 
 static PDFIUM: OnceLock<Pdfium> = OnceLock::new();
 
-/// pdfium and mozjpeg both aren't thread-safe.
+/// Serializes PDFium operations that are not thread-safe.
 pub(crate) static NATIVE_LOCK: Mutex<()> = Mutex::new(());
 
 /// Returns `true` if `PDFium` has been bound.
