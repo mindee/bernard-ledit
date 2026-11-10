@@ -1,4 +1,5 @@
-use crate::image::{Image, OutputFormat, guess_format};
+use crate::common::OutputFormat;
+use crate::image::{Image, guess_format};
 use crate::pdf::Document;
 use crate::pdf::error::PdfExtractError;
 use ::image::ImageFormat;

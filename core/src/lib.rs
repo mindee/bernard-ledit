@@ -22,6 +22,8 @@ macro_rules! test_data_bytes {
     };
 }
 
+/// Types shared across core modules.
+pub mod common;
 /// Geometry module.
 pub mod geometry;
 /// Image module.
