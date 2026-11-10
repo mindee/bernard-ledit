@@ -70,16 +70,6 @@ pub fn parse_format(name: &str) -> Result<ImageFormat, ImageError> {
     }
 }
 
-/// Parse a format string into an [`OutputFormat`], accepting `"PDF"` in addition
-/// to every raster name understood by [`parse_format`].
-/// # Errors
-/// Returns `ImageError::UnsupportedFormat` on miss.
-pub fn parse_output_format(name: &str) -> Result<OutputFormat, ImageError> {
-    if name.eq_ignore_ascii_case("PDF") {
-        return Ok(OutputFormat::Pdf);
-    }
-    parse_format(name).map(OutputFormat::Image)
-}
 impl Image {
     /// Creates a new image from raw data.
     /// # Errors
@@ -614,24 +604,6 @@ mod tests {
         assert!(matches!(
             img.encode(OutputFormat::Pdf, 0, false),
             Err(ImageError::Encode(_))
-        ));
-    }
-
-    #[test]
-    fn parse_output_format_pdf_case_insensitive() {
-        assert_eq!(parse_output_format("PDF").unwrap(), OutputFormat::Pdf);
-        assert_eq!(parse_output_format("Pdf").unwrap(), OutputFormat::Pdf);
-        assert_eq!(
-            parse_output_format("jpeg").unwrap(),
-            OutputFormat::Image(ImageFormat::Jpeg)
-        );
-    }
-
-    #[test]
-    fn parse_output_format_unknown_errors() {
-        assert!(matches!(
-            parse_output_format("not-a-format"),
-            Err(ImageError::UnsupportedFormat(_))
         ));
     }
 
