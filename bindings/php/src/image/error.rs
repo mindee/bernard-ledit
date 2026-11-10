@@ -11,7 +11,6 @@ pub fn map_image_err(e: &ImageError) -> PhpException {
     match e {
         // Arguments the caller got wrong.
         ImageError::UnsupportedFormat(_)
-        | ImageError::UnknownFilter(_)
         | ImageError::InvalidCrop { .. }
         | ImageError::InvalidDimensions { .. } => value_error(e.to_string()),
         ImageError::Io(_) => PhpException::from_message(e.to_string()),

@@ -1,11 +1,10 @@
 use super::error::{format_image_extract_err, map_image_err, unknown_format_err};
 use crate::args::{self, value_error};
 use bernard_ledit::image::{
-    Filter, Image, format_name, guess_format as core_guess, parse_output_format,
+    FilterType, Image, format_name, guess_format as core_guess, parse_output_format,
 };
 use ext_php_rs::types::Zval;
 use ext_php_rs::{binary::Binary, binary_slice::BinarySlice, prelude::*};
-use std::str::FromStr;
 
 #[php_class]
 #[php(name = "BernardLedit\\Image\\Image")]
@@ -89,9 +88,8 @@ impl PhpImage {
     pub fn resize(&self, width: i64, height: i64) -> PhpResult<Self> {
         let width = args::int("width", width, 1, u32::MAX)?;
         let height = args::int("height", height, 1, u32::MAX)?;
-        let filter = Filter::from_str("lanczos").map_err(|e| map_image_err(&e))?;
         self.inner
-            .resize(width, height, filter.0)
+            .resize(width, height, FilterType::Lanczos3)
             .map(|inner| Self { inner })
             .map_err(|e| map_image_err(&e))
     }

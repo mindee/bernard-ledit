@@ -1,11 +1,10 @@
 use super::error::format_image_err;
 use crate::input::BinaryInput;
 use bernard_ledit::image::{
-    Filter, Image, format_name, guess_format as core_guess, parse_output_format,
+    FilterType, Image, format_name, guess_format as core_guess, parse_output_format,
 };
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
-use std::str::FromStr;
 
 #[pyclass(name = "Image", module = "bernard_ledit.image")]
 /// An image.
@@ -54,10 +53,9 @@ impl PyImage {
 
     #[pyo3(signature = (width, height))]
     fn resize(&self, width: u32, height: u32) -> PyResult<Self> {
-        let filter_value = Filter::from_str("lanczos").map_err(|e| format_image_err(&e))?;
         let resized_image = self
             .inner
-            .resize(width, height, filter_value.0)
+            .resize(width, height, FilterType::Lanczos3)
             .map(|inner| Self { inner })
             .map_err(|e| format_image_err(&e))?;
         Ok(resized_image)

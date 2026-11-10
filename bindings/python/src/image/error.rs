@@ -26,7 +26,6 @@ pub fn format_image_err(e: &ImageError) -> PyErr {
         ImageError::UnsupportedFormat(_)
         | ImageError::UnknownFormat
         | ImageError::NotEnoughData
-        | ImageError::UnknownFilter(_)
         | ImageError::InvalidCrop { .. }
         | ImageError::InvalidDimensions { .. }
         | ImageError::ProgressiveQualityTooLow { .. }

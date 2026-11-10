@@ -12,9 +12,6 @@ pub struct Image {
     source_len: Option<usize>,
 }
 
-/// Thin wrapper for resize filters, so the string->enum parse lives in core.
-pub struct Filter(pub FilterType);
-
 /// Magic-byte sniff. Backs the public `guess_format`.
 /// # Errors
 /// Returns an error if the image format cannot be determined.
@@ -83,27 +80,6 @@ pub fn parse_output_format(name: &str) -> Result<OutputFormat, ImageError> {
     }
     parse_format(name).map(OutputFormat::Image)
 }
-impl std::str::FromStr for Filter {
-    type Err = ImageError;
-
-    /// "lanczos" | "lanczos3" -> Lanczos3, "nearest", "triangle",
-    /// "catmullrom"/"bicubic", "gaussian". Default caller passes "lanczos".
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            v if v.eq_ignore_ascii_case("lanczos") || v.eq_ignore_ascii_case("lanczos3") => {
-                Ok(Self(FilterType::Lanczos3))
-            }
-            v if v.eq_ignore_ascii_case("nearest") => Ok(Self(FilterType::Nearest)),
-            v if v.eq_ignore_ascii_case("triangle") => Ok(Self(FilterType::Triangle)),
-            v if v.eq_ignore_ascii_case("catmullrom") || v.eq_ignore_ascii_case("bicubic") => {
-                Ok(Self(FilterType::CatmullRom))
-            }
-            v if v.eq_ignore_ascii_case("gaussian") => Ok(Self(FilterType::Gaussian)),
-            _ => Err(ImageError::UnknownFilter(format!("Unknown filter: {s}"))),
-        }
-    }
-}
-
 impl Image {
     /// Creates a new image from raw data.
     /// # Errors
@@ -389,7 +365,6 @@ mod tests {
     use super::*;
     use ::image::{ImageFormat, RgbImage};
     use std::io::Cursor;
-    use std::str::FromStr;
 
     /// Build deterministic raster bytes of a solid-colour image in `format`,
     /// so tests can assert exact dimensions without depending on fixture files.
@@ -455,50 +430,6 @@ mod tests {
         assert!(matches!(
             parse_format("not-a-format"),
             Err(ImageError::UnsupportedFormat(_))
-        ));
-    }
-
-    #[test]
-    fn filter_lanczos_maps_to_lanczos3() {
-        assert!(matches!(
-            Filter::from_str("lanczos").unwrap().0,
-            FilterType::Lanczos3
-        ));
-        assert!(matches!(
-            Filter::from_str("LANCZOS3").unwrap().0,
-            FilterType::Lanczos3
-        ));
-    }
-
-    #[test]
-    fn filter_all_known_variants() {
-        assert!(matches!(
-            Filter::from_str("nearest").unwrap().0,
-            FilterType::Nearest
-        ));
-        assert!(matches!(
-            Filter::from_str("triangle").unwrap().0,
-            FilterType::Triangle
-        ));
-        assert!(matches!(
-            Filter::from_str("catmullrom").unwrap().0,
-            FilterType::CatmullRom
-        ));
-        assert!(matches!(
-            Filter::from_str("bicubic").unwrap().0,
-            FilterType::CatmullRom
-        ));
-        assert!(matches!(
-            Filter::from_str("gaussian").unwrap().0,
-            FilterType::Gaussian
-        ));
-    }
-
-    #[test]
-    fn filter_unknown_errors() {
-        assert!(matches!(
-            Filter::from_str("sinc"),
-            Err(ImageError::UnknownFilter(_))
         ));
     }
 

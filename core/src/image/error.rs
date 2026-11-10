@@ -23,10 +23,6 @@ pub enum ImageError {
     #[error("not enough data to determine image format")]
     NotEnoughData,
 
-    /// Filter is not supported.
-    #[error("unknown resize filter: {0}")]
-    UnknownFilter(String),
-
     /// Image is too small to be resized.
     #[error(
         "invalid crop bounds: left={left}, top={top}, right={right}, bottom={bottom} for image {width}x{height}"
