@@ -101,23 +101,6 @@ impl<'a> Page<'a> {
         Ok(get_rotation(rotation))
     }
 
-    /// Rotate the page by the specified number of degrees (0, 90, 180, or 270).
-    /// # Errors
-    /// Returns a `PdfError` if the rotation angle is invalid or could not be set.
-    pub fn rotate(&mut self, rotation: u32) -> Result<(), PdfError> {
-        let pdfium_rotation = match rotation {
-            0 => PdfPageRenderRotation::None,
-            90 => PdfPageRenderRotation::Degrees90,
-            180 => PdfPageRenderRotation::Degrees180,
-            270 => PdfPageRenderRotation::Degrees270,
-            _ => return Err(PdfError::Other(format!("Invalid rotation: {rotation}"))),
-        };
-
-        self.inner.set_rotation(pdfium_rotation);
-
-        Ok(())
-    }
-
     /// Renders an image at a given scale.
     /// # Errors
     /// Returns [`PdfError`] if the image cannot be rendered.
@@ -276,12 +259,8 @@ mod tests {
         pdfium();
         let vertical_doc =
             Document::from_bytes(test_data_bytes!("file_types/pdf/blank_1.pdf").to_vec()).unwrap();
-        let mut page_0 = vertical_doc.page(0).unwrap();
+        let page_0 = vertical_doc.page(0).unwrap();
         assert_eq!(page_0.rotation().unwrap(), 0);
-        page_0
-            .rotate(180)
-            .expect("Rotation should be one of 0, 90, 180 or 270.");
-        assert_eq!(page_0.rotation().unwrap(), 180);
     }
 
     #[test]
