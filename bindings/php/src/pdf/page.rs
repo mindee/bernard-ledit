@@ -22,19 +22,6 @@ impl PdfPage {
         self.index
     }
 
-    /// Dimensions in points.
-    /// # Returns
-    /// `array{0: float, 1: float}` `[$width, $height]`.
-    /// # Errors
-    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't load the page.
-    /// - `\Exception` if the document is closed.
-    pub fn get_size(&self) -> PhpResult<Vec<f64>> {
-        self.with_page(|p| {
-            let (w, h) = p.size();
-            Ok(vec![f64::from(w), f64::from(h)])
-        })
-    }
-
     /// Checks whether the page is empty.
     /// # Errors
     /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't read the page.

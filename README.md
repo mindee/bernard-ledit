@@ -152,7 +152,6 @@ doc = PdfDocument("/path/to/file.pdf")
 with PdfDocument("document.pdf") as doc:
     print(len(doc))  # page count
     page = doc[0]  # or doc.get_page(0)
-    print(page.get_size())  # PageSize(width=595.0, height=842.0)
     print(page.text())  # extracted text
     print(page.chars())  # list[TextChar] with font/bounds metadata
     print(page.rotation())  # 0 | 90 | 180 | 270

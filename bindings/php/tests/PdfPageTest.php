@@ -21,15 +21,6 @@ final class PdfPageTest extends TestCase
         self::assertSame(2, $doc->getPage(2)->getIndex());
     }
 
-    public function testSizeReturnsPositiveWidthAndHeight(): void
-    {
-        $doc = new PdfDocument(self::loadFileContents('blank_1.pdf'));
-        [$width, $height] = $doc->getPage(0)->getSize();
-
-        self::assertGreaterThan(0, $width);
-        self::assertGreaterThan(0, $height);
-    }
-
     public function testIsEmptyTrueForBlankPage(): void
     {
         $doc = new PdfDocument(self::loadFileContents('blank_1.pdf'));
@@ -92,6 +83,6 @@ final class PdfPageTest extends TestCase
         $doc->close();
 
         $this->expectException(\Exception::class);
-        $page->getSize();
+        $page->getText();
     }
 }

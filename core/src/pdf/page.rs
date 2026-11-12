@@ -16,7 +16,7 @@ impl<'a> Page<'a> {
 
     /// Get the size of the page in PDF points.
     #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub fn size(&self) -> (f32, f32) {
+    pub(crate) fn size(&self) -> (f32, f32) {
         (self.inner.width().value, self.inner.height().value)
     }
 

@@ -9,27 +9,8 @@ pub struct PyPdfPage {
     pub(crate) index: u16,
 }
 
-/// PDF page size.
-#[pyclass(name = "PageSize", module = "bernard_ledit.pdf")]
-pub struct PageSize {
-    #[pyo3(get)]
-    width: f32,
-    #[pyo3(get)]
-    height: f32,
-}
-
 #[pymethods]
 impl PyPdfPage {
-    fn get_size(&self, py: Python<'_>) -> PyResult<PageSize> {
-        let (width, height) = self.doc.borrow(py).with_doc(|d| {
-            d.page(self.index)
-                .map(|p| p.size())
-                .map_err(|e| format_pdf_err(&e))
-        })??;
-
-        Ok(PageSize { width, height })
-    }
-
     fn is_empty(&self, py: Python<'_>) -> PyResult<bool> {
         let emptiness = self.doc.borrow(py).with_doc(|d| {
             d.page(self.index)

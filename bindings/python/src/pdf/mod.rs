@@ -21,7 +21,6 @@ pub fn register_submodule(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(parent.py(), "pdf")?;
     m.add_class::<document::PyPdfDocument>()?;
     m.add_class::<page::PyPdfPage>()?;
-    m.add_class::<page::PageSize>()?;
     m.add_class::<bitmap::PyPdfBitmap>()?;
     m.add_class::<text_char::PyTextChar>()?;
     m.add(

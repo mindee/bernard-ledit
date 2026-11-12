@@ -114,8 +114,7 @@ def test_extract_from_image_page_size_matches_pixels(test_data_dir):
     data = (test_data_dir / "file_types/receipt.jpg").read_bytes()
     width, height = bl_image.Image(data).size
     (doc,) = bl_pdf.extract_from_page_ranges(data, [[0]])
-    size = doc[0].get_size()
-    assert (size.width, size.height) == (width, height)
+    assert doc.rasterize_page(0).size == (width, height)
 
 
 def test_extract_image_with_page_index_1_errors(test_data_dir):

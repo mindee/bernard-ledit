@@ -1,17 +1,7 @@
 from bernard_ledit.pdf import (
-    PageSize,
     PdfBitmap,
     PdfDocument,
 )
-
-
-def test_page_get_size(test_data_dir):
-    data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
-    doc = PdfDocument(data)
-    size = doc.get_page(0).get_size()
-    assert isinstance(size, PageSize)
-    assert size.width > 0
-    assert size.height > 0
 
 
 def test_page_is_empty(test_data_dir):
