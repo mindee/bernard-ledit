@@ -8,9 +8,12 @@ use std::io::Cursor;
 
 /// A decoded raster image plus the format it was decoded from (if known).
 pub struct Image {
-    inner: DynamicImage,
-    format: Option<ImageFormat>,
-    source_len: Option<usize>,
+    pub(super) inner: DynamicImage,
+    pub(super) format: Option<ImageFormat>,
+    /// Byte length of the source data: encoded image bytes when decoded, or raw pixel bytes
+    /// when created from a `DynamicImage`. Used as the compression budget when dimensions
+    /// remain unchanged.
+    pub(super) source_len: Option<usize>,
 }
 
 /// Magic-byte sniff. Backs the public `guess_format`.
@@ -125,31 +128,6 @@ impl Image {
     #[must_use]
     pub const fn format(&self) -> Option<ImageFormat> {
         self.format
-    }
-
-    /// PIL-style crop by pixel box.
-    /// # Errors
-    /// Returns `ImageError::InvalidCrop` if the crop is invalid.
-    pub fn crop(&self, left: u32, top: u32, right: u32, bottom: u32) -> Result<Self, ImageError> {
-        let (img_width, img_height) = self.size();
-        if left >= right || top >= bottom || right > img_width || bottom > img_height {
-            return Err(ImageError::InvalidCrop {
-                left,
-                top,
-                right,
-                bottom,
-                width: img_width,
-                height: img_height,
-            });
-        }
-        let crop_width = right - left;
-        let crop_height = bottom - top;
-        let cropped_inner = self.inner.crop_imm(left, top, crop_width, crop_height);
-        Ok(Self {
-            inner: cropped_inner,
-            format: self.format,
-            source_len: self.source_len,
-        })
     }
 
     /// Exact resize to (width, height) with the given filter.
@@ -430,52 +408,6 @@ mod tests {
         assert!(matches!(
             Image::decode(&[0xDE, 0xAD, 0xBE, 0xEF]),
             Err(ImageError::Decode(_))
-        ));
-    }
-
-    #[test]
-    fn crop_valid_box() {
-        let bytes = synth_bytes(100, 80, ImageFormat::Png);
-        let img = Image::decode(&bytes).unwrap();
-        let cropped = img.crop(10, 20, 60, 70).unwrap();
-        assert_eq!(cropped.size(), (50, 50));
-    }
-
-    #[test]
-    fn crop_preserves_format() {
-        let bytes = synth_bytes(40, 40, ImageFormat::Png);
-        let img = Image::decode(&bytes).unwrap();
-        let cropped = img.crop(0, 0, 10, 10).unwrap();
-        assert_eq!(cropped.format(), Some(ImageFormat::Png));
-    }
-
-    #[test]
-    fn crop_out_of_bounds_errors() {
-        let bytes = synth_bytes(30, 30, ImageFormat::Png);
-        let img = Image::decode(&bytes).unwrap();
-        assert!(matches!(
-            img.crop(0, 0, 31, 10),
-            Err(ImageError::InvalidCrop { .. })
-        ));
-    }
-
-    #[test]
-    fn crop_inverted_box_errors() {
-        let bytes = synth_bytes(30, 30, ImageFormat::Png);
-        let img = Image::decode(&bytes).unwrap();
-        assert!(matches!(
-            img.crop(20, 5, 10, 25),
-            Err(ImageError::InvalidCrop { .. })
-        ));
-    }
-
-    #[test]
-    fn crop_zero_size_box_errors() {
-        let bytes = synth_bytes(30, 30, ImageFormat::Png);
-        let img = Image::decode(&bytes).unwrap();
-        assert!(matches!(
-            img.crop(5, 5, 5, 20),
-            Err(ImageError::InvalidCrop { .. })
         ));
     }
 

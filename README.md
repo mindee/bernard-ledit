@@ -90,7 +90,7 @@ The wheel bundles the compiled Rust extension and pdfium – no system dependenc
 ### Image API
 
 ```python
-from bernard_ledit.image import Image, guess_format, compress, extract_from_polygons
+from bernard_ledit.image import Image, guess_format, compress
 
 # --- load ---
 # Accepts bytes or any binary file-like object (BytesIO, BufferedReader, …)
@@ -132,14 +132,10 @@ out = compress(
 # The method form returns None instead when there is nothing to gain.
 out = Image(data).compress(quality=85)
 
-# --- extract crops ---
-# Pass a decoded Image. Polygons are normalized (x, y) points (0..1);
-# each crop is the polygon's bounding box. Returns one Image per polygon.
-crops = extract_from_polygons(
-    img,
-    polygons=[[(0.1, 0.1), (0.5, 0.1), (0.5, 0.4), (0.1, 0.4)]],
-)
-crops[0].save("crop.jpg")
+# --- crop by polygon ---
+# Polygon points are normalized (x, y) coordinates (0..1).
+crop = img.crop_polygon([(0.1, 0.1), (0.5, 0.1), (0.5, 0.4), (0.1, 0.4)])
+crop.save("crop.jpg")
 ```
 
 Supported encode formats: `JPEG`, `PNG`, `PDF`, `TIFF`, `WEBP`, `BMP`, `GIF`, `AVIF`, `ICO`, `QOI`, `TGA`, `PNM`,

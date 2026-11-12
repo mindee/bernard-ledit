@@ -6,7 +6,6 @@ __all__ = [
     "ImageError",
     "ImageExtractError",
     "compress",
-    "extract_from_polygons",
     "guess_format",
 ]
 
@@ -21,6 +20,7 @@ class Image:
     @property
     def format(self) -> str | None: ...
     def crop(self, left: int, top: int, right: int, bottom: int) -> Image: ...
+    def crop_polygon(self, polygon: list[tuple[float, float]]) -> Image: ...
     def encode(self, format: str, quality: int = 85) -> bytes: ...
     def resize(self, width: int, height: int) -> Image: ...
     def save(
@@ -45,12 +45,6 @@ def compress(
     max_height: int | None = None,
     optimize: bool = True,
 ) -> bytes: ...
-def extract_from_polygons(
-    data: bytes | BinaryIO,
-    page_id: int,
-    polygons: list[list[tuple[float, float]]],
-    dpi: float = 72.0,
-) -> list[Image]: ...
 def guess_format(
     data: bytes | BinaryIO,
 ) -> str: ...

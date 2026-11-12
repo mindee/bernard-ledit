@@ -27,6 +27,16 @@ namespace BernardLedit\Image {
         public function crop(int $left, int $top, int $right, int $bottom): \BernardLedit\Image\Image {}
 
         /**
+         * Crops the bounding box of a polygon from this image.
+         *
+         * @param list<array{0: float, 1: float}> $polygon Normalized points relative to the image size.
+         * @return \BernardLedit\Image\Image
+         * @throws \ValueError if the polygon is empty, malformed, or its bounding box is empty.
+         * @throws \BernardLedit\Image\ImageException if cropping fails.
+         */
+        public function cropPolygon(array $polygon): \BernardLedit\Image\Image {}
+
+        /**
          * Returns the encoded bytes as a PHP string.
          *
          * @param string $format An output format: `"JPEG"`, `"PNG"`, `"PDF"`, etc.
@@ -99,17 +109,6 @@ namespace BernardLedit\Image {
      * @throws \BernardLedit\Image\ImageException if `$data` isn't an identifiable image, or can't be decoded.
      */
     function decode(string $data): \BernardLedit\Image\Image {}
-
-    /**
-     * Crops one image per polygon from an `Image`.
-     *
-     * @param \BernardLedit\Image\Image $image
-     * @param list<list<array{0: float, 1: float}>> $polygons Points as `[$x, $y]`, relative to the image's width and height.
-     * @return list<\BernardLedit\Image\Image> One image per polygon, in the same order.
-     * @throws \ValueError if a point doesn't have exactly two coordinates or a polygon is empty or falls outside the image.
-     * @throws \BernardLedit\Image\ImageException if cropping fails.
-     */
-    function extractFromPolygons(\BernardLedit\Image\Image $image, array $polygons): array {}
 
     /**
      * `BernardLedit\Image\guessFormat(string $data): string`

@@ -19,10 +19,6 @@ impl PyImage {
     pub(crate) const fn from_core(inner: Image) -> Self {
         Self { inner }
     }
-
-    pub(crate) const fn as_core(&self) -> &Image {
-        &self.inner
-    }
 }
 
 #[pymethods]
@@ -53,6 +49,14 @@ impl PyImage {
             .map(|inner| Self { inner })
             .map_err(|e| format_image_err(&e))?;
         Ok(cropped_image)
+    }
+
+    /// Crops the bounding box of normalized polygon points from this image.
+    fn crop_polygon(&self, polygon: Vec<(f32, f32)>) -> PyResult<Self> {
+        self.inner
+            .crop_polygon(&polygon)
+            .map(Self::from_core)
+            .map_err(|e| super::error::format_image_extract_err(&e))
     }
 
     #[pyo3(signature = (width, height))]

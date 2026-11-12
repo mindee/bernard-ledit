@@ -79,6 +79,29 @@ impl PhpImage {
             .map_err(|e| map_image_err(&e))
     }
 
+    /// Crops the bounding box of a polygon from this image.
+    /// # Parameters
+    /// - `polygon`: `list<array{0: float, 1: float}>` Normalized points relative to the image size.
+    /// # Errors
+    /// - `\ValueError` if the polygon is empty, malformed, or its bounding box is empty.
+    /// - `\BernardLedit\Image\ImageException` if cropping fails.
+    #[allow(clippy::cast_possible_truncation)]
+    pub fn crop_polygon(&self, polygon: Vec<Vec<f64>>) -> PhpResult<Self> {
+        if polygon.iter().any(|point| point.len() != 2) {
+            return Err(value_error(
+                "Each polygon point must contain exactly two coordinates".into(),
+            ));
+        }
+        let polygon: Vec<(f32, f32)> = polygon
+            .into_iter()
+            .map(|point| (point[0] as f32, point[1] as f32))
+            .collect();
+        self.inner
+            .crop_polygon(&polygon)
+            .map(PhpImage::from_core)
+            .map_err(|e| format_image_extract_err(&e))
+    }
+
     /// Resizes the image to `$width` by `$height` pixels, with a Lanczos filter.
     /// # Parameters
     /// - `width`: `int<1, 4294967295>`
@@ -196,53 +219,10 @@ pub fn compress(
     Ok(out)
 }
 
-/// Crops one image per polygon from an `Image`.
-/// # Parameters
-/// - `image`: `\BernardLedit\Image\Image` The decoded image to crop.
-/// - `polygons`: `list<list<array{0: float, 1: float}>>` Points as `[$x, $y]`, relative to the
-///   image's width and height.
-/// # Returns
-/// `list<\BernardLedit\Image\Image>` One image per polygon, in the same order.
-/// # Errors
-/// - `\ValueError` if a point doesn't have exactly two coordinates or a polygon is empty or falls
-///   outside the image.
-/// - `\BernardLedit\Image\ImageException` if cropping fails.
-#[php_function]
-#[php(name = "BernardLedit\\Image\\extractFromPolygons")]
-#[allow(clippy::needless_pass_by_value)]
-#[allow(
-    clippy::cast_possible_truncation,
-    reason = "Core takes in f32, PHP needs f64"
-)]
-pub fn extract_from_polygons(
-    image: &PhpImage,
-    polygons: Vec<Vec<Vec<f64>>>,
-) -> PhpResult<Vec<PhpImage>> {
-    if polygons.iter().flatten().any(|point| point.len() != 2) {
-        return Err(value_error(
-            "Each polygon point must contain exactly two coordinates".into(),
-        ));
-    }
-    let polygons_f32: Vec<Vec<(f32, f32)>> = polygons
-        .into_iter()
-        .map(|polygon| {
-            polygon
-                .into_iter()
-                .map(|point| (point[0] as f32, point[1] as f32))
-                .collect()
-        })
-        .collect();
-
-    bernard_ledit::image::extract::extract_from_polygons(&image.inner, polygons_f32.as_slice())
-        .map(|v| v.into_iter().map(PhpImage::from_core).collect())
-        .map_err(|e| format_image_extract_err(&e))
-}
-
 /// Registers the internal functions in this module.
 pub fn register_functions(builder: ModuleBuilder) -> ModuleBuilder {
     builder
         .function(wrap_function!(decode))
         .function(wrap_function!(guess_format))
         .function(wrap_function!(compress))
-        .function(wrap_function!(extract_from_polygons))
 }

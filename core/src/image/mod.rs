@@ -1,9 +1,8 @@
 //! Image module.
 
+mod crop;
 /// Image error module.
 pub mod error;
-/// Extraction module.
-pub mod extract;
 /// Image module.
 pub mod image_data;
 
