@@ -93,14 +93,6 @@ impl<'a> Page<'a> {
         Ok(chars)
     }
 
-    /// Get the page rotation in degrees.
-    /// # Errors
-    /// Returns a `PdfError` if the page rotation could not be determined.
-    pub fn rotation(&self) -> Result<u32, PdfError> {
-        let rotation = self.inner.rotation()?;
-        Ok(get_rotation(rotation))
-    }
-
     /// Renders an image at a given scale.
     /// # Errors
     /// Returns [`PdfError`] if the image cannot be rendered.
@@ -111,17 +103,6 @@ impl<'a> Page<'a> {
         let cfg = PdfRenderConfig::new().scale_page_by_factor(scale);
         let bitmap = self.inner.render_with_config(&cfg)?;
         Ok(Image::from_dynamic(bitmap.as_image()?))
-    }
-}
-
-/// Convert a `PdfPageRenderRotation` to a u32.
-#[must_use]
-pub const fn get_rotation(rotation: PdfPageRenderRotation) -> u32 {
-    match rotation {
-        PdfPageRenderRotation::None => 0,
-        PdfPageRenderRotation::Degrees90 => 90,
-        PdfPageRenderRotation::Degrees180 => 180,
-        PdfPageRenderRotation::Degrees270 => 270,
     }
 }
 
@@ -252,15 +233,6 @@ mod tests {
                 (actual - expected).abs()
             );
         }
-    }
-
-    #[test]
-    fn test_rotation() {
-        pdfium();
-        let vertical_doc =
-            Document::from_bytes(test_data_bytes!("file_types/pdf/blank_1.pdf").to_vec()).unwrap();
-        let page_0 = vertical_doc.page(0).unwrap();
-        assert_eq!(page_0.rotation().unwrap(), 0);
     }
 
     #[test]

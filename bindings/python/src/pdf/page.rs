@@ -59,15 +59,6 @@ impl PyPdfPage {
         })?
     }
 
-    /// Page rotation in degrees.
-    fn rotation(&self, py: Python<'_>) -> PyResult<u32> {
-        self.doc.borrow(py).with_doc(|d| {
-            d.page(self.index)
-                .and_then(|p| p.rotation())
-                .map_err(|e| format_pdf_err(&e))
-        })?
-    }
-
     #[pyo3(signature = (scale = 1.0))]
     fn render_to_bitmap(&self, py: Python<'_>, scale: f32) -> PyResult<PyPdfBitmap> {
         self.doc.borrow(py).with_doc(|d| {
