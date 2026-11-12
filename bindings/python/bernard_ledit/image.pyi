@@ -5,7 +5,6 @@ __all__ = [
     "Image",
     "ImageError",
     "ImageExtractError",
-    "compress",
     "guess_format",
 ]
 
@@ -38,13 +37,6 @@ class Image:
         optimize: bool = True,
     ) -> bytes | None: ...
 
-def compress(
-    data: bytes | BinaryIO,
-    quality: int = 85,
-    max_width: int | None = None,
-    max_height: int | None = None,
-    optimize: bool = True,
-) -> bytes: ...
 def guess_format(
     data: bytes | BinaryIO,
 ) -> str: ...

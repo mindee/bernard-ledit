@@ -184,27 +184,3 @@ pub fn guess_format(data: &Bound<'_, PyAny>) -> PyResult<&'static str> {
     let fmt = core_guess(&bytes).map_err(|e| format_image_err(&e))?;
     Ok(format_name(fmt).unwrap_or("UNKNOWN"))
 }
-
-/// Compresses a given image.
-/// # Errors
-/// Returns an error if the image data is invalid or if the operation fails.
-#[pyfunction]
-#[pyo3(signature = (data, quality = 85, max_width = None, max_height = None, optimize = true))]
-pub fn compress<'py>(
-    py: Python<'py>,
-    data: BinaryInput<'py>,
-    quality: u8,
-    max_width: Option<u32>,
-    max_height: Option<u32>,
-    optimize: bool,
-) -> PyResult<Bound<'py, PyBytes>> {
-    let data = data.into_vec()?;
-    let image = Image::decode(&data).map_err(|e| format_image_err(&e))?;
-    let out = image
-        .compress(quality, max_width, max_height, optimize)
-        .map_err(|e| format_image_err(&e))?;
-    Ok(match out {
-        Some((bytes, _, _)) => PyBytes::new(py, &bytes),
-        None => PyBytes::new(py, &data),
-    })
-}

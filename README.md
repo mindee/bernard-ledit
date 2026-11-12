@@ -90,7 +90,7 @@ The wheel bundles the compiled Rust extension and pdfium – no system dependenc
 ### Image API
 
 ```python
-from bernard_ledit.image import Image, guess_format, compress
+from bernard_ledit.image import Image, guess_format
 
 # --- load ---
 # Accepts bytes or any binary file-like object (BytesIO, BufferedReader, …)
@@ -120,17 +120,14 @@ img.save("out.pdf", format="PDF")  # force PDF regardless of extension
 fmt = guess_format(data)  # "JPEG" | "PNG" | "TIFF" | …
 
 # --- compress ---
-# Re-encodes as JPEG and returns bytes. If the result would not be smaller than
-# the input (and no downscale was requested), the input is returned unchanged.
-out = compress(
-    data,
+# Re-encodes as JPEG. If dimensions are unchanged and the output isn't smaller
+# than the source, returns None.
+out = img.compress(
     quality=85,
     max_width=1024,  # aspect-preserving downscale, never upscales
     max_height=1024,
     optimize=True,
 )
-# The method form returns None instead when there is nothing to gain.
-out = Image(data).compress(quality=85)
 
 # --- crop by polygon ---
 # Polygon points are normalized (x, y) coordinates (0..1).
