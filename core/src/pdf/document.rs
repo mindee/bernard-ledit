@@ -505,5 +505,4 @@ mod tests {
         let doc_blank = Document::from_bytes(bytes_blank.to_vec()).unwrap();
         assert!(doc_blank.has_no_content().unwrap());
     }
-
 }
