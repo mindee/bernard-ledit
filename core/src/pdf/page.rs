@@ -290,7 +290,7 @@ mod tests {
         let jpeg = test_data_bytes!("file_types/receipt.jpg");
         let doc = Document::from_jpeg(jpeg, 200.0, 300.0).unwrap();
         let out = doc
-            .compress(80, 150.0, true)
+            .compress(80, 150.0)
             .unwrap()
             .expect("scanned page should be recompressed");
         let (w, h) = out.page(0).unwrap().size();
