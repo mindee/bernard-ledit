@@ -1,8 +1,8 @@
 //! PDF document.
-use super::{page::PyPdfPage, text_char::PyTextChar};
+use super::page::PyPdfPage;
 use crate::input::PdfInput;
 use crate::pdf::error::{closed_err, format_pdf_err};
-use bernard_ledit::pdf::{Document, TextChar as RustTextChar};
+use bernard_ledit::pdf::Document;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use std::path::PathBuf;
@@ -145,20 +145,6 @@ impl PyPdfDocument {
             .map_err(|e| format_pdf_err(&e))?;
         drop(src_guard);
         drop(self_guard);
-        Ok(())
-    }
-
-    /// Add text to a page.
-    #[allow(clippy::needless_pass_by_value)]
-    fn add_text(&self, page_idx: u16, chars: Vec<Bound<'_, PyTextChar>>) -> PyResult<()> {
-        let chars: Vec<RustTextChar> = chars
-            .iter()
-            .map(|c| RustTextChar::from(&*c.borrow()))
-            .collect();
-        self.with_doc_mut(|d| {
-            d.add_text(i32::from(page_idx), &chars)
-                .map_err(|e| format_pdf_err(&e))
-        })??;
         Ok(())
     }
 

@@ -205,21 +205,4 @@ final class PdfDocumentTest extends TestCase
         $doc->rasterizePageToJpegBytes(0, 85);
     }
 
-    public function testAddTextUpdatesTextAndChars(): void
-    {
-        $doc = new PdfDocument(self::pdf('blank_1.pdf'));
-        $char = new \BernardLedit\Pdf\TextChar('A', 'Arial', 12.0, 300, null, null, 0, [0.0, 0.0, 10.0, 10.0]);
-
-        $doc->addText(0, [$char]);
-
-        $page = $doc->getPage(0);
-        self::assertSame('A', $page->getText());
-
-        $chars = $page->getChars();
-        self::assertCount(1, $chars);
-        self::assertInstanceOf(\BernardLedit\Pdf\TextChar::class, $chars[0]);
-        self::assertSame('A', (string) $chars[0]);
-        $debug = $chars[0]->__debugInfo();
-        self::assertSame('Helvetica', $debug['font_name']);
-    }
 }

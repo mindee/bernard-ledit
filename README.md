@@ -43,7 +43,7 @@ audited implementation.
 | Area         | Capabilities                                                                                                                                                                                        |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Image**    | Decode (JPEG, PNG, TIFF, WebP, BMP, GIF, …), crop, resize, encode, compress to JPEG, save to path or buffer, extract polygon crops from images and PDF pages                                         |
-| **PDF**      | Load, split, merge, rasterise pages to JPEG, embed images, extract text and character metadata, add text overlays, compress scans, extract sub-documents, apply page options, repair broken headers |
+| **PDF**      | Load, split, merge, rasterise pages to JPEG, embed images, extract text and character metadata, compress scans, extract sub-documents, apply page options, repair broken headers |
 | **Geometry** | Point and polygon primitives, currently not in use.                                                                                                                                                 |
 
 ---
@@ -178,12 +178,6 @@ doc = PdfDocument.new()
 doc.append_jpeg_page(jpeg_bytes)
 doc.append_multiple_jpeg_pages([jpeg1, jpeg2])
 
-# --- overlay text ---
-from bernard_ledit.pdf import TextChar
-
-chars = [TextChar(char="A", font_name="Helvetica", font_size=12.0,
-                  font_weight=400, bounds=(50.0, 100.0, 62.0, 112.0))]
-doc.add_text(page_idx=0, chars=chars)
 ```
 
 ```python

@@ -4,8 +4,7 @@ use super::{
 };
 use crate::args::{self, value_error};
 use crate::pdf::error::format_pdf_extract_err;
-use crate::pdf::text_char::PhpTextChar;
-use bernard_ledit::pdf::{Document, TextChar};
+use bernard_ledit::pdf::Document;
 use ext_php_rs::{binary::Binary, binary_slice::BinarySlice, prelude::*};
 use std::sync::{Arc, Mutex};
 
@@ -156,26 +155,6 @@ impl PhpPdfDocument {
     /// - `\Exception` if the document is closed.
     pub fn get_text(&self) -> PhpResult<String> {
         self.with_doc(|d| d.text().map_err(|e| map_pdf_err(&e)))?
-    }
-
-    /// Append text to a page.
-    /// # Parameters
-    /// - `page_idx`: `int<0, 65535>`
-    /// - `chars`: `list<\BernardLedit\Pdf\TextChar>`
-    /// # Errors
-    /// - `\ValueError` if `$page_idx` is out of range, or there's no page `$page_idx`.
-    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't add the text.
-    /// - `\Exception` if the document is closed.
-    #[allow(clippy::needless_pass_by_value)]
-    pub fn add_text(&self, page_idx: i64, chars: Vec<&PhpTextChar>) -> PhpResult<()> {
-        let page_idx = args::page_index("page_idx", page_idx)?;
-        let contiguous_chars: Vec<TextChar> = chars.into_iter().map(Into::into).collect();
-
-        self.with_doc_mut(|d| {
-            d.add_text(page_idx.into(), contiguous_chars.as_ref())
-                .map_err(|e| map_pdf_err(&e))
-        })
-        .flatten()
     }
 
     /// Check if the document has any text.

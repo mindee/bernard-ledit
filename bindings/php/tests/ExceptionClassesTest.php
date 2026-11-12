@@ -84,11 +84,6 @@ final class ExceptionClassesTest extends TestCase
             fn () => (new PdfDocument($pdf))->rasterizePageToJpegBytes(40, 85),
             $twelvePages,
         ];
-        yield 'addText' => [
-            'BernardLedit\Pdf\PdfDocument::addText',
-            fn () => (new PdfDocument($pdf))->addText(40, []),
-            $twelvePages,
-        ];
         yield 'importPages' => [
             'BernardLedit\Pdf\PdfDocument::importPages',
             fn () => PdfDocument::create()->importPages(new PdfDocument($pdf), [40]),

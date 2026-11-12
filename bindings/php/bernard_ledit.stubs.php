@@ -179,18 +179,6 @@ namespace BernardLedit\Pdf {
         public function __construct(string $data) {}
 
         /**
-         * Append text to a page.
-         *
-         * @param int<0, 65535> $page_idx
-         * @param list<\BernardLedit\Pdf\TextChar> $chars
-         * @return void
-         * @throws \ValueError if `$page_idx` is out of range, or there's no page `$page_idx`.
-         * @throws \BernardLedit\Pdf\PdfiumException if `PDFium` can't add the text.
-         * @throws \Exception if the document is closed.
-         */
-        public function addText(int $page_idx, array $chars): void {}
-
-        /**
          * Appends a JPEG as a page of the document.
          *
          * @param string $jpeg
