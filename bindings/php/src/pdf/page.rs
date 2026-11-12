@@ -22,14 +22,6 @@ impl PdfPage {
         self.index
     }
 
-    /// Checks whether the page is empty.
-    /// # Errors
-    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't read the page.
-    /// - `\Exception` if the document is closed.
-    pub fn is_empty(&self) -> PhpResult<bool> {
-        self.with_page(|p| p.is_empty())
-    }
-
     /// Returns the characters on the page.
     /// # Returns
     /// `list<\BernardLedit\Pdf\TextChar>`

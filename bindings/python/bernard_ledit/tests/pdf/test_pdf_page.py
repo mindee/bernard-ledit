@@ -4,18 +4,6 @@ from bernard_ledit.pdf import (
 )
 
 
-def test_page_is_empty(test_data_dir):
-    data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
-    doc = PdfDocument(data)
-    assert doc.get_page(0).is_empty() is True
-
-
-def test_page_is_not_empty_for_multipage(test_data_dir):
-    data = (test_data_dir / "file_types/pdf/multipage.pdf").read_bytes()
-    doc = PdfDocument(data)
-    assert doc.get_page(0).is_empty() is False
-
-
 def test_page_render_returns_bitmap(test_data_dir):
     data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
     doc = PdfDocument(data)

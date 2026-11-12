@@ -11,15 +11,6 @@ pub struct PyPdfPage {
 
 #[pymethods]
 impl PyPdfPage {
-    fn is_empty(&self, py: Python<'_>) -> PyResult<bool> {
-        let emptiness = self.doc.borrow(py).with_doc(|d| {
-            d.page(self.index)
-                .map(|p| p.is_empty())
-                .map_err(|e| format_pdf_err(&e))
-        })??;
-        emptiness.map_err(|e| format_pdf_err(&e))
-    }
-
     /// Extract the page text.
     fn text(&self, py: Python<'_>) -> PyResult<String> {
         self.doc.borrow(py).with_doc(|d| {

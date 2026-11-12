@@ -21,18 +21,6 @@ final class PdfPageTest extends TestCase
         self::assertSame(2, $doc->getPage(2)->getIndex());
     }
 
-    public function testIsEmptyTrueForBlankPage(): void
-    {
-        $doc = new PdfDocument(self::loadFileContents('blank_1.pdf'));
-        self::assertTrue($doc->getPage(0)->isEmpty());
-    }
-
-    public function testIsEmptyFalseForMultipage(): void
-    {
-        $doc = new PdfDocument(self::loadFileContents('multipage.pdf'));
-        self::assertFalse($doc->getPage(0)->isEmpty());
-    }
-
     public function testTextAndCharsAreEmptyOnBlankPage(): void
     {
         $doc = new PdfDocument(self::loadFileContents('blank_1.pdf'));

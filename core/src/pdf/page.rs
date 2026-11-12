@@ -23,7 +23,7 @@ impl<'a> Page<'a> {
     /// Check if the page contains neither test nor objects.
     /// # Errors
     /// Returns a `PdfError` if the text can't be extracted.
-    pub fn is_empty(&self) -> Result<bool, PdfError> {
+    pub(crate) fn is_empty(&self) -> Result<bool, PdfError> {
         Ok(self.inner.objects().len() == 0 && self.inner.text()?.is_empty())
     }
 
