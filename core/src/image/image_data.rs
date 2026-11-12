@@ -10,9 +10,8 @@ use std::io::Cursor;
 pub struct Image {
     pub(super) inner: DynamicImage,
     pub(super) format: Option<ImageFormat>,
-    /// Byte length of the source data: encoded image bytes when decoded, or raw pixel bytes
-    /// when created from a `DynamicImage`. Used as the compression budget when dimensions
-    /// remain unchanged.
+    /// corresponds to length of encoded image data if format is not `None`.
+    /// or length of raw pixel data if format is `None`.
     pub(super) source_len: Option<usize>,
 }
 
