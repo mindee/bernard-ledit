@@ -5,7 +5,6 @@ use crate::pdf::jpeg::{build_jpeg_pdf, build_jpeg_pdf_auto_size};
 use crate::pdf::text_char::TextChar;
 use crate::pdf::{page::Page, pdfium};
 
-use crate::image::image_data::encode_jpeg_scaled;
 use ::image::{DynamicImage, ImageFormat};
 use pdfium_render::prelude::*;
 
@@ -388,7 +387,13 @@ impl Document {
                 let page = self.page(i)?;
                 let (w_pt, h_pt) = page.size();
                 let img = page.render_image(dpi / 72.0)?;
-                let (jpeg, _, _) = encode_jpeg_scaled(&img, quality, None, None, optimize)?;
+                if quality < 5 {
+                    return Err(ImageError::ProgressiveQualityTooLow {
+                        jpeg_quality: quality,
+                    }
+                    .into());
+                }
+                let jpeg = img.encode(ImageFormat::Jpeg, quality, optimize)?;
                 out.append_jpeg_page_sized(&jpeg, w_pt, h_pt)?;
             } else {
                 out.append_page(&self.inner, i.into())?;

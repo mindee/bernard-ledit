@@ -177,6 +177,7 @@ impl Image {
     /// Accepts any raster [`ImageFormat`] or [`OutputFormat::Pdf`]. Choosing PDF
     /// produces a single-page document that embeds the image as a JPEG, so no
     /// separate trip through the `pdf` module is needed.
+    /// jpeg_quality and jpeg_optimize only affect JPEG encoding and PDF encoding because the image is embedded as a JPEG in the PDF.
     /// # Errors
     /// Returns `ImageError::Encode` if encoding fails or `ImageError::InvalidDimensions`
     /// if the dimensions are invalid.
@@ -280,27 +281,6 @@ impl Image {
             q -= 5;
         }
     }
-}
-
-/// Encode JPEG (scaled).
-///
-/// `jpeg_optimize` selects whether image-specific Huffman tables are generated.
-/// # Errors
-/// Returns [`ImageError`] if the image cannot be encoded.
-pub fn encode_jpeg_scaled(
-    img: &Image,
-    jpeg_quality: u8,
-    max_width: Option<u32>,
-    max_height: Option<u32>,
-    jpeg_optimize: bool,
-) -> Result<(Vec<u8>, u32, u32), ImageError> {
-    if jpeg_quality < 5 {
-        return Err(ImageError::ProgressiveQualityTooLow { jpeg_quality });
-    }
-    let scaled = img.downscale_to_fit(max_width, max_height);
-    let (w, h) = scaled.size();
-    let jpeg = scaled.encode(ImageFormat::Jpeg, jpeg_quality, jpeg_optimize)?;
-    Ok((jpeg, w, h))
 }
 
 #[cfg(test)]
@@ -585,21 +565,6 @@ mod tests {
             .unwrap();
         assert_eq!(&jpeg[0..3], &[0xFF, 0xD8, 0xFF]);
         assert_eq!((w, h), (100, 50));
-    }
-    #[test]
-    fn compress_to_jpeg_does_not_upscale() {
-        let bytes = synth_bytes(30, 30, ImageFormat::Png);
-        let img = Image::decode(&bytes).unwrap();
-        let (_, w, h) = encode_jpeg_scaled(&img, 85, Some(500), Some(500), false).unwrap();
-        assert_eq!((w, h), (30, 30));
-    }
-
-    #[test]
-    fn compress_to_jpeg_no_bounds_keeps_dimensions() {
-        let bytes = synth_bytes(64, 48, ImageFormat::Png);
-        let img = Image::decode(&bytes).unwrap();
-        let (_, w, h) = encode_jpeg_scaled(&img, 85, None, None, false).unwrap();
-        assert_eq!((w, h), (64, 48));
     }
     #[test]
     fn compress_to_jpeg_returns_none_when_jpeg_would_be_larger() {
