@@ -274,24 +274,6 @@ impl Document {
         Ok(bytes.len())
     }
 
-    /// Strips the text from each page of a PDF.
-    /// # Errors
-    /// Returns a [`Document`] with the text stripped from each page.
-    pub fn strip_text(&self) -> Result<Self, PdfError> {
-        let len = self.page_count()?;
-        let mut out_pdf = Self::new()?;
-        let full_range: Vec<u16> = (0..len).collect();
-        out_pdf.import_pages(self, &full_range)?;
-        if !self.has_text()? {
-            return Ok(out_pdf);
-        }
-
-        for i in 0..len {
-            out_pdf.page(i)?.strip_text()?;
-        }
-        Ok(out_pdf)
-    }
-
     /// Compresses each page of a PDF by rasterizing it and re-encoding it as JPEG.
     /// `optimize` controls JPEG Huffman table optimization.
     ///
@@ -532,19 +514,4 @@ mod tests {
         assert!(doc_blank.has_no_content().unwrap());
     }
 
-    #[test]
-    fn test_strip_text() {
-        pdfium();
-        let bytes_multipage: &[u8] = test_data_bytes!("file_types/pdf/multipage.pdf");
-        let doc = Document::from_bytes(bytes_multipage.to_vec()).unwrap();
-
-        assert!(doc.has_text().unwrap());
-        let original_page_count = doc.page_count().unwrap();
-
-        let stripped_doc = doc.strip_text().unwrap();
-
-        assert_eq!(stripped_doc.page_count().unwrap(), original_page_count);
-        assert!(!stripped_doc.has_text().unwrap());
-        assert!(doc.has_text().unwrap());
-    }
 }
