@@ -234,14 +234,24 @@ impl Image {
         max_height: Option<u32>,
         optimize: bool,
     ) -> Result<Option<(Vec<u8>, u32, u32)>, ImageError> {
-        compress_decoded(
-            self,
-            quality,
-            max_width,
-            max_height,
-            optimize,
-            self.source_len,
-        )
+        if quality < 5 {
+            return Err(ImageError::ProgressiveQualityTooLow { quality });
+        }
+        let scaled = downscale_to_fit(self, max_width, max_height);
+        let (w, h) = scaled.size();
+        let budget = if (w, h) == self.size() { self.source_len } else { None };
+
+        let mut q = quality;
+        loop {
+            let jpeg = scaled.encode(ImageFormat::Jpeg, q)?;
+            if budget.is_none_or(|b| jpeg.len() < b) {
+                return Ok(Some((jpeg, w, h)));
+            }
+            if !optimize || q < 10 {
+                return Ok(None);
+            }
+            q -= 5;
+        }
     }
 
     /// Force-sets an image format.
@@ -296,36 +306,6 @@ pub fn downscale_to_fit(img: &Image, max_width: Option<u32>, max_height: Option<
     }
 }
 
-/// Compresses a decoded image to JPEG format.
-/// # Errors
-/// Returns [`ImageError`] if the image cannot be encoded.
-pub fn compress_decoded(
-    img: &Image,
-    quality: u8,
-    max_width: Option<u32>,
-    max_height: Option<u32>,
-    optimize: bool,
-    budget: Option<usize>,
-) -> Result<Option<(Vec<u8>, u32, u32)>, ImageError> {
-    if quality < 5 {
-        return Err(ImageError::ProgressiveQualityTooLow { quality });
-    }
-    let scaled = downscale_to_fit(img, max_width, max_height);
-    let (w, h) = scaled.size();
-    let budget = if (w, h) == img.size() { budget } else { None };
-
-    let mut q = quality;
-    loop {
-        let jpeg = scaled.encode(ImageFormat::Jpeg, q)?;
-        if budget.is_none_or(|b| jpeg.len() < b) {
-            return Ok(Some((jpeg, w, h)));
-        }
-        if !optimize || q < 10 {
-            return Ok(None);
-        }
-        q -= 5;
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -342,7 +322,7 @@ mod tests {
         optimize: bool,
     ) -> Result<Option<(Vec<u8>, u32, u32)>, ImageError> {
         let img = Image::decode(data)?;
-        compress_decoded(&img, quality, mw, mh, optimize, Some(data.len()))
+        img.compress(quality, mw, mh, optimize)
     }
 
     /// Build deterministic raster bytes of a solid-colour image in `format`,
