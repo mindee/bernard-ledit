@@ -22,12 +22,11 @@ def test_page_render_scale_affects_size(test_data_dir):
     assert large.height >= small.height * 2 - 1
 
 
-def test_page_text_and_chars(test_data_dir):
+def test_page_text(test_data_dir):
     data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
     doc = PdfDocument(data)
     page = doc.get_page(0)
     assert page.text() == ""
-    assert page.chars() == []
 
 
 def test_page_repr(test_data_dir):

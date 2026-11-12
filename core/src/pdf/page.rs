@@ -49,7 +49,7 @@ impl<'a> Page<'a> {
     /// Extract all characters from the page.
     /// # Errors
     /// Returns a `PdfError` if text extraction fails.
-    pub fn chars(&self) -> Result<Vec<TextChar>, PdfError> {
+    pub(crate) fn chars(&self) -> Result<Vec<TextChar>, PdfError> {
         let chars: Vec<TextChar> = self
             .inner
             .text()?

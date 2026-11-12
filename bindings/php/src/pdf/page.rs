@@ -3,7 +3,7 @@ use super::{
     error::{closed_err, map_pdf_err},
 };
 use crate::args;
-use crate::pdf::{bitmap::PhpPdfBitmap, text_char::PhpTextChar};
+use crate::pdf::bitmap::PhpPdfBitmap;
 use bernard_ledit::pdf::{Page, PdfError};
 use ext_php_rs::prelude::*;
 
@@ -20,16 +20,6 @@ impl PdfPage {
     #[must_use]
     pub const fn get_index(&self) -> u16 {
         self.index
-    }
-
-    /// Returns the characters on the page.
-    /// # Returns
-    /// `list<\BernardLedit\Pdf\TextChar>`
-    /// # Errors
-    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't read the page's characters.
-    /// - `\Exception` if the document is closed.
-    pub fn get_chars(&self) -> PhpResult<Vec<PhpTextChar>> {
-        self.with_page(|p| Ok(p.chars()?.into_iter().map(PhpTextChar::from).collect()))
     }
 
     /// Returns the text of the page.

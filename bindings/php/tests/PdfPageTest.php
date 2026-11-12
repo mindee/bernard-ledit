@@ -21,13 +21,10 @@ final class PdfPageTest extends TestCase
         self::assertSame(2, $doc->getPage(2)->getIndex());
     }
 
-    public function testTextAndCharsAreEmptyOnBlankPage(): void
+    public function testTextIsEmptyOnBlankPage(): void
     {
         $doc = new PdfDocument(self::loadFileContents('blank_1.pdf'));
-        $page = $doc->getPage(0);
-
-        self::assertSame('', $page->getText());
-        self::assertSame([], $page->getChars());
+        self::assertSame('', $doc->getPage(0)->getText());
     }
 
     public function testRenderReturnsBitmap(): void

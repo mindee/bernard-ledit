@@ -1,4 +1,4 @@
-use super::{bitmap::PyPdfBitmap, document::PyPdfDocument, text_char::PyTextChar};
+use super::{bitmap::PyPdfBitmap, document::PyPdfDocument};
 use crate::pdf::error::format_pdf_err;
 use pyo3::prelude::*;
 
@@ -17,17 +17,6 @@ impl PyPdfPage {
             d.page(self.index)
                 .and_then(|p| p.text())
                 .map_err(|e| format_pdf_err(&e))
-        })?
-    }
-
-    /// Extract the page text characters.
-    fn chars(&self, py: Python<'_>) -> PyResult<Vec<PyTextChar>> {
-        self.doc.borrow(py).with_doc(|d| {
-            let chars = d
-                .page(self.index)
-                .and_then(|p| p.chars())
-                .map_err(|e| format_pdf_err(&e))?;
-            Ok(chars.into_iter().map(PyTextChar::from).collect())
         })?
     }
 

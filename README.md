@@ -153,7 +153,6 @@ with PdfDocument("document.pdf") as doc:
     print(len(doc))  # page count
     page = doc[0]  # or doc.get_page(0)
     print(page.text())  # extracted text
-    print(page.chars())  # list[TextChar] with font/bounds metadata
     print(page.rotation())  # 0 | 90 | 180 | 270
     bitmap = page.render_to_bitmap(scale=2.0)  # PdfBitmap at 2× scale (was page.render)
     png_bytes = bitmap.to_png_bytes()
