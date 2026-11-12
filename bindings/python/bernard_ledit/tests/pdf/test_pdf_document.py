@@ -2,6 +2,7 @@ import io
 
 import pytest
 
+from bernard_ledit.image import Image
 from bernard_ledit.pdf import (
     PdfDocument,
     PdfiumError,
@@ -153,15 +154,16 @@ def test_has_text_false(test_data_dir):
     assert doc.has_text() is False
 
 
-def test_rasterize_page_returns_jpeg_bytes(test_data_dir):
+def test_rasterize_page_returns_image(test_data_dir):
     data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
     doc = PdfDocument(data)
 
-    jpeg_bytes = doc.rasterize_page(0, 85)
+    image = doc.rasterize_page(0)
 
-    assert isinstance(jpeg_bytes, bytes)
-    assert len(jpeg_bytes) > 0
-    assert jpeg_bytes.startswith(b"\xff\xd8")
+    assert isinstance(image, Image)
+    assert image.size[0] > 0
+    assert image.size[1] > 0
+    assert image.encode("JPEG").startswith(b"\xff\xd8")
 
 
 def test_rasterize_page_out_of_bounds_raises(test_data_dir):
@@ -169,7 +171,7 @@ def test_rasterize_page_out_of_bounds_raises(test_data_dir):
     doc = PdfDocument(data)
 
     with pytest.raises(IndexError, match="Page index 99 out of bounds"):
-        doc.rasterize_page(99, 85)
+        doc.rasterize_page(99)
 
 
 def test_rasterize_page_fails_on_closed_doc(test_data_dir):
@@ -178,7 +180,7 @@ def test_rasterize_page_fails_on_closed_doc(test_data_dir):
     doc.close()
 
     with pytest.raises(RuntimeError):
-        doc.rasterize_page(0, 85)
+        doc.rasterize_page(0)
 
 
 def test_document_getitem_returns_page(test_data_dir):

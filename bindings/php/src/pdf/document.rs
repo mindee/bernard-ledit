@@ -3,6 +3,7 @@ use super::{
     page::PdfPage,
 };
 use crate::args::{self, value_error};
+use crate::image::image_data::PhpImage;
 use crate::pdf::error::format_pdf_extract_err;
 use bernard_ledit::pdf::Document;
 use ext_php_rs::{binary::Binary, binary_slice::BinarySlice, prelude::*};
@@ -97,27 +98,17 @@ impl PhpPdfDocument {
         Ok(Binary::new(out))
     }
 
-    /// Rasterizes a page from a given index as a JPEG, at 72 DPI.
+    /// Rasterizes a page from a given index into an image, at 72 DPI.
     /// # Parameters
     /// - `index`: `int<0, 65535>`
-    /// - `jpeg_quality`: `int<1, 100>`
     /// # Errors
-    /// - `\ValueError` if `$index` or `$jpeg_quality` is out of range, or there's no page `$index`.
-    /// - `\BernardLedit\Image\ImageException` if JPEG encoding fails.
+    /// - `\ValueError` if `$index` is out of range, or there's no page `$index`.
     /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't render the page.
     /// - `\Exception` if the document is closed.
-    pub fn rasterize_page_to_jpeg_bytes(
-        &self,
-        index: i64,
-        jpeg_quality: i64,
-    ) -> PhpResult<Binary<u8>> {
+    pub fn rasterize_page(&self, index: i64) -> PhpResult<PhpImage> {
         let index = args::page_index("index", index)?;
-        let jpeg_quality = args::jpeg_quality(jpeg_quality, 1)?;
-        self.with_doc(|d| {
-            d.rasterize_page(index, jpeg_quality)
-                .map_err(|e| map_pdf_err(&e))
-        })?
-        .map(Binary::new)
+        self.with_doc(|d| d.rasterize_page(index).map_err(|e| map_pdf_err(&e)))?
+            .map(PhpImage::from)
     }
 
     /// Appends a JPEG as a page of the document.

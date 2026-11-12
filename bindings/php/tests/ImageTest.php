@@ -190,7 +190,7 @@ final class ImageTest extends TestCase
         $bitmap = $reloaded->getPage(0)->renderToBitmap();
         self::assertSame([64, 48], decode($bitmap->toPngBytes())->getSize());
         self::assertGreaterThan(4, strlen(count_chars($bitmap->toBytes(), 3)));
-        $renderedJpeg = $reloaded->rasterizePageToJpegBytes(0, 90);
+        $renderedJpeg = $reloaded->rasterizePage(0)->encode('JPEG', 90);
         self::assertSame('JPEG', guessFormat($renderedJpeg));
         self::assertSame([64, 48], decode($renderedJpeg)->getSize());
         self::assertSame($jpeg, compressToJpeg($png, 90)[0]);

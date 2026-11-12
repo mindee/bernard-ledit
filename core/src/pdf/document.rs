@@ -179,17 +179,10 @@ impl Document {
         Self::from_bytes(pdf_bytes).map_err(PdfBuilderError::Pdf)
     }
 
-    /// Rasterizes a PDF page and returns the JPEG bytes.
+    /// Rasterizes a PDF page into an image.
     /// # Errors
     /// Returns a [`PdfError`] if the page cannot be rendered.
-    pub fn rasterize_page(&self, page_index: u16, jpeg_quality: u8) -> Result<Vec<u8>, PdfError> {
-        if jpeg_quality > 100 {
-            return Err(ImageError::Encode(format!(
-                "invalid JPEG quality: {jpeg_quality} (expected 0..=100)"
-            ))
-            .into());
-        }
-
+    pub fn rasterize_page(&self, page_index: u16) -> Result<Image, PdfError> {
         let index = self.page_index(page_index)?;
         let rgb_image = {
             let _pdfium_lock = crate::pdf::NATIVE_LOCK
@@ -200,9 +193,7 @@ impl Document {
             let bitmap = page.render_with_config(&config)?;
             bitmap.as_image()?.into_rgb8()
         };
-        Image::from_dynamic(DynamicImage::ImageRgb8(rgb_image))
-            .encode(ImageFormat::Jpeg, jpeg_quality.max(1), true)
-            .map_err(Into::into)
+        Ok(Image::from_dynamic(DynamicImage::ImageRgb8(rgb_image)))
     }
 
     /// Appends a JPEG as a new page.
@@ -471,7 +462,7 @@ mod tests {
             )
         };
         assert!(out_of_bounds(doc.page(1).map(|_| ())));
-        assert!(out_of_bounds(doc.rasterize_page(1, 85).map(|_| ())));
+        assert!(out_of_bounds(doc.rasterize_page(1).map(|_| ())));
     }
 
     #[test]

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
+use BernardLedit\Image\Image;
 use BernardLedit\Pdf\PdfDocument;
 use BernardLedit\Pdf\PdfiumException;
 
@@ -180,20 +181,22 @@ final class PdfDocumentTest extends TestCase
         self::assertFalse($doc->hasNoContent());
     }
 
-    public function testRasterizePageReturnsJpegBytes(): void
+    public function testRasterizePageReturnsImage(): void
     {
         $doc = new PdfDocument(self::pdf('blank_1.pdf'));
-        $jpeg = $doc->rasterizePageToJpegBytes(0, 85);
+        $image = $doc->rasterizePage(0);
 
-        self::assertGreaterThan(0, strlen($jpeg));
-        self::assertSame("\xFF\xD8", substr($jpeg, 0, 2));
+        self::assertInstanceOf(Image::class, $image);
+        self::assertGreaterThan(0, $image->getWidth());
+        self::assertGreaterThan(0, $image->getHeight());
+        self::assertSame("\xFF\xD8", substr($image->encode('JPEG'), 0, 2));
     }
 
     public function testRasterizePageOutOfBoundsThrowsValueError(): void
     {
         $doc = new PdfDocument(self::pdf('blank_1.pdf'));
         $this->expectException(\ValueError::class);
-        $doc->rasterizePageToJpegBytes(99, 85);
+        $doc->rasterizePage(99);
     }
 
     public function testRasterizePageOnClosedDocumentThrows(): void
@@ -202,7 +205,7 @@ final class PdfDocumentTest extends TestCase
         $doc->close();
 
         $this->expectException(\Exception::class);
-        $doc->rasterizePageToJpegBytes(0, 85);
+        $doc->rasterizePage(0);
     }
 
 }

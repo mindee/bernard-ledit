@@ -43,7 +43,7 @@ audited implementation.
 | Area         | Capabilities                                                                                                                                                                                        |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Image**    | Decode (JPEG, PNG, TIFF, WebP, BMP, GIF, …), crop, resize, encode, compress to JPEG, save to path or buffer, extract polygon crops from images and PDF pages                                         |
-| **PDF**      | Load, split, merge, rasterise pages to JPEG, embed images, extract text and character metadata, compress scans, extract sub-documents, apply page options, repair broken headers |
+| **PDF**      | Load, split, merge, rasterise pages to images, embed images, extract text and character metadata, compress scans, extract sub-documents, apply page options, repair broken headers |
 | **Geometry** | Point and polygon primitives, currently not in use.                                                                                                                                                 |
 
 ---
@@ -159,8 +159,9 @@ with PdfDocument("document.pdf") as doc:
     bitmap = page.render_to_bitmap(scale=2.0)  # PdfBitmap at 2× scale (was page.render)
     png_bytes = bitmap.to_png_bytes()
 
-# --- rasterise a page to JPEG ---
-jpeg_bytes = doc.rasterize_page(page_index=0, jpeg_quality=85)
+# --- rasterise a page to an image ---
+rasterized_image = doc.rasterize_page(page_index=0)
+jpeg_bytes = rasterized_image.encode("JPEG", jpeg_quality=85)
 
 # --- split / merge ---
 a = PdfDocument("a.pdf")

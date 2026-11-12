@@ -1,5 +1,6 @@
 //! PDF document.
 use super::page::PyPdfPage;
+use crate::image::image_data::PyImage;
 use crate::input::PdfInput;
 use crate::pdf::error::{closed_err, format_pdf_err};
 use bernard_ledit::pdf::Document;
@@ -204,12 +205,10 @@ impl PyPdfDocument {
         Ok(())
     }
 
-    /// Rasterizes a PDF page and returns the JPEG bytes.
-    fn rasterize_page(&self, page_index: u16, jpeg_quality: u8) -> PyResult<Vec<u8>> {
-        self.with_doc(|d| {
-            d.rasterize_page(page_index, jpeg_quality)
-                .map_err(|e| format_pdf_err(&e))
-        })?
+    /// Rasterizes a PDF page into an image.
+    fn rasterize_page(&self, page_index: u16) -> PyResult<PyImage> {
+        self.with_doc(|d| d.rasterize_page(page_index).map_err(|e| format_pdf_err(&e)))?
+            .map(PyImage::from_core)
     }
 
     /// Close the document.

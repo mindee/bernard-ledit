@@ -15,7 +15,6 @@ pub struct PyImage {
 
 impl PyImage {
     /// Create from core Image.
-    #[allow(dead_code)]
     pub(crate) const fn from_core(inner: Image) -> Self {
         Self { inner }
     }

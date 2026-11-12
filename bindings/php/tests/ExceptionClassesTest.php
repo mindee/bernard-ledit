@@ -79,9 +79,9 @@ final class ExceptionClassesTest extends TestCase
             fn () => (new PdfDocument($pdf))->getPage(40),
             $twelvePages,
         ];
-        yield 'rasterizePageToJpegBytes' => [
-            'BernardLedit\Pdf\PdfDocument::rasterizePageToJpegBytes',
-            fn () => (new PdfDocument($pdf))->rasterizePageToJpegBytes(40, 85),
+        yield 'rasterizePage' => [
+            'BernardLedit\Pdf\PdfDocument::rasterizePage',
+            fn () => (new PdfDocument($pdf))->rasterizePage(40),
             $twelvePages,
         ];
         yield 'importPages' => [
@@ -138,11 +138,6 @@ final class ExceptionClassesTest extends TestCase
             'BernardLedit\Pdf\PdfDocument::getPage',
             fn () => (new PdfDocument($pdf))->getPage(65536),
             'index must be between 0 and 65535, got 65536',
-        ];
-        yield 'rasterizePageToJpegBytes jpeg_quality' => [
-            'BernardLedit\Pdf\PdfDocument::rasterizePageToJpegBytes',
-            fn () => (new PdfDocument($pdf))->rasterizePageToJpegBytes(0, 101),
-            'jpeg_quality must be between 1 and 100, got 101',
         ];
         yield 'PdfDocument::compressToJpeg quality' => [
             'BernardLedit\Pdf\PdfDocument::compressToJpeg',
