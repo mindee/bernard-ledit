@@ -98,17 +98,18 @@ impl PhpImage {
     /// # Parameters
     /// - `format`: `string` An output format: `"JPEG"`, `"PNG"`, `"PDF"`, etc.
     /// - `quality`: `int<1, 100>` Only used by JPEG and PDF.
+    /// - `optimize`: `bool` Optimize JPEG Huffman tables.
     /// # Errors
     /// - `\ValueError` if `$format` isn't a supported output format, or `$quality` is out of
     ///   range.
     /// - `\BernardLedit\Image\ImageException` if encoding fails.
-    #[php(defaults(quality = 85))]
-    pub fn encode(&self, format: &str, quality: i64) -> PhpResult<Binary<u8>> {
+    #[php(defaults(quality = 85, optimize = true))]
+    pub fn encode(&self, format: &str, quality: i64, optimize: bool) -> PhpResult<Binary<u8>> {
         let quality = args::quality(quality, 1)?;
         let fmt = parse_output_format(format).map_err(|e| map_image_err(&e))?;
         let bytes = self
             .inner
-            .encode(fmt, quality)
+            .encode(fmt, quality, optimize)
             .map_err(|e| map_image_err(&e))?;
         Ok(Binary::new(bytes))
     }

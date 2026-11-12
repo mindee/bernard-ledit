@@ -105,9 +105,10 @@ cropped = img.crop(left=0, top=0, right=960, bottom=540)
 resized = img.resize(640, 360)  # exact size, Lanczos filter
 
 # --- encode ---
-jpeg_bytes = img.encode("JPEG", quality=85)
+jpeg_bytes = img.encode("JPEG", quality=85, optimize=True)
 png_bytes = img.encode("PNG")
 pdf_bytes = img.encode("PDF")  # single-page PDF via DCTDecode
+# JPEG Huffman tables are optimized by default; pass optimize=False to disable.
 
 # --- save ---
 img.save("out.jpg")  # format inferred from extension

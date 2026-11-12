@@ -262,7 +262,7 @@ impl Document {
             bitmap.as_image()?.into_rgb8()
         };
         Image::from_dynamic(DynamicImage::ImageRgb8(rgb_image))
-            .encode(ImageFormat::Jpeg, quality.max(1))
+            .encode(ImageFormat::Jpeg, quality.max(1), true)
             .map_err(Into::into)
     }
 
@@ -363,10 +363,16 @@ impl Document {
     }
 
     /// Compresses each page of a PDF by rasterizing it and re-encoding it as JPEG.
+    /// `optimize` controls JPEG Huffman table optimization.
     ///
     /// # Errors
     /// Returns an error if the PDF cannot be parsed, rasterized, or re-assembled.
-    pub fn compress(&self, quality: u8, dpi: f32) -> Result<Option<Self>, PdfError> {
+    pub fn compress(
+        &self,
+        quality: u8,
+        dpi: f32,
+        optimize: bool,
+    ) -> Result<Option<Self>, PdfError> {
         let len = self.page_count()?;
         let needs_work: Vec<bool> = (0..len)
             .map(|i| Ok(self.inner.pages().get(i.into())?.text()?.is_empty()))
@@ -382,7 +388,7 @@ impl Document {
                 let page = self.page(i)?;
                 let (w_pt, h_pt) = page.size();
                 let img = page.render_image(dpi / 72.0)?;
-                let (jpeg, _, _) = encode_jpeg_scaled(&img, quality, None, None)?;
+                let (jpeg, _, _) = encode_jpeg_scaled(&img, quality, None, None, optimize)?;
                 out.append_jpeg_page_sized(&jpeg, w_pt, h_pt)?;
             } else {
                 out.append_page(&self.inner, i.into())?;

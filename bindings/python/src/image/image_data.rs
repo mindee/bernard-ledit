@@ -61,17 +61,18 @@ impl PyImage {
         Ok(resized_image)
     }
 
-    #[pyo3(signature = (format, quality = 85))]
+    #[pyo3(signature = (format, quality = 85, optimize = true))]
     fn encode<'py>(
         &self,
         py: Python<'py>,
         format: &str,
         quality: u8,
+        optimize: bool,
     ) -> PyResult<Bound<'py, PyBytes>> {
         let parsed_format = parse_output_format(format).map_err(|e| format_image_err(&e))?;
         let bytes_vec_u8 = self
             .inner
-            .encode(parsed_format, quality)
+            .encode(parsed_format, quality, optimize)
             .map_err(|e| format_image_err(&e))?;
         Ok(PyBytes::new(py, bytes_vec_u8.as_slice()))
     }
@@ -81,13 +82,14 @@ impl PyImage {
     /// `format` is inferred from the file extension when saving to a path, or
     /// from the image's own format when saving to a buffer. Pass an explicit
     /// `format` string (e.g. `"JPEG"`, `"PNG"`, `"PDF"`) to override.
-    #[pyo3(signature = (dest, format = None, quality = 85))]
+    #[pyo3(signature = (dest, format = None, quality = 85, optimize = true))]
     fn save(
         &self,
         py: Python<'_>,
         dest: &Bound<'_, PyAny>,
         format: Option<&str>,
         quality: u8,
+        optimize: bool,
     ) -> PyResult<()> {
         let is_buffer = dest.hasattr("write")?;
 
@@ -118,7 +120,7 @@ impl PyImage {
         let parsed_format = parse_output_format(&fmt_str).map_err(|e| format_image_err(&e))?;
         let encoded = self
             .inner
-            .encode(parsed_format, quality)
+            .encode(parsed_format, quality, optimize)
             .map_err(|e| format_image_err(&e))?;
 
         if is_buffer {
