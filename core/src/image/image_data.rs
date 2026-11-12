@@ -102,8 +102,8 @@ impl Image {
     }
 
     /// Return bytes as an u8 vec.
-    /// # Errors
-    /// Returns a [`PdfError`] if saving the document fails.
+    /// The bytes can correspond to the original encoded image data.
+    /// or to the raw pixel data of the decoded image if the original format is not available.
     pub fn to_bytes(&self) -> Result<Vec<u8>, ImageError> {
         Ok(self.inner.as_bytes().to_vec())
     }
@@ -146,7 +146,33 @@ impl Image {
         })
     }
 
-    /// Encode to `format` at `quality` (`quality` and `optimize` affect JPEG only).
+    /// Aspect-preserving downscale.
+    ///
+    /// Fits the image within `max_width`/`max_height` while preserving aspect
+    /// ratio (Pillow `thumbnail` semantics). Bounds are clamped to the current
+    /// dimensions so the image is never upscaled. Uses `Lanczos3`.
+    #[must_use]
+    pub fn downscale_to_fit(&self, max_width: Option<u32>, max_height: Option<u32>) -> Self {
+        let (width, height) = self.size();
+        let bound_w = max_width.map_or(width, |w| w.clamp(1, width));
+        let bound_h = max_height.map_or(height, |h| h.clamp(1, height));
+
+        if bound_w == width && bound_h == height {
+            return Self {
+                inner: self.inner.clone(),
+                format: self.format,
+                source_len: self.source_len,
+            };
+        }
+
+        Self {
+            inner: self.inner.resize(bound_w, bound_h, FilterType::Lanczos3),
+            format: self.format,
+            source_len: self.source_len,
+        }
+    }
+
+    /// Encode to `format` at `jpeg_quality` (`jpeg_quality` and `jpeg_optimize` affect JPEG only).
     ///
     /// Accepts any raster [`ImageFormat`] or [`OutputFormat::Pdf`]. Choosing PDF
     /// produces a single-page document that embeds the image as a JPEG, so no
@@ -157,28 +183,28 @@ impl Image {
     pub fn encode(
         &self,
         format: impl Into<OutputFormat>,
-        quality: u8,
-        optimize: bool,
+        jpeg_quality: u8,
+        jpeg_optimize: bool,
     ) -> Result<Vec<u8>, ImageError> {
         match format.into() {
-            OutputFormat::Pdf => self.encode_pdf(quality, optimize),
+            OutputFormat::Pdf => self.encode_pdf(jpeg_quality, jpeg_optimize),
             OutputFormat::Image(image_format) => {
-                self.encode_raster(image_format, quality, optimize)
+                self.encode_raster(image_format, jpeg_quality, jpeg_optimize)
             }
         }
     }
 
-    /// Encode to a raster `format` at `quality` (quality and optimize only affect JPEG).
+    /// Encode to a raster `format` at `jpeg_quality` (`jpeg_quality` and `jpeg_optimize` only affect JPEG).
     fn encode_raster(
         &self,
         format: ImageFormat,
-        quality: u8,
-        optimize: bool,
+        jpeg_quality: u8,
+        jpeg_optimize: bool,
     ) -> Result<Vec<u8>, ImageError> {
         if format == ImageFormat::Jpeg {
-            if !(1..=100).contains(&quality) {
+            if !(1..=100).contains(&jpeg_quality) {
                 return Err(ImageError::Encode(format!(
-                    "invalid JPEG quality: {quality} (expected 1..=100)"
+                    "invalid jpeg_quality: {jpeg_quality} (expected 1..=100)"
                 )));
             }
             let rgb_image = self.inner.to_rgb8();
@@ -195,8 +221,8 @@ impl Image {
                 ))
             })?;
             let mut jpeg = Vec::new();
-            let mut encoder = JpegEncoder::new(&mut jpeg, quality);
-            encoder.set_optimized_huffman_tables(optimize);
+            let mut encoder = JpegEncoder::new(&mut jpeg, jpeg_quality);
+            encoder.set_optimized_huffman_tables(jpeg_optimize);
             encoder
                 .encode(rgb_image.as_raw(), width, height, JpegColorType::Rgb)
                 .map_err(|e| ImageError::Encode(e.to_string()))?;
@@ -212,27 +238,29 @@ impl Image {
 
     /// Encode as a single-page PDF that embeds the image as a JPEG via
     /// `/Filter /DCTDecode`. The page maps one image pixel to one PDF point.
-    fn encode_pdf(&self, quality: u8, optimize: bool) -> Result<Vec<u8>, ImageError> {
-        let jpeg_bytes = self.encode_raster(ImageFormat::Jpeg, quality, optimize)?;
+    fn encode_pdf(&self, jpeg_quality: u8, jpeg_optimize: bool) -> Result<Vec<u8>, ImageError> {
+        let jpeg_bytes = self.encode_raster(ImageFormat::Jpeg, jpeg_quality, jpeg_optimize)?;
         crate::pdf::jpeg::build_jpeg_pdf_auto_size(&jpeg_bytes)
             .map_err(|e| ImageError::Encode(e.to_string()))
     }
 
-    /// Compresses image data gradually until the expected quality is reached.
+    /// Compresses this image to JPEG until the target JPEG quality is reached.
     /// Returns (`jpeg_bytes`, `width`, `height`).
     /// # Errors
     /// Returns an error if the image cannot be decoded, resized, or encoded.
-    pub fn compress(
+    pub fn compress_to_jpeg(
         &self,
         quality: u8,
+        optimize: bool,
         max_width: Option<u32>,
         max_height: Option<u32>,
-        optimize: bool,
     ) -> Result<Option<(Vec<u8>, u32, u32)>, ImageError> {
         if quality < 5 {
-            return Err(ImageError::ProgressiveQualityTooLow { quality });
+            return Err(ImageError::ProgressiveQualityTooLow {
+                jpeg_quality: quality,
+            });
         }
-        let scaled = downscale_to_fit(self, max_width, max_height);
+        let scaled = self.downscale_to_fit(max_width, max_height);
         let (w, h) = scaled.size();
         let budget = if (w, h) == self.size() {
             self.source_len
@@ -256,49 +284,23 @@ impl Image {
 
 /// Encode JPEG (scaled).
 ///
-/// `optimize` selects whether image-specific Huffman tables are generated.
+/// `jpeg_optimize` selects whether image-specific Huffman tables are generated.
 /// # Errors
 /// Returns [`ImageError`] if the image cannot be encoded.
 pub fn encode_jpeg_scaled(
     img: &Image,
-    quality: u8,
+    jpeg_quality: u8,
     max_width: Option<u32>,
     max_height: Option<u32>,
-    optimize: bool,
+    jpeg_optimize: bool,
 ) -> Result<(Vec<u8>, u32, u32), ImageError> {
-    if quality < 5 {
-        return Err(ImageError::ProgressiveQualityTooLow { quality });
+    if jpeg_quality < 5 {
+        return Err(ImageError::ProgressiveQualityTooLow { jpeg_quality });
     }
-    let scaled = downscale_to_fit(img, max_width, max_height);
+    let scaled = img.downscale_to_fit(max_width, max_height);
     let (w, h) = scaled.size();
-    let jpeg = scaled.encode(ImageFormat::Jpeg, quality, optimize)?;
+    let jpeg = scaled.encode(ImageFormat::Jpeg, jpeg_quality, jpeg_optimize)?;
     Ok((jpeg, w, h))
-}
-
-/// Aspect-preserving downscale.
-///
-/// Fits the image within `max_width`/`max_height` while preserving aspect
-/// ratio (Pillow `thumbnail` semantics). Bounds are clamped to the current
-/// dimensions so the image is never upscaled. Uses `Lanczos3`.
-#[must_use]
-pub fn downscale_to_fit(img: &Image, max_width: Option<u32>, max_height: Option<u32>) -> Image {
-    let (width, height) = img.size();
-    let bound_w = max_width.map_or(width, |w| w.clamp(1, width));
-    let bound_h = max_height.map_or(height, |h| h.clamp(1, height));
-
-    if bound_w == width && bound_h == height {
-        return Image {
-            inner: img.inner.clone(),
-            format: img.format,
-            source_len: img.source_len,
-        };
-    }
-
-    Image {
-        inner: img.inner.resize(bound_w, bound_h, FilterType::Lanczos3),
-        format: img.format,
-        source_len: img.source_len,
-    }
 }
 
 #[cfg(test)]
@@ -308,15 +310,15 @@ mod tests {
     use ::image::{ImageFormat, RgbImage};
     use std::io::Cursor;
 
-    fn compress_image(
+    fn compress_to_jpeg(
         data: &[u8],
         quality: u8,
+        optimize: bool,
         mw: Option<u32>,
         mh: Option<u32>,
-        optimize: bool,
     ) -> Result<Option<(Vec<u8>, u32, u32)>, ImageError> {
         let img = Image::decode(data)?;
-        img.compress(quality, mw, mh, optimize)
+        img.compress_to_jpeg(quality, optimize, mw, mh)
     }
 
     /// Build deterministic raster bytes of a solid-colour image in `format`,
@@ -448,7 +450,7 @@ mod tests {
     }
 
     #[test]
-    fn encode_optimize_flag_reduces_jpeg_size() {
+    fn encode_jpeg_optimize_flag_reduces_jpeg_size() {
         let bytes = synth_bytes(256, 256, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
         let unoptimized = img.encode(ImageFormat::Jpeg, 85, false).unwrap();
@@ -537,7 +539,7 @@ mod tests {
     fn downscale_never_upscales_when_bounds_larger() {
         let bytes = synth_bytes(50, 50, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
-        let out = downscale_to_fit(&img, Some(500), Some(500));
+        let out = img.downscale_to_fit(Some(500), Some(500));
         assert_eq!(out.size(), (50, 50));
     }
 
@@ -545,7 +547,7 @@ mod tests {
     fn downscale_none_bounds_keeps_size() {
         let bytes = synth_bytes(50, 40, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
-        let out = downscale_to_fit(&img, None, None);
+        let out = img.downscale_to_fit(None, None);
         assert_eq!(out.size(), (50, 40));
     }
 
@@ -553,7 +555,7 @@ mod tests {
     fn downscale_preserves_aspect_ratio() {
         let bytes = synth_bytes(200, 100, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
-        let out = downscale_to_fit(&img, Some(100), Some(100));
+        let out = img.downscale_to_fit(Some(100), Some(100));
         assert_eq!(out.size(), (100, 50));
     }
 
@@ -562,7 +564,7 @@ mod tests {
         let bytes = synth_bytes(200, 100, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
         // scale = 50/200 = 0.25
-        let out = downscale_to_fit(&img, Some(50), None);
+        let out = img.downscale_to_fit(Some(50), None);
         assert_eq!(out.size(), (50, 25));
     }
 
@@ -570,22 +572,22 @@ mod tests {
     fn downscale_floors_dimensions_to_at_least_one() {
         let bytes = synth_bytes(100, 4, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
-        let out = downscale_to_fit(&img, Some(2), None);
+        let out = img.downscale_to_fit(Some(2), None);
         let (_, h) = out.size();
         assert!(h >= 1);
     }
 
     #[test]
-    fn compress_returns_jpeg_and_dimensions() {
+    fn compress_to_jpeg_returns_jpeg_and_dimensions() {
         let bytes = synth_bytes(200, 100, ImageFormat::Png);
-        let (jpeg, w, h) = compress_image(&bytes, 85, Some(100), Some(100), false)
+        let (jpeg, w, h) = compress_to_jpeg(&bytes, 85, false, Some(100), Some(100))
             .unwrap()
             .unwrap();
         assert_eq!(&jpeg[0..3], &[0xFF, 0xD8, 0xFF]);
         assert_eq!((w, h), (100, 50));
     }
     #[test]
-    fn compress_does_not_upscale() {
+    fn compress_to_jpeg_does_not_upscale() {
         let bytes = synth_bytes(30, 30, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
         let (_, w, h) = encode_jpeg_scaled(&img, 85, Some(500), Some(500), false).unwrap();
@@ -593,40 +595,40 @@ mod tests {
     }
 
     #[test]
-    fn compress_no_bounds_keeps_dimensions() {
+    fn compress_to_jpeg_no_bounds_keeps_dimensions() {
         let bytes = synth_bytes(64, 48, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
         let (_, w, h) = encode_jpeg_scaled(&img, 85, None, None, false).unwrap();
         assert_eq!((w, h), (64, 48));
     }
     #[test]
-    fn compress_returns_none_when_jpeg_would_be_larger() {
+    fn compress_to_jpeg_returns_none_when_jpeg_would_be_larger() {
         let bytes = synth_bytes(30, 30, ImageFormat::Png); // tiny flat PNG
         assert!(
-            compress_image(&bytes, 85, None, None, false)
+            compress_to_jpeg(&bytes, 85, false, None, None)
                 .unwrap()
                 .is_none()
         );
     }
 
     #[test]
-    fn compress_with_bounds_returns_some_even_if_larger() {
+    fn compress_to_jpeg_with_bounds_returns_some_even_if_larger() {
         // a requested downscale is always honored, regardless of byte count
         let bytes = synth_bytes(200, 100, ImageFormat::Png);
-        let (_, w, h) = compress_image(&bytes, 85, Some(100), Some(100), false)
+        let (_, w, h) = compress_to_jpeg(&bytes, 85, false, Some(100), Some(100))
             .unwrap()
             .expect("downscale was requested");
         assert_eq!((w, h), (100, 50));
     }
     #[test]
-    fn compress_garbage_errors() {
-        assert!(compress_image(&[0x00, 0x01], 85, None, None, false).is_err());
+    fn compress_to_jpeg_garbage_errors() {
+        assert!(compress_to_jpeg(&[0x00, 0x01], 85, false, None, None).is_err());
     }
 
     #[test]
     fn compress_fixture_jpeg() {
         let bytes = test_data_bytes!("file_types/receipt.jpg");
-        let (jpeg, w, h) = compress_image(bytes, 80, Some(512), Some(512), false)
+        let (jpeg, w, h) = compress_to_jpeg(bytes, 80, false, Some(512), Some(512))
             .unwrap()
             .unwrap();
         assert_eq!(&jpeg[0..3], &[0xFF, 0xD8, 0xFF]);

@@ -42,7 +42,7 @@ audited implementation.
 
 | Area         | Capabilities                                                                                                                                                                                        |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Image**    | Decode (JPEG, PNG, TIFF, WebP, BMP, GIF, …), crop, resize, encode, compress, save to path or buffer, extract polygon crops from images and PDF pages                                                |
+| **Image**    | Decode (JPEG, PNG, TIFF, WebP, BMP, GIF, …), crop, resize, encode, compress to JPEG, save to path or buffer, extract polygon crops from images and PDF pages                                         |
 | **PDF**      | Load, split, merge, rasterise pages to JPEG, embed images, extract text and character metadata, add text overlays, compress scans, extract sub-documents, apply page options, repair broken headers |
 | **Geometry** | Point and polygon primitives, currently not in use.                                                                                                                                                 |
 
@@ -105,10 +105,10 @@ cropped = img.crop(left=0, top=0, right=960, bottom=540)
 resized = img.resize(640, 360)  # exact size, Lanczos filter
 
 # --- encode ---
-jpeg_bytes = img.encode("JPEG", quality=85, optimize=True)
+jpeg_bytes = img.encode("JPEG", jpeg_quality=85, jpeg_optimize=True)
 png_bytes = img.encode("PNG")
 pdf_bytes = img.encode("PDF")  # single-page PDF via DCTDecode
-# JPEG Huffman tables are optimized by default; pass optimize=False to disable.
+# JPEG Huffman tables are optimized by default; pass jpeg_optimize=False to disable.
 
 # --- save ---
 img.save("out.jpg")  # format inferred from extension
@@ -119,14 +119,14 @@ img.save("out.pdf", format="PDF")  # force PDF regardless of extension
 # --- helpers ---
 fmt = guess_format(data)  # "JPEG" | "PNG" | "TIFF" | …
 
-# --- compress ---
+# --- compress to JPEG ---
 # Re-encodes as JPEG. If dimensions are unchanged and the output isn't smaller
 # than the source, returns None.
-out = img.compress(
+out = img.compress_to_jpeg(
     quality=85,
+    optimize=True,
     max_width=1024,  # aspect-preserving downscale, never upscales
     max_height=1024,
-    optimize=True,
 )
 
 # --- crop by polygon ---
@@ -160,7 +160,7 @@ with PdfDocument("document.pdf") as doc:
     png_bytes = bitmap.to_png_bytes()
 
 # --- rasterise a page to JPEG ---
-jpeg_bytes = doc.rasterize_page(page_index=0, quality=85)
+jpeg_bytes = doc.rasterize_page(page_index=0, jpeg_quality=85)
 
 # --- split / merge ---
 a = PdfDocument("a.pdf")
@@ -188,16 +188,16 @@ doc.add_text(page_idx=0, chars=chars)
 
 ```python
 from bernard_ledit.pdf import (
-    PdfDocument, compress, extract_from_page_ranges, fix_pdf, apply_page_options,
+    PdfDocument, compress_to_jpeg, extract_from_page_ranges, fix_pdf, apply_page_options,
 )
 
-# --- compress ---
+# --- compress to JPEG ---
 # Only pages without a text layer (scans) are rasterised and re-encoded as JPEG.
 # Returns the input unchanged if the result would not be smaller.
-smaller = compress(pdf_bytes, quality=85, dpi=150.0)
+smaller = compress_to_jpeg(pdf_bytes, quality=85, optimize=True, dpi=150.0)
 # The method form returns a new PdfDocument, or None when there is nothing to gain.
 with PdfDocument(pdf_bytes) as doc:
-    result = doc.compress(quality=85)
+    result = doc.compress_to_jpeg(quality=85, optimize=True, dpi=150.0)
 
 # --- extract sub-documents ---
 # `data` is a PDF or an image (treated as a one-page document).

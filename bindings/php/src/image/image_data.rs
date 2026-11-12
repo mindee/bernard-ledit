@@ -120,19 +120,24 @@ impl PhpImage {
     /// Returns the encoded bytes as a PHP string.
     /// # Parameters
     /// - `format`: `string` An output format: `"JPEG"`, `"PNG"`, `"PDF"`, etc.
-    /// - `quality`: `int<1, 100>` Only used by JPEG and PDF.
-    /// - `optimize`: `bool` Optimize JPEG Huffman tables.
+    /// - `jpeg_quality`: `int<1, 100>` Only used by JPEG and PDF.
+    /// - `jpeg_optimize`: `bool` Optimize JPEG Huffman tables.
     /// # Errors
-    /// - `\ValueError` if `$format` isn't a supported output format, or `$quality` is out of
+    /// - `\ValueError` if `$format` isn't a supported output format, or `$jpeg_quality` is out of
     ///   range.
     /// - `\BernardLedit\Image\ImageException` if encoding fails.
-    #[php(defaults(quality = 85, optimize = true))]
-    pub fn encode(&self, format: &str, quality: i64, optimize: bool) -> PhpResult<Binary<u8>> {
-        let quality = args::quality(quality, 1)?;
+    #[php(defaults(jpeg_quality = 85, jpeg_optimize = true))]
+    pub fn encode(
+        &self,
+        format: &str,
+        jpeg_quality: i64,
+        jpeg_optimize: bool,
+    ) -> PhpResult<Binary<u8>> {
+        let jpeg_quality = args::jpeg_quality(jpeg_quality, 1)?;
         let fmt = parse_output_format(format).map_err(|e| map_image_err(&e))?;
         let bytes = self
             .inner
-            .encode(fmt, quality, optimize)
+            .encode(fmt, jpeg_quality, jpeg_optimize)
             .map_err(|e| map_image_err(&e))?;
         Ok(Binary::new(bytes))
     }
@@ -169,10 +174,11 @@ pub fn guess_format(data: BinarySlice<u8>) -> PhpResult<&'static str> {
     format_name(fmt).ok_or_else(unknown_format_err)
 }
 
-/// Compresses an image as a JPEG, scaled down to fit `$max_width` and `$max_height`. Returns the
+/// Compresses an image to JPEG, scaled down to fit `$max_width` and `$max_height`. Returns the
 /// input unchanged if that doesn't make it smaller.
 /// # Parameters
 /// - `quality`: `int<5, 100>`
+/// - `optimize`: `bool|null`
 /// - `max_width`: `int<1, 4294967295>|null`
 /// - `max_height`: `int<1, 4294967295>|null`
 /// # Returns
@@ -182,17 +188,22 @@ pub fn guess_format(data: BinarySlice<u8>) -> PhpResult<&'static str> {
 /// - `\BernardLedit\Image\ImageException` if `$data` isn't an identifiable image, or can't be
 ///   decoded or encoded.
 #[php_function]
-#[php(name = "BernardLedit\\Image\\compress")]
-#[php(defaults(quality = 85, max_width = None, max_height = None, optimize = None))]
+#[php(name = "BernardLedit\\Image\\compressToJpeg")]
+#[php(defaults(
+    quality = 85,
+    optimize = None,
+    max_width = None,
+    max_height = None
+))]
 #[allow(clippy::needless_pass_by_value)]
-pub fn compress(
+pub fn compress_to_jpeg(
     data: BinarySlice<u8>,
     quality: i64,
+    optimize: Option<bool>,
     max_width: Option<i64>,
     max_height: Option<i64>,
-    optimize: Option<bool>,
 ) -> PhpResult<Vec<Zval>> {
-    let quality = args::quality(quality, 5)?;
+    let quality = args::int("quality", quality, 5, 100)?;
     let max_width = max_width
         .map(|w| args::int("max_width", w, 1, u32::MAX))
         .transpose()?;
@@ -201,7 +212,7 @@ pub fn compress(
         .transpose()?;
     let image = Image::decode(&data).map_err(|e| map_image_err(&e))?;
     let (bytes, w, h) = image
-        .compress(quality, max_width, max_height, optimize.unwrap_or(true))
+        .compress_to_jpeg(quality, optimize.unwrap_or(true), max_width, max_height)
         .map_err(|e| map_image_err(&e))?
         .unwrap_or_else(|| {
             let (w, h) = image.size();
@@ -224,5 +235,5 @@ pub fn register_functions(builder: ModuleBuilder) -> ModuleBuilder {
     builder
         .function(wrap_function!(decode))
         .function(wrap_function!(guess_format))
-        .function(wrap_function!(compress))
+        .function(wrap_function!(compress_to_jpeg))
 }

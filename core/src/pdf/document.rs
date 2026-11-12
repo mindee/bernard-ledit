@@ -243,10 +243,10 @@ impl Document {
     /// Rasterizes a PDF page and returns the JPEG bytes.
     /// # Errors
     /// Returns a [`PdfError`] if the page cannot be rendered.
-    pub fn rasterize_page(&self, page_index: u16, quality: u8) -> Result<Vec<u8>, PdfError> {
-        if quality > 100 {
+    pub fn rasterize_page(&self, page_index: u16, jpeg_quality: u8) -> Result<Vec<u8>, PdfError> {
+        if jpeg_quality > 100 {
             return Err(ImageError::Encode(format!(
-                "invalid JPEG quality: {quality} (expected 0..=100)"
+                "invalid JPEG quality: {jpeg_quality} (expected 0..=100)"
             ))
             .into());
         }
@@ -262,7 +262,7 @@ impl Document {
             bitmap.as_image()?.into_rgb8()
         };
         Image::from_dynamic(DynamicImage::ImageRgb8(rgb_image))
-            .encode(ImageFormat::Jpeg, quality.max(1), true)
+            .encode(ImageFormat::Jpeg, jpeg_quality.max(1), true)
             .map_err(Into::into)
     }
 
@@ -367,11 +367,11 @@ impl Document {
     ///
     /// # Errors
     /// Returns an error if the PDF cannot be parsed, rasterized, or re-assembled.
-    pub fn compress(
+    pub fn compress_to_jpeg(
         &self,
         quality: u8,
-        dpi: f32,
         optimize: bool,
+        dpi: f32,
     ) -> Result<Option<Self>, PdfError> {
         let len = self.page_count()?;
         let needs_work: Vec<bool> = (0..len)

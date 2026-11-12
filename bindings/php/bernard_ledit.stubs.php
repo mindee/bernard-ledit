@@ -40,12 +40,13 @@ namespace BernardLedit\Image {
          * Returns the encoded bytes as a PHP string.
          *
          * @param string $format An output format: `"JPEG"`, `"PNG"`, `"PDF"`, etc.
-         * @param int<1, 100> $quality Only used by JPEG and PDF.
+         * @param int<1, 100> $jpeg_quality Only used by JPEG and PDF.
+         * @param bool $jpeg_optimize Optimize JPEG Huffman tables.
          * @return string
-         * @throws \ValueError if `$format` isn't a supported output format, or `$quality` is out of range.
+         * @throws \ValueError if `$format` isn't a supported output format, or `$jpeg_quality` is out of range.
          * @throws \BernardLedit\Image\ImageException if encoding fails.
          */
-        public function encode(string $format, int $quality = 85): string {}
+        public function encode(string $format, int $jpeg_quality = 85, bool $jpeg_optimize = true): string {}
 
         /**
          * Upper-case format name (`"JPEG"`, `"PNG"`, etc.) or `null`.
@@ -99,7 +100,7 @@ namespace BernardLedit\Image {
      * @throws \ValueError if `$quality`, `$max_width` or `$max_height` is out of range.
      * @throws \BernardLedit\Image\ImageException if `$data` isn't an identifiable image, or can't be decoded or encoded.
      */
-    function compress(string $data, int $quality = 85, ?int $max_width = null, ?int $max_height = null, ?bool $optimize = null): array {}
+    function compressToJpeg(string $data, int $quality = 85, ?bool $optimize = null, ?int $max_width = null, ?int $max_height = null): array {}
 
     /**
      * `BernardLedit\Image\decode(string $data): Image`
@@ -232,6 +233,7 @@ namespace BernardLedit\Pdf {
          * Returns `null` when there is nothing to gain (e.g. text-only documents).
          *
          * @param int<5, 100> $quality
+         * @param bool $optimize Optimize JPEG Huffman tables.
          * @param float $dpi A finite number between 1 and 1200.
          * @return \BernardLedit\Pdf\PdfDocument|null
          * @throws \ValueError if `$quality` or `$dpi` is out of range.
@@ -239,7 +241,7 @@ namespace BernardLedit\Pdf {
          * @throws \BernardLedit\Pdf\PdfiumException if `PDFium` can't render a page, or build the new document.
          * @throws \Exception if the document is closed.
          */
-        public function compress(int $quality = 85, float $dpi = 150.0): ?\BernardLedit\Pdf\PdfDocument {}
+        public function compressToJpeg(int $quality = 85, bool $optimize = true, float $dpi = 150.0): ?\BernardLedit\Pdf\PdfDocument {}
 
         /**
          * `PdfDocument::create()` empty document (new is reserved).
@@ -312,14 +314,14 @@ namespace BernardLedit\Pdf {
          * Rasterizes a page from a given index as a JPEG, at 72 DPI.
          *
          * @param int<0, 65535> $index
-         * @param int<1, 100> $quality
+         * @param int<1, 100> $jpeg_quality
          * @return string
-         * @throws \ValueError if `$index` or `$quality` is out of range, or there's no page `$index`.
+         * @throws \ValueError if `$index` or `$jpeg_quality` is out of range, or there's no page `$index`.
          * @throws \BernardLedit\Image\ImageException if JPEG encoding fails.
          * @throws \BernardLedit\Pdf\PdfiumException if `PDFium` can't render the page.
          * @throws \Exception if the document is closed.
          */
-        public function rasterizePageToJpegBytes(int $index, int $quality): string {}
+        public function rasterizePageToJpegBytes(int $index, int $jpeg_quality): string {}
     }
 
     class PdfPage {
@@ -431,13 +433,14 @@ namespace BernardLedit\Pdf {
      *
      * @param string $data
      * @param int<5, 100> $quality
+     * @param bool|null $optimize Whether to optimize JPEG Huffman tables; defaults to `true`.
      * @param float|null $dpi A finite number between 1 and 1200; 150 if `null`.
      * @return string
      * @throws \ValueError if `$quality` or `$dpi` is out of range.
      * @throws \BernardLedit\Image\ImageException if JPEG encoding fails.
      * @throws \BernardLedit\Pdf\PdfiumException if `PDFium` can't be loaded, `$data` isn't a PDF it can read, or it can't render a page or build the new document.
      */
-    function compress(string $data, int $quality = 85, ?float $dpi = null): string {}
+    function compressToJpeg(string $data, int $quality = 85, ?bool $optimize = null, ?float $dpi = null): string {}
 
     /**
      * Builds one new document per group of 0-indexed page numbers.

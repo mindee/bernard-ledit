@@ -219,9 +219,9 @@ impl PyPdfDocument {
     }
 
     /// Rasterizes a PDF page and returns the JPEG bytes.
-    fn rasterize_page(&self, page_index: u16, quality: u8) -> PyResult<Vec<u8>> {
+    fn rasterize_page(&self, page_index: u16, jpeg_quality: u8) -> PyResult<Vec<u8>> {
         self.with_doc(|d| {
-            d.rasterize_page(page_index, quality)
+            d.rasterize_page(page_index, jpeg_quality)
                 .map_err(|e| format_pdf_err(&e))
         })?
     }
@@ -250,9 +250,9 @@ impl PyPdfDocument {
     /// # Panics
     /// If the compression process encounters an unexpected error.
     #[pyo3(signature = (quality = 85, optimize = true, dpi = 150.0))]
-    fn compress(&self, quality: u8, optimize: bool, dpi: f32) -> PyResult<Option<Self>> {
+    fn compress_to_jpeg(&self, quality: u8, optimize: bool, dpi: f32) -> PyResult<Option<Self>> {
         let out = self
-            .with_doc(|d| d.compress(quality, dpi, optimize))?
+            .with_doc(|d| d.compress_to_jpeg(quality, optimize, dpi))?
             .map_err(|e| format_pdf_err(&e))?;
         Ok(out.map(|doc| Self {
             inner: Mutex::new(Some(doc)),
@@ -322,17 +322,22 @@ impl PyPdfDocument {
     }
 }
 
-/// Module-level accessor for compressing PDFs.
+/// Module-level accessor for compressing PDFs as JPEG.
 /// `optimize` controls JPEG Huffman table optimization.
 /// # Errors
 /// Returns [`PdfError`] if the PDF cannot be compressed.
 #[pyfunction]
 #[pyo3(signature = (data, quality = 85, optimize = true, dpi = 150.0))]
-pub fn compress(data: PdfInput<'_>, quality: u8, optimize: bool, dpi: f32) -> PyResult<Vec<u8>> {
+pub fn compress_to_jpeg(
+    data: PdfInput<'_>,
+    quality: u8,
+    optimize: bool,
+    dpi: f32,
+) -> PyResult<Vec<u8>> {
     let data = data.into_vec()?;
     let doc = Document::from_bytes(data.clone()).map_err(|e| format_pdf_err(&e))?;
     let Some(out) = doc
-        .compress(quality, dpi, optimize)
+        .compress_to_jpeg(quality, optimize, dpi)
         .map_err(|e| format_pdf_err(&e))?
     else {
         return Ok(data);

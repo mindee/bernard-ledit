@@ -10,11 +10,11 @@ use BernardLedit\Pdf\TextChar;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-use function BernardLedit\Image\compress as compressImage;
+use function BernardLedit\Image\compressToJpeg;
 use function BernardLedit\Image\decode;
 use function BernardLedit\Image\guessFormat;
 use function BernardLedit\Pdf\applyPageOptions;
-use function BernardLedit\Pdf\compress as compressPdf;
+use function BernardLedit\Pdf\compressToJpeg as compressPdfToJpeg;
 use function BernardLedit\Pdf\extractFromPageRanges;
 use function BernardLedit\Pdf\fixPdf;
 
@@ -42,7 +42,10 @@ final class ExceptionClassesTest extends TestCase
         yield 'guessFormat' => ['BernardLedit\Image\guessFormat', fn () => guessFormat($heic)];
         yield 'decode' => ['BernardLedit\Image\decode', fn () => decode($heic)];
         yield 'new Image' => ['BernardLedit\Image\Image::__construct', fn () => new Image($heic)];
-        yield 'Image\compress' => ['BernardLedit\Image\compress', fn () => compressImage($heic)];
+        yield 'Image\compressToJpeg' => [
+            'BernardLedit\Image\compressToJpeg',
+            fn () => compressToJpeg($heic),
+        ];
         yield 'extractFromPageRanges' => [
             'BernardLedit\Pdf\extractFromPageRanges',
             fn () => extractFromPageRanges($heic, [[0]]),
@@ -106,20 +109,20 @@ final class ExceptionClassesTest extends TestCase
     {
         $pdf = self::file('pdf/multipage.pdf');
         $jpeg = self::file('receipt.jpg');
-        yield 'Image\compress quality' => [
-            'BernardLedit\Image\compress',
-            fn () => compressImage($jpeg, 300),
+        yield 'Image\compressToJpeg quality' => [
+            'BernardLedit\Image\compressToJpeg',
+            fn () => compressToJpeg($jpeg, 300),
             'quality must be between 5 and 100, got 300',
         ];
         yield 'max_width' => [
-            'BernardLedit\Image\compress',
-            fn () => compressImage($jpeg, 85, -10),
+            'BernardLedit\Image\compressToJpeg',
+            fn () => compressToJpeg($jpeg, 85, null, -10),
             'max_width must be between 1 and 4294967295, got -10',
         ];
-        yield 'Image::encode quality' => [
+        yield 'Image::encode jpeg_quality' => [
             'BernardLedit\Image\Image::encode',
             fn () => decode($jpeg)->encode('JPEG', 0),
-            'quality must be between 1 and 100, got 0',
+            'jpeg_quality must be between 1 and 100, got 0',
         ];
         yield 'crop' => [
             'BernardLedit\Image\Image::crop',
@@ -141,19 +144,19 @@ final class ExceptionClassesTest extends TestCase
             fn () => (new PdfDocument($pdf))->getPage(65536),
             'index must be between 0 and 65535, got 65536',
         ];
-        yield 'rasterizePageToJpegBytes quality' => [
+        yield 'rasterizePageToJpegBytes jpeg_quality' => [
             'BernardLedit\Pdf\PdfDocument::rasterizePageToJpegBytes',
             fn () => (new PdfDocument($pdf))->rasterizePageToJpegBytes(0, 101),
-            'quality must be between 1 and 100, got 101',
+            'jpeg_quality must be between 1 and 100, got 101',
         ];
-        yield 'PdfDocument::compress quality' => [
-            'BernardLedit\Pdf\PdfDocument::compress',
-            fn () => (new PdfDocument($pdf))->compress(1),
+        yield 'PdfDocument::compressToJpeg quality' => [
+            'BernardLedit\Pdf\PdfDocument::compressToJpeg',
+            fn () => (new PdfDocument($pdf))->compressToJpeg(1),
             'quality must be between 5 and 100, got 1',
         ];
-        yield 'Pdf\compress dpi' => [
-            'BernardLedit\Pdf\compress',
-            fn () => compressPdf($pdf, 85, null, 0.5),
+        yield 'Pdf\compressToJpeg dpi' => [
+            'BernardLedit\Pdf\compressToJpeg',
+            fn () => compressPdfToJpeg($pdf, 85, null, 0.5),
             'dpi must be a finite number between 1 and 1200, got 0.5',
         ];
         yield 'renderToBitmap scale' => [

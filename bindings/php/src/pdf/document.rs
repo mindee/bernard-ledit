@@ -101,17 +101,21 @@ impl PhpPdfDocument {
     /// Rasterizes a page from a given index as a JPEG, at 72 DPI.
     /// # Parameters
     /// - `index`: `int<0, 65535>`
-    /// - `quality`: `int<1, 100>`
+    /// - `jpeg_quality`: `int<1, 100>`
     /// # Errors
-    /// - `\ValueError` if `$index` or `$quality` is out of range, or there's no page `$index`.
+    /// - `\ValueError` if `$index` or `$jpeg_quality` is out of range, or there's no page `$index`.
     /// - `\BernardLedit\Image\ImageException` if JPEG encoding fails.
     /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't render the page.
     /// - `\Exception` if the document is closed.
-    pub fn rasterize_page_to_jpeg_bytes(&self, index: i64, quality: i64) -> PhpResult<Binary<u8>> {
+    pub fn rasterize_page_to_jpeg_bytes(
+        &self,
+        index: i64,
+        jpeg_quality: i64,
+    ) -> PhpResult<Binary<u8>> {
         let index = args::page_index("index", index)?;
-        let quality = args::quality(quality, 1)?;
+        let jpeg_quality = args::jpeg_quality(jpeg_quality, 1)?;
         self.with_doc(|d| {
-            d.rasterize_page(index, quality)
+            d.rasterize_page(index, jpeg_quality)
                 .map_err(|e| map_pdf_err(&e))
         })?
         .map(Binary::new)
@@ -210,11 +214,16 @@ impl PhpPdfDocument {
     ///   document.
     /// - `\Exception` if the document is closed.
     #[php(defaults(quality = 85, optimize = true, dpi = 150.0))]
-    pub fn compress(&self, quality: i64, optimize: bool, dpi: f64) -> PhpResult<Option<Self>> {
-        let quality = args::quality(quality, 5)?;
+    pub fn compress_to_jpeg(
+        &self,
+        quality: i64,
+        optimize: bool,
+        dpi: f64,
+    ) -> PhpResult<Option<Self>> {
+        let quality = args::int("quality", quality, 5, 100)?;
         let dpi = args::dpi(dpi)?;
         let out = self
-            .with_doc(|d| d.compress(quality, dpi, optimize))?
+            .with_doc(|d| d.compress_to_jpeg(quality, optimize, dpi))?
             .map_err(|e| map_pdf_err(&e))?;
         Ok(out.map(Self::wrap))
     }
@@ -244,7 +253,8 @@ impl PhpPdfDocument {
     }
 }
 
-/// Compresses PDF bytes. Returns the input unchanged if it can't be made smaller.
+/// Compresses PDF bytes by re-encoding scanned pages as JPEG. Returns the input unchanged if it
+/// can't be made smaller.
 /// # Parameters
 /// - `quality`: `int<5, 100>`
 /// - `optimize`: `bool|null` Whether to optimize JPEG Huffman tables; defaults to `true`.
@@ -255,21 +265,21 @@ impl PhpPdfDocument {
 /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't be loaded, `$data` isn't a PDF it can
 ///   read, or it can't render a page or build the new document.
 #[php_function]
-#[php(name = "BernardLedit\\Pdf\\compress")]
+#[php(name = "BernardLedit\\Pdf\\compressToJpeg")]
 #[php(defaults(quality = 85, optimize = None, dpi = None))]
 #[allow(clippy::needless_pass_by_value)]
-pub fn compress(
+pub fn compress_to_jpeg(
     data: BinarySlice<u8>,
     quality: i64,
     optimize: Option<bool>,
     dpi: Option<f64>,
 ) -> PhpResult<Binary<u8>> {
-    let quality = args::quality(quality, 5)?;
+    let quality = args::int("quality", quality, 5, 100)?;
     let dpi = args::dpi(dpi.unwrap_or(150.0))?;
     super::ensure_pdfium()?;
     let doc = Document::from_bytes(data.to_vec()).map_err(|e| map_pdf_err(&e))?;
     let Some(out) = doc
-        .compress(quality, dpi, optimize.unwrap_or(true))
+        .compress_to_jpeg(quality, optimize.unwrap_or(true), dpi)
         .map_err(|e| map_pdf_err(&e))?
     else {
         return Ok(Binary::new(data.to_vec()));
@@ -316,6 +326,6 @@ pub fn extract_from_page_ranges(
 /// Registers the internal functions in this module.
 pub fn register_functions(builder: ModuleBuilder) -> ModuleBuilder {
     builder
-        .function(wrap_function!(compress))
+        .function(wrap_function!(compress_to_jpeg))
         .function(wrap_function!(extract_from_page_ranges))
 }

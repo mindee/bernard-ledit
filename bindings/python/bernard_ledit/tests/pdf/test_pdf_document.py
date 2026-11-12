@@ -7,7 +7,7 @@ from bernard_ledit.pdf import (
     PdfiumError,
     PdfPage,
     TextChar,
-    compress,
+    compress_to_jpeg,
 )
 
 
@@ -300,10 +300,10 @@ def test_save_to_path(test_data_dir, tmp_path):
 
 def test_compress_text_pdf_is_noop(test_data_dir):
     data = (test_data_dir / "file_types/pdf/multipage.pdf").read_bytes()
-    assert compress(data, quality=85) == data
+    assert compress_to_jpeg(data, quality=85) == data
 
     with PdfDocument(data) as doc:
-        assert doc.compress() is None
+        assert doc.compress_to_jpeg() is None
 
 
 def test_document_iterator_stays_exhausted_after_append(test_data_dir):

@@ -285,12 +285,12 @@ mod tests {
     }
 
     #[test]
-    fn compress_scanned_page_keeps_page_size() {
+    fn compress_to_jpeg_scanned_page_keeps_page_size() {
         pdfium();
         let jpeg = test_data_bytes!("file_types/receipt.jpg");
         let doc = Document::from_jpeg(jpeg, 200.0, 300.0).unwrap();
         let out = doc
-            .compress(80, 150.0, true)
+            .compress_to_jpeg(80, true, 150.0)
             .unwrap()
             .expect("scanned page should be recompressed");
         let (w, h) = out.page(0).unwrap().size();

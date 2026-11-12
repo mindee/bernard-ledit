@@ -69,8 +69,8 @@ pub fn page_index(name: &str, value: i64) -> PhpResult<u16> {
 ///
 /// # Errors
 /// A `\ValueError` if `value` is out of range.
-pub fn quality(value: i64, min: u8) -> PhpResult<u8> {
-    int("quality", value, min, 100)
+pub fn jpeg_quality(value: i64, min: u8) -> PhpResult<u8> {
+    int("jpeg_quality", value, min, 100)
 }
 
 /// Returns `value` as a `usize` if it isn't negative.

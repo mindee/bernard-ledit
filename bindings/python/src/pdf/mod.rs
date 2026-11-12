@@ -40,7 +40,7 @@ pub fn register_submodule(parent: &Bound<'_, PyModule>) -> PyResult<()> {
         "PageOptionsError",
         parent.py().get_type::<error::PyPageOptionsError>(),
     )?;
-    m.add_function(wrap_pyfunction!(document::compress, &m)?)?;
+    m.add_function(wrap_pyfunction!(document::compress_to_jpeg, &m)?)?;
     m.add_function(wrap_pyfunction!(extract::extract_from_page_ranges, &m)?)?;
     m.add_function(wrap_pyfunction!(fix::fix_pdf, &m)?)?;
     m.add_function(wrap_pyfunction!(page_options::apply_page_options, &m)?)?;

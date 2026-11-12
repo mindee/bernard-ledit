@@ -69,18 +69,18 @@ impl PyImage {
         Ok(resized_image)
     }
 
-    #[pyo3(signature = (format, quality = 85, optimize = true))]
+    #[pyo3(signature = (format, jpeg_quality = 85, jpeg_optimize = true))]
     fn encode<'py>(
         &self,
         py: Python<'py>,
         format: &str,
-        quality: u8,
-        optimize: bool,
+        jpeg_quality: u8,
+        jpeg_optimize: bool,
     ) -> PyResult<Bound<'py, PyBytes>> {
         let parsed_format = parse_output_format(format).map_err(|e| format_image_err(&e))?;
         let bytes_vec_u8 = self
             .inner
-            .encode(parsed_format, quality, optimize)
+            .encode(parsed_format, jpeg_quality, jpeg_optimize)
             .map_err(|e| format_image_err(&e))?;
         Ok(PyBytes::new(py, bytes_vec_u8.as_slice()))
     }
@@ -90,14 +90,14 @@ impl PyImage {
     /// `format` is inferred from the file extension when saving to a path, or
     /// from the image's own format when saving to a buffer. Pass an explicit
     /// `format` string (e.g. `"JPEG"`, `"PNG"`, `"PDF"`) to override.
-    #[pyo3(signature = (dest, format = None, quality = 85, optimize = true))]
+    #[pyo3(signature = (dest, format = None, jpeg_quality = 85, jpeg_optimize = true))]
     fn save(
         &self,
         py: Python<'_>,
         dest: &Bound<'_, PyAny>,
         format: Option<&str>,
-        quality: u8,
-        optimize: bool,
+        jpeg_quality: u8,
+        jpeg_optimize: bool,
     ) -> PyResult<()> {
         let is_buffer = dest.hasattr("write")?;
 
@@ -128,7 +128,7 @@ impl PyImage {
         let parsed_format = parse_output_format(&fmt_str).map_err(|e| format_image_err(&e))?;
         let encoded = self
             .inner
-            .encode(parsed_format, quality, optimize)
+            .encode(parsed_format, jpeg_quality, jpeg_optimize)
             .map_err(|e| format_image_err(&e))?;
 
         if is_buffer {
@@ -148,18 +148,18 @@ impl PyImage {
         format!("Image({w}x{h}, format:{fmt})")
     }
 
-    #[pyo3(signature = (quality = 85, max_width = None, max_height = None, optimize = true))]
-    fn compress<'py>(
+    #[pyo3(signature = (quality = 85, optimize = true, max_width = None, max_height = None))]
+    fn compress_to_jpeg<'py>(
         &self,
         py: Python<'py>,
         quality: u8,
+        optimize: bool,
         max_width: Option<u32>,
         max_height: Option<u32>,
-        optimize: bool,
     ) -> PyResult<Option<Bound<'py, PyBytes>>> {
         let out = self
             .inner
-            .compress(quality, max_width, max_height, optimize)
+            .compress_to_jpeg(quality, optimize, max_width, max_height)
             .map_err(|e| format_image_err(&e))?;
         Ok(out.map(|(bytes, _, _)| PyBytes::new(py, &bytes)))
     }

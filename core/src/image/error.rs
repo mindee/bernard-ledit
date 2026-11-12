@@ -53,11 +53,13 @@ pub enum ImageError {
         height: u32,
     },
 
-    /// Successive quality values applied to compression operation are too low.
-    #[error("successive quality values applied to compression operation are too low: {quality}")]
+    /// Successive JPEG quality values applied to compression operation are too low.
+    #[error(
+        "successive JPEG quality values applied to compression operation are too low: {jpeg_quality}"
+    )]
     ProgressiveQualityTooLow {
-        /// Quality applied to compression.
-        quality: u8,
+        /// JPEG quality applied to compression.
+        jpeg_quality: u8,
     },
 
     /// Compression somehow returned a bigger object than the input.

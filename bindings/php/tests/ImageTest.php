@@ -4,7 +4,7 @@ declare(strict_types=1);
 use PHPUnit\Framework\TestCase;
 use function BernardLedit\Image\decode;
 use function BernardLedit\Image\guessFormat;
-use function BernardLedit\Image\compress;
+use function BernardLedit\Image\compressToJpeg;
 use BernardLedit\Image\Image;
 use BernardLedit\Image\ImageException;
 use BernardLedit\Pdf\PdfDocument;
@@ -141,10 +141,10 @@ final class ImageTest extends TestCase
         self::assertSame("\x89PNG\r\n\x1a\n", substr($out, 0, 8));
     }
 
-    public function testEncodeQualityArgument(): void
+    public function testEncodeJpegQualityArgument(): void
     {
         $img = decode(self::makePng(64, 64));
-        $out = $img->encode('JPEG', 50);
+        $out = $img->encode('JPEG', jpeg_quality: 50, jpeg_optimize: true);
         self::assertSame("\xFF\xD8\xFF", substr($out, 0, 3));
     }
 
@@ -164,9 +164,15 @@ final class ImageTest extends TestCase
         self::assertSame('JPEG', $reloaded->getFormat());
     }
 
-    public function testCompressReturnsJpegAndDimensions(): void
+    public function testCompressToJpegReturnsBytesAndDimensions(): void
     {
-        [$jpeg, $w, $h] = compress(self::makePng(200, 100), 85, 100, 100);
+        [$jpeg, $w, $h] = compressToJpeg(
+            self::makePng(200, 100),
+            quality: 85,
+            max_width: 100,
+            max_height: 100,
+            optimize: true,
+        );
         self::assertSame("\xFF\xD8\xFF", substr($jpeg, 0, 3));
         self::assertSame(100, $w);
         self::assertSame(50, $h);
@@ -175,7 +181,7 @@ final class ImageTest extends TestCase
     public function testJpegAndPdfiumRoundtrip(): void
     {
         $png = self::makePng(64, 48);
-        [$jpeg] = compress($png, 90);
+        [$jpeg] = compressToJpeg($png, 90);
         $doc = PdfDocument::create();
         $doc->appendJpegPage($jpeg);
         $reloaded = new PdfDocument($doc->asBytes());
@@ -187,33 +193,33 @@ final class ImageTest extends TestCase
         $renderedJpeg = $reloaded->rasterizePageToJpegBytes(0, 90);
         self::assertSame('JPEG', guessFormat($renderedJpeg));
         self::assertSame([64, 48], decode($renderedJpeg)->getSize());
-        self::assertSame($jpeg, compress($png, 90)[0]);
+        self::assertSame($jpeg, compressToJpeg($png, 90)[0]);
     }
 
-    public function testCompressDoesNotUpscale(): void
+    public function testCompressToJpegDoesNotUpscale(): void
     {
-        [, $w, $h] = compress(self::makePng(30, 30), 85, 500, 500);
+        [, $w, $h] = compressToJpeg(self::makePng(30, 30), 85, true, 500, 500);
         self::assertSame(30, $w);
         self::assertSame(30, $h);
     }
 
-    public function testCompressNoBoundsKeepsDimensions(): void
+    public function testCompressToJpegNoBoundsKeepsDimensions(): void
     {
-        [, $w, $h] = compress(self::makePng(64, 48));
+        [, $w, $h] = compressToJpeg(self::makePng(64, 48));
         self::assertSame(64, $w);
         self::assertSame(48, $h);
     }
 
-    public function testCompressOutputIsJpegBytes(): void
+    public function testCompressToJpegOutputIsJpegBytes(): void
     {
-        [$jpeg] = compress(self::makePng(40, 40));
+        [$jpeg] = compressToJpeg(self::makePng(40, 40));
         self::assertSame("\xFF\xD8\xFF", substr($jpeg, 0, 3));
     }
 
-    public function testCompressGarbageThrowsImageException(): void
+    public function testCompressToJpegGarbageThrowsImageException(): void
     {
         $this->expectException(ImageException::class);
-        compress("\x00\x01");
+        compressToJpeg("\x00\x01");
     }
 
     public function testExtensionNameIsWhatTheSdkChecks(): void

@@ -29,29 +29,29 @@ def tiff_bytes(test_data_dir):
     return (test_data_dir / "file_types/receipt.tiff").read_bytes()
 
 
-def test_image_compress_png(png_bytes):
-    compressed = Image(png_bytes).compress(quality=85, optimize=True)
+def test_image_compress_to_jpeg_png(png_bytes):
+    compressed = Image(png_bytes).compress_to_jpeg(quality=85, optimize=True)
     assert compressed is not None
     assert isinstance(compressed, bytes)
     assert 0 < len(compressed) < len(png_bytes)
 
 
-def test_image_compress_jpg(jpg_bytes):
-    compressed = Image(jpg_bytes).compress(quality=85, optimize=True)
+def test_image_compress_to_jpeg_jpg(jpg_bytes):
+    compressed = Image(jpg_bytes).compress_to_jpeg(quality=85, optimize=True)
     assert compressed is not None
     assert isinstance(compressed, bytes)
     assert 0 < len(compressed) < len(jpg_bytes)
 
 
-def test_image_compress_png_shrinks(png_bytes):
-    out = Image(png_bytes).compress(quality=85)
+def test_image_compress_to_jpeg_png_shrinks(png_bytes):
+    out = Image(png_bytes).compress_to_jpeg(quality=85)
     assert out is not None
     assert len(out) <= len(png_bytes)
     assert Image(out).format == "JPEG"
 
 
-def test_image_compress_with_bounds_always_resizes(jpg_bytes):
-    out = Image(jpg_bytes).compress(max_width=100, max_height=100)
+def test_image_compress_to_jpeg_with_bounds_always_resizes(jpg_bytes):
+    out = Image(jpg_bytes).compress_to_jpeg(max_width=100, max_height=100)
     assert out is not None
     width, height = Image(out).size
     assert width <= 100 and height <= 100
@@ -158,7 +158,7 @@ def test_resize_zero_dimension_errors(jpg_bytes, width, height):
 
 
 def test_encode_jpeg_magic_bytes(png_bytes):
-    out = Image(png_bytes).encode("JPEG", quality=85)
+    out = Image(png_bytes).encode("JPEG", jpeg_quality=85)
     assert isinstance(out, bytes)
     assert out.startswith(JPEG_MAGIC)
 
@@ -181,15 +181,15 @@ def test_encode_pdf_produces_single_page_pdf(jpg_bytes):
 
 def test_encode_jpeg_roundtrip_keeps_size(png_bytes):
     img = Image(png_bytes)
-    reloaded = Image(img.encode("JPEG", quality=90))
+    reloaded = Image(img.encode("JPEG", jpeg_quality=90))
     assert reloaded.size == img.size
     assert reloaded.format == "JPEG"
 
 
-def test_encode_lower_quality_is_not_larger(jpg_bytes):
+def test_encode_lower_jpeg_quality_is_not_larger(jpg_bytes):
     img = Image(jpg_bytes)
-    high = img.encode("JPEG", quality=95)
-    low = img.encode("JPEG", quality=20)
+    high = img.encode("JPEG", jpeg_quality=95)
+    low = img.encode("JPEG", jpeg_quality=20)
     assert len(low) <= len(high)
 
 
@@ -198,15 +198,15 @@ def test_encode_unknown_format_errors(jpg_bytes):
         Image(jpg_bytes).encode("not-a-format")
 
 
-@pytest.mark.parametrize("quality", [0, 101])
-def test_encode_jpeg_invalid_quality_errors(jpg_bytes, quality):
+@pytest.mark.parametrize("jpeg_quality", [0, 101])
+def test_encode_jpeg_invalid_jpeg_quality_errors(jpg_bytes, jpeg_quality):
     with pytest.raises(ImageError):
-        Image(jpg_bytes).encode("JPEG", quality=quality)
+        Image(jpg_bytes).encode("JPEG", jpeg_quality=jpeg_quality)
 
 
-def test_encode_pdf_invalid_quality_errors(jpg_bytes):
+def test_encode_pdf_invalid_jpeg_quality_errors(jpg_bytes):
     with pytest.raises(ImageError):
-        Image(jpg_bytes).encode("PDF", quality=0)
+        Image(jpg_bytes).encode("PDF", jpeg_quality=0)
 
 
 @pytest.mark.parametrize(
