@@ -29,7 +29,7 @@ pub fn format_image_extract_err(e: &ImageExtractError) -> PhpException {
     match e {
         ImageExtractError::Pdf(inner) => map_pdf_err(inner),
         ImageExtractError::Image(inner) => map_image_err(inner),
-        ImageExtractError::PageOutOfRange(_) | ImageExtractError::EmptyPolygon(_) => {
+        ImageExtractError::PageOutOfRange(_) | ImageExtractError::EmptyPolygon() => {
             value_error(e.to_string())
         }
     }

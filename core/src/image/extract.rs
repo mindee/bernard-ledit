@@ -26,36 +26,38 @@ pub fn extract_from_polygons(
     polygons
         .iter()
         .enumerate()
-        .map(|(i, poly)| crop_polygon(&page_img, poly, i))
+        .map(|(_, poly)| page_img.crop_polygon(poly))
         .collect()
 }
 
-/// Crops a polygon from an image.
-/// # Errors
-/// Returns an [`ImageExtractError`] if the polygon is empty or if the polygon is out of bounds.
-#[allow(
-    clippy::cast_precision_loss,
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss
-)]
-fn crop_polygon(page: &Image, poly: &[(f32, f32)], idx: usize) -> Result<Image, ImageExtractError> {
-    if poly.is_empty() {
-        return Err(ImageExtractError::EmptyPolygon(idx));
-    }
-    let (w, h) = page.size();
-    let (min_x, max_x) = poly.iter().fold((f32::MAX, f32::MIN), |(lo, hi), p| {
-        (lo.min(p.0), hi.max(p.0))
-    });
-    let (min_y, max_y) = poly.iter().fold((f32::MAX, f32::MIN), |(lo, hi), p| {
-        (lo.min(p.1), hi.max(p.1))
-    });
+impl Image {
+    /// Crops a polygon from this image.
+    /// # Errors
+    /// Returns an [`ImageExtractError`] if the polygon is empty or if the polygon is out of bounds.
+    #[allow(
+        clippy::cast_precision_loss,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss
+    )]
+    fn crop_polygon(&self, poly: &[(f32, f32)]) -> Result<Self, ImageExtractError> {
+        if poly.is_empty() {
+            return Err(ImageExtractError::EmptyPolygon());
+        }
+        let (w, h) = self.size();
+        let (min_x, max_x) = poly.iter().fold((f32::MAX, f32::MIN), |(lo, hi), p| {
+            (lo.min(p.0), hi.max(p.0))
+        });
+        let (min_y, max_y) = poly.iter().fold((f32::MAX, f32::MIN), |(lo, hi), p| {
+            (lo.min(p.1), hi.max(p.1))
+        });
 
-    let left = (min_x * w as f32).round().clamp(0.0, w as f32) as u32;
-    let top = (min_y * h as f32).round().clamp(0.0, h as f32) as u32;
-    let right = (max_x * w as f32).round().clamp(0.0, w as f32) as u32;
-    let bottom = (max_y * h as f32).round().clamp(0.0, h as f32) as u32;
-    if right <= left || bottom <= top {
-        return Err(ImageExtractError::EmptyPolygon(idx));
+        let left = (min_x * w as f32).round().clamp(0.0, w as f32) as u32;
+        let top = (min_y * h as f32).round().clamp(0.0, h as f32) as u32;
+        let right = (max_x * w as f32).round().clamp(0.0, w as f32) as u32;
+        let bottom = (max_y * h as f32).round().clamp(0.0, h as f32) as u32;
+        if right <= left || bottom <= top {
+            return Err(ImageExtractError::EmptyPolygon());
+        }
+        Ok(self.crop(left, top, right, bottom)?)
     }
-    Ok(page.crop(left, top, right, bottom)?)
 }

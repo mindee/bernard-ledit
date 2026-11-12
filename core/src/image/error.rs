@@ -87,6 +87,6 @@ pub enum ImageExtractError {
     #[error("Page index {0} out of bounds (an image has 1 page)")]
     PageOutOfRange(u16),
     /// Polygon is empty or falls outside the page.
-    #[error("polygon {0} is empty or falls outside the page")]
-    EmptyPolygon(usize),
+    #[error("polygon is empty or falls outside the page")]
+    EmptyPolygon(),
 }
