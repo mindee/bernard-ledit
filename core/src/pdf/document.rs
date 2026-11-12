@@ -266,14 +266,6 @@ impl Document {
         Ok(false)
     }
 
-    /// Returns the number of bytes in the document.
-    /// # Errors
-    /// Returns a [`PdfError`] if the document cannot be saved to bytes.
-    pub fn bytes_length(&self) -> Result<usize, PdfError> {
-        let bytes = self.inner.save_to_bytes().map_err(PdfError::from)?;
-        Ok(bytes.len())
-    }
-
     /// Compresses each page of a PDF by rasterizing it and re-encoding it as JPEG.
     /// `optimize` controls JPEG Huffman table optimization.
     ///
