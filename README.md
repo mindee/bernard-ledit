@@ -171,11 +171,6 @@ buf = io.BytesIO()
 out.save(buf)
 out.save_to_file("merged.pdf")
 
-# --- embed images ---
-doc = PdfDocument.new()
-doc.append_jpeg_page(jpeg_bytes)
-doc.append_multiple_jpeg_pages([jpeg1, jpeg2])
-
 ```
 
 ```python

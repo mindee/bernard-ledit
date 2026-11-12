@@ -122,26 +122,6 @@ def test_context_manager_does_not_suppress_exceptions(test_data_dir):
             _ = 1 / 0
 
 
-def test_append_jpeg_page(test_data_dir):
-    doc = PdfDocument.new()
-    jpeg_data = (test_data_dir / "file_types/receipt.jpg").read_bytes()
-    doc.append_jpeg_page(jpeg_data)
-    assert len(doc) == 1
-
-
-def test_append_jpeg_page_invalid_data():
-    doc = PdfDocument.new()
-    with pytest.raises(PdfiumError):
-        doc.append_jpeg_page(b"not a valid jpeg")
-
-
-def test_append_multiple_jpeg_pages(test_data_dir):
-    doc = PdfDocument.new()
-    jpeg_data = (test_data_dir / "file_types/receipt.jpg").read_bytes()
-    doc.append_multiple_jpeg_pages([jpeg_data, jpeg_data, jpeg_data])
-    assert len(doc) == 3
-
-
 def test_has_text_true(test_data_dir):
     data = (test_data_dir / "file_types/pdf/multipage.pdf").read_bytes()
     doc = PdfDocument(data)

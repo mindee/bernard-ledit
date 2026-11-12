@@ -201,18 +201,12 @@ impl Document {
     /// If the JPEG cannot be decoded.
     /// # Errors
     /// Returns a [`PdfError`] if the JPEG is invalid or the page cannot be appended.
-    pub fn append_jpeg_page(&mut self, jpeg_bytes: &[u8]) -> Result<(), PdfError> {
-        let doc = Self::from_jpeg_autosize(jpeg_bytes).map_err(jpeg_page_err)?;
-        self.inner.pages_mut().append(&doc.inner)?;
-        Ok(())
-    }
-
     /// Appends a JPEG as a new page, given its size.
     /// # Panics
     /// If the JPEG cannot be decoded.
     /// # Errors
     /// Returns a [`PdfError`] if the JPEG is invalid or the page cannot be appended.
-    pub fn append_jpeg_page_sized(
+    fn append_jpeg_page_sized(
         &mut self,
         jpeg: &[u8],
         w_pt: f32,
@@ -232,18 +226,6 @@ impl Document {
             .pages_mut()
             .copy_page_from_document(document, index, index)
             .map_err(PdfError::from)
-    }
-
-    /// Appends a bunch of JPEGs as a new page.
-    /// # Panics
-    /// If one of the JPEGs cannot be decoded.
-    /// # Errors
-    /// Returns `PdfError` if a JPEG cannot be decoded.
-    pub fn append_multiple_jpeg_pages(&mut self, jpegs: &[&[u8]]) -> Result<(), PdfError> {
-        for jpeg in jpegs {
-            self.append_jpeg_page(jpeg)?;
-        }
-        Ok(())
     }
 
     /// Save the document to a file.
@@ -321,7 +303,6 @@ fn jpeg_page_err(e: PdfBuilderError) -> PdfError {
 
 #[cfg(test)]
 mod tests {
-    use crate::image::ImageError;
     use crate::pdf::{Document, PdfError, pdfium};
 
     #[test]
@@ -437,35 +418,6 @@ mod tests {
         };
         assert!(out_of_bounds(doc.page(1).map(|_| ())));
         assert!(out_of_bounds(doc.rasterize_page(1).map(|_| ())));
-    }
-
-    #[test]
-    fn test_append_invalid_jpeg_is_decode_error() {
-        pdfium();
-        let mut doc = Document::new().unwrap();
-        assert!(matches!(
-            doc.append_jpeg_page(b"not a jpeg"),
-            Err(PdfError::Image(ImageError::Decode(_)))
-        ));
-    }
-
-    #[test]
-    fn test_append_jpeg_page() {
-        pdfium();
-        let bytes = test_data_bytes!("file_types/receipt.jpg");
-        let mut doc = Document::new().unwrap();
-        doc.append_jpeg_page(bytes).unwrap();
-        assert_eq!(doc.page_count().unwrap(), 1);
-    }
-
-    #[test]
-    fn test_append_multiple_jpeg_pages() {
-        pdfium();
-        let bytes1: &[u8] = test_data_bytes!("file_types/receipt.jpg");
-        let bytes_array = [bytes1, bytes1, bytes1];
-        let mut doc = Document::new().unwrap();
-        doc.append_multiple_jpeg_pages(&bytes_array).unwrap();
-        assert_eq!(doc.page_count().unwrap(), 3);
     }
 
     #[test]

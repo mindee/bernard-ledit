@@ -50,10 +50,6 @@ final class ExceptionClassesTest extends TestCase
             'BernardLedit\Pdf\extractFromPageRanges',
             fn () => extractFromPageRanges($heic, [[0]]),
         ];
-        yield 'appendJpegPage' => [
-            'BernardLedit\Pdf\PdfDocument::appendJpegPage',
-            fn () => PdfDocument::create()->appendJpegPage($heic),
-        ];
     }
 
     #[DataProvider('unidentifiableImage')]

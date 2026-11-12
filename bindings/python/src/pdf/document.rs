@@ -149,25 +149,6 @@ impl PyPdfDocument {
         Ok(())
     }
 
-    /// Append a JPEG page to the document.
-    fn append_jpeg_page(&self, jpeg_byte: &[u8]) -> PyResult<()> {
-        self.with_doc_mut(|d| {
-            d.append_jpeg_page(jpeg_byte)
-                .map_err(|e| format_pdf_err(&e))
-        })??;
-        Ok(())
-    }
-
-    /// Append multiple JPEG pages to the document.
-    #[allow(clippy::needless_pass_by_value)]
-    fn append_multiple_jpeg_pages(&self, jpegs: Vec<Vec<u8>>) -> PyResult<()> {
-        self.with_doc_mut(|d| {
-            d.append_multiple_jpeg_pages(&jpegs.iter().map(Vec::as_slice).collect::<Vec<&[u8]>>())
-                .map_err(|e| format_pdf_err(&e))
-        })??;
-        Ok(())
-    }
-
     /// Checks if the document contains any text.
     fn has_text(&self) -> PyResult<bool> {
         let has_text = self.with_doc(|d| d.has_text().map_err(|e| format_pdf_err(&e)))??;
@@ -293,14 +274,6 @@ impl PyPdfDocument {
     pub(crate) fn with_doc<R>(&self, f: impl FnOnce(&Document) -> R) -> PyResult<R> {
         let g = self.inner.lock().map_err(|_| closed_err())?;
         let d = g.as_ref().ok_or_else(closed_err)?;
-        let result = f(d);
-        drop(g);
-        Ok(result)
-    }
-
-    pub(crate) fn with_doc_mut<R>(&self, f: impl FnOnce(&mut Document) -> R) -> PyResult<R> {
-        let mut g = self.inner.lock().map_err(|_| closed_err())?;
-        let d = g.as_mut().ok_or_else(closed_err)?;
         let result = f(d);
         drop(g);
         Ok(result)

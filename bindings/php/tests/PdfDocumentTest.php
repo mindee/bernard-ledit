@@ -130,33 +130,6 @@ final class PdfDocumentTest extends TestCase
         self::assertTrue(true); // No exception = pass.
     }
 
-    public function testAppendJpegPage(): void
-    {
-        $doc = PdfDocument::create();
-        $jpeg = file_get_contents(self::FIXTURES . '/receipt.jpg');
-
-        $doc->appendJpegPage($jpeg);
-
-        self::assertSame(1, $doc->getPageCount());
-    }
-
-    public function testAppendJpegPageInvalidDataThrows(): void
-    {
-        $doc = PdfDocument::create();
-        $this->expectException(\BernardLedit\Image\ImageException::class);
-        $doc->appendJpegPage('not a valid jpeg');
-    }
-
-    public function testAppendMultipleJpegPages(): void
-    {
-        $doc = PdfDocument::create();
-        $jpeg = file_get_contents(self::FIXTURES . '/receipt.jpg');
-
-        $doc->appendMultipleJpegPages([$jpeg, $jpeg, $jpeg]);
-
-        self::assertSame(3, $doc->getPageCount());
-    }
-
     public function testHasTextTrue(): void
     {
         $doc = new PdfDocument(self::pdf('multipage.pdf'));

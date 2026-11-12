@@ -111,35 +111,6 @@ impl PhpPdfDocument {
             .map(PhpImage::from)
     }
 
-    /// Appends a JPEG as a page of the document.
-    /// # Errors
-    /// - `\BernardLedit\Image\ImageException` if `$jpeg` is invalid, truncated or in an unsupported
-    ///   color space.
-    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't append the page.
-    /// - `\Exception` if the document is closed.
-    #[allow(clippy::needless_pass_by_value)]
-    pub fn append_jpeg_page(&self, jpeg: BinarySlice<u8>) -> PhpResult<()> {
-        self.with_doc_mut(|d| d.append_jpeg_page(&jpeg).map_err(|e| map_pdf_err(&e)))?
-    }
-
-    /// Append multiple JPEG pages to the document.
-    /// # Parameters
-    /// - `jpegs`: `list<string>`
-    /// # Errors
-    /// - `\BernardLedit\Image\ImageException` if one of `$jpegs` is invalid, truncated or in an
-    ///   unsupported color space.
-    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't append a page.
-    /// - `\Exception` if the document is closed.
-    #[allow(clippy::needless_pass_by_value)]
-    pub fn append_multiple_jpeg_pages(&self, jpegs: Vec<BinarySlice<u8>>) -> PhpResult<()> {
-        let vec_slices: Vec<&[u8]> = jpegs.iter().map(|jpeg| jpeg.as_ref()).collect();
-        self.with_doc_mut(|d| {
-            d.append_multiple_jpeg_pages(&vec_slices)
-                .map_err(|e| map_pdf_err(&e))
-        })
-        .flatten()
-    }
-
     /// Retrieves the entire text from a document as a string.
     /// # Errors
     /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't read a page's text.
@@ -212,13 +183,6 @@ impl PhpPdfDocument {
     pub(crate) fn with_doc<R>(&self, f: impl FnOnce(&Document) -> R) -> PhpResult<R> {
         let g = self.inner.lock().map_err(|_| closed_err())?;
         let d = g.as_ref().ok_or_else(closed_err)?;
-        Ok(f(d))
-    }
-
-    #[allow(clippy::significant_drop_tightening)]
-    pub(crate) fn with_doc_mut<R>(&self, f: impl FnOnce(&mut Document) -> R) -> PhpResult<R> {
-        let mut g = self.inner.lock().map_err(|_| closed_err())?;
-        let d = g.as_mut().ok_or_else(closed_err)?;
         Ok(f(d))
     }
 }
