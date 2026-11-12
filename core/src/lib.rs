@@ -30,5 +30,3 @@ pub mod geometry;
 pub mod image;
 /// PDF module.
 pub mod pdf;
-/// Utilities module.
-pub mod utils;
