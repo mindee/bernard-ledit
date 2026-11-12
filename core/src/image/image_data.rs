@@ -241,7 +241,7 @@ impl Image {
     /// `/Filter /DCTDecode`. The page maps one image pixel to one PDF point.
     fn encode_pdf(&self, jpeg_quality: u8, jpeg_optimize: bool) -> Result<Vec<u8>, ImageError> {
         let jpeg_bytes = self.encode_raster(ImageFormat::Jpeg, jpeg_quality, jpeg_optimize)?;
-        crate::pdf::jpeg::build_jpeg_pdf_auto_size(&jpeg_bytes)
+        crate::pdf::jpeg::build_jpeg_pdf_autosize(&jpeg_bytes)
             .map_err(|e| ImageError::Encode(e.to_string()))
     }
 

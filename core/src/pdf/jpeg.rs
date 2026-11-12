@@ -155,7 +155,7 @@ pub(crate) fn build_jpeg_pdf(
 }
 
 /// An adapter that builds a PDF using the JPEG's dimensions.
-pub(crate) fn build_jpeg_pdf_auto_size(jpeg_bytes: &[u8]) -> Result<Vec<u8>, PdfBuilderError> {
+pub(crate) fn build_jpeg_pdf_autosize(jpeg_bytes: &[u8]) -> Result<Vec<u8>, PdfBuilderError> {
     let (width, height, _components) = jpeg_info(jpeg_bytes)?;
 
     build_jpeg_pdf(jpeg_bytes, f64::from(width), f64::from(height))
@@ -500,7 +500,7 @@ mod tests {
         let jpeg = make_minimal_jpeg(300, 150, 3);
 
         // Build the PDF without passing explicit dimensions
-        let pdf = build_jpeg_pdf_auto_size(&jpeg).unwrap();
+        let pdf = build_jpeg_pdf_autosize(&jpeg).unwrap();
         let text = String::from_utf8_lossy(&pdf);
 
         // Verify the MediaBox picked up the 300x150 dimensions

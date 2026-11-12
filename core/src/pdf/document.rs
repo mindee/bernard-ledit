@@ -1,7 +1,7 @@
 use crate::image::{Image, ImageError};
 use crate::pdf::error::{ImageError as JpegError, PdfBuilderError, PdfError};
 use crate::pdf::font_resolver::resolve_builtin_font;
-use crate::pdf::jpeg::{build_jpeg_pdf, build_jpeg_pdf_auto_size};
+use crate::pdf::jpeg::{build_jpeg_pdf, build_jpeg_pdf_autosize};
 use crate::pdf::text_char::TextChar;
 use crate::pdf::{page::Page, pdfium};
 
@@ -177,7 +177,7 @@ impl Document {
     /// Returns a [`PdfBuilderError`] if the JPEG header cannot be parsed or
     /// if PDF creation fails.
     pub fn from_jpeg_autosize(jpeg_bytes: &[u8]) -> Result<Self, PdfBuilderError> {
-        let pdf_bytes = build_jpeg_pdf_auto_size(jpeg_bytes)?;
+        let pdf_bytes = build_jpeg_pdf_autosize(jpeg_bytes)?;
         Self::from_bytes(pdf_bytes).map_err(PdfBuilderError::Pdf)
     }
 
