@@ -155,12 +155,12 @@ impl PyImage {
         optimize: bool,
         max_width: Option<u32>,
         max_height: Option<u32>,
-    ) -> PyResult<Option<Bound<'py, PyBytes>>> {
-        let out = self
+    ) -> PyResult<Bound<'py, PyBytes>> {
+        let (bytes, _, _) = self
             .inner
             .compress_to_jpeg(quality, optimize, max_width, max_height)
             .map_err(|e| format_image_err(&e))?;
-        Ok(out.map(|(bytes, _, _)| PyBytes::new(py, &bytes)))
+        Ok(PyBytes::new(py, &bytes))
     }
 
     /// Retrieve the bytes from the image.

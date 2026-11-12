@@ -88,8 +88,7 @@ namespace BernardLedit\Image {
     }
 
     /**
-     * Compresses an image as a JPEG, scaled down to fit `$max_width` and `$max_height`. Returns the
-     * input unchanged if that doesn't make it smaller.
+     * Compresses an image as a JPEG, scaled down to fit `$max_width` and `$max_height`.
      *
      * @param string $data
      * @param int<5, 100> $quality
@@ -98,7 +97,7 @@ namespace BernardLedit\Image {
      * @param bool|null $optimize
      * @return array{0: string, 1: int, 2: int} `[$bytes, $width, $height]`.
      * @throws \ValueError if `$quality`, `$max_width` or `$max_height` is out of range.
-     * @throws \BernardLedit\Image\ImageException if `$data` isn't an identifiable image, or can't be decoded or encoded.
+     * @throws \BernardLedit\Image\ImageException if `$data` isn't an identifiable image, can't be decoded or encoded, or the output isn't smaller.
      */
     function compressToJpeg(string $data, int $quality = 85, ?bool $optimize = null, ?int $max_width = null, ?int $max_height = null): array {}
 

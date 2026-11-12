@@ -174,8 +174,7 @@ pub fn guess_format(data: BinarySlice<u8>) -> PhpResult<&'static str> {
     format_name(fmt).ok_or_else(unknown_format_err)
 }
 
-/// Compresses an image to JPEG, scaled down to fit `$max_width` and `$max_height`. Returns the
-/// input unchanged if that doesn't make it smaller.
+/// Compresses an image to JPEG, scaled down to fit `$max_width` and `$max_height`.
 /// # Parameters
 /// - `quality`: `int<5, 100>`
 /// - `optimize`: `bool|null`
@@ -185,8 +184,8 @@ pub fn guess_format(data: BinarySlice<u8>) -> PhpResult<&'static str> {
 /// `array{0: string, 1: int, 2: int}` `[$bytes, $width, $height]`.
 /// # Errors
 /// - `\ValueError` if `$quality`, `$max_width` or `$max_height` is out of range.
-/// - `\BernardLedit\Image\ImageException` if `$data` isn't an identifiable image, or can't be
-///   decoded or encoded.
+/// - `\BernardLedit\Image\ImageException` if `$data` isn't an identifiable image, can't be
+///   decoded or encoded, or the output isn't smaller.
 #[php_function]
 #[php(name = "BernardLedit\\Image\\compressToJpeg")]
 #[php(defaults(
@@ -213,11 +212,7 @@ pub fn compress_to_jpeg(
     let image = Image::decode(&data).map_err(|e| map_image_err(&e))?;
     let (bytes, w, h) = image
         .compress_to_jpeg(quality, optimize.unwrap_or(true), max_width, max_height)
-        .map_err(|e| map_image_err(&e))?
-        .unwrap_or_else(|| {
-            let (w, h) = image.size();
-            (data.to_vec(), w, h)
-        });
+        .map_err(|e| map_image_err(&e))?;
     let mut out = Vec::with_capacity(3);
     let mut z = Zval::new();
     z.set_binary(bytes);

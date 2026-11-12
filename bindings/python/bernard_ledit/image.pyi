@@ -38,7 +38,7 @@ class Image:
         optimize: bool = True,
         max_width: int | None = None,
         max_height: int | None = None,
-    ) -> bytes | None: ...
+    ) -> bytes: ...
 
 def guess_format(
     data: bytes | BinaryIO,

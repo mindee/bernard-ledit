@@ -121,7 +121,7 @@ fmt = guess_format(data)  # "JPEG" | "PNG" | "TIFF" | …
 
 # --- compress to JPEG ---
 # Re-encodes as JPEG. If dimensions are unchanged and the output isn't smaller
-# than the source, returns None.
+# than the source, raises ImageError.
 out = img.compress_to_jpeg(
     quality=85,
     optimize=True,

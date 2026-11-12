@@ -255,7 +255,7 @@ impl Image {
         optimize: bool,
         max_width: Option<u32>,
         max_height: Option<u32>,
-    ) -> Result<Option<(Vec<u8>, u32, u32)>, ImageError> {
+    ) -> Result<(Vec<u8>, u32, u32), ImageError> {
         if quality < 5 {
             return Err(ImageError::ProgressiveQualityTooLow {
                 jpeg_quality: quality,
@@ -272,13 +272,17 @@ impl Image {
         let mut q = quality;
         loop {
             let jpeg = scaled.encode(ImageFormat::Jpeg, q, optimize)?;
-            if budget.is_none_or(|b| jpeg.len() < b) {
-                return Ok(Some((jpeg, w, h)));
+            if let Some(initial_size) = budget.filter(|&b| jpeg.len() >= b) {
+                if !optimize || q < 10 {
+                    return Err(ImageError::SizeIncreased {
+                        compressed_size: jpeg.len(),
+                        initial_size,
+                    });
+                }
+                q -= 5;
+            } else {
+                return Ok((jpeg, w, h));
             }
-            if !optimize || q < 10 {
-                return Ok(None);
-            }
-            q -= 5;
         }
     }
 }
@@ -296,7 +300,7 @@ mod tests {
         optimize: bool,
         mw: Option<u32>,
         mh: Option<u32>,
-    ) -> Result<Option<(Vec<u8>, u32, u32)>, ImageError> {
+    ) -> Result<(Vec<u8>, u32, u32), ImageError> {
         let img = Image::decode(data)?;
         img.compress_to_jpeg(quality, optimize, mw, mh)
     }
@@ -560,29 +564,24 @@ mod tests {
     #[test]
     fn compress_to_jpeg_returns_jpeg_and_dimensions() {
         let bytes = synth_bytes(200, 100, ImageFormat::Png);
-        let (jpeg, w, h) = compress_to_jpeg(&bytes, 85, false, Some(100), Some(100))
-            .unwrap()
-            .unwrap();
+        let (jpeg, w, h) = compress_to_jpeg(&bytes, 85, false, Some(100), Some(100)).unwrap();
         assert_eq!(&jpeg[0..3], &[0xFF, 0xD8, 0xFF]);
         assert_eq!((w, h), (100, 50));
     }
     #[test]
-    fn compress_to_jpeg_returns_none_when_jpeg_would_be_larger() {
+    fn compress_to_jpeg_errors_when_jpeg_is_not_smaller() {
         let bytes = synth_bytes(30, 30, ImageFormat::Png); // tiny flat PNG
-        assert!(
-            compress_to_jpeg(&bytes, 85, false, None, None)
-                .unwrap()
-                .is_none()
-        );
+        assert!(matches!(
+            compress_to_jpeg(&bytes, 85, false, None, None),
+            Err(ImageError::SizeIncreased { .. })
+        ));
     }
 
     #[test]
-    fn compress_to_jpeg_with_bounds_returns_some_even_if_larger() {
+    fn compress_to_jpeg_with_bounds_returns_jpeg_even_if_larger() {
         // a requested downscale is always honored, regardless of byte count
         let bytes = synth_bytes(200, 100, ImageFormat::Png);
-        let (_, w, h) = compress_to_jpeg(&bytes, 85, false, Some(100), Some(100))
-            .unwrap()
-            .expect("downscale was requested");
+        let (_, w, h) = compress_to_jpeg(&bytes, 85, false, Some(100), Some(100)).unwrap();
         assert_eq!((w, h), (100, 50));
     }
     #[test]
@@ -593,9 +592,7 @@ mod tests {
     #[test]
     fn compress_fixture_jpeg() {
         let bytes = test_data_bytes!("file_types/receipt.jpg");
-        let (jpeg, w, h) = compress_to_jpeg(bytes, 80, false, Some(512), Some(512))
-            .unwrap()
-            .unwrap();
+        let (jpeg, w, h) = compress_to_jpeg(bytes, 80, false, Some(512), Some(512)).unwrap();
         assert_eq!(&jpeg[0..3], &[0xFF, 0xD8, 0xFF]);
         assert!(w <= 512 && h <= 512);
     }

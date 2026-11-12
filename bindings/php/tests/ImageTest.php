@@ -198,9 +198,9 @@ final class ImageTest extends TestCase
 
     public function testCompressToJpegDoesNotUpscale(): void
     {
-        [, $w, $h] = compressToJpeg(self::makePng(30, 30), 85, true, 500, 500);
-        self::assertSame(30, $w);
-        self::assertSame(30, $h);
+        [, $w, $h] = compressToJpeg(self::makePng(640, 360), 85, true, 1024, 1024);
+        self::assertSame(640, $w);
+        self::assertSame(360, $h);
     }
 
     public function testCompressToJpegNoBoundsKeepsDimensions(): void
@@ -220,6 +220,12 @@ final class ImageTest extends TestCase
     {
         $this->expectException(ImageException::class);
         compressToJpeg("\x00\x01");
+    }
+
+    public function testCompressToJpegThrowsWhenOutputIsNotSmaller(): void
+    {
+        $this->expectException(ImageException::class);
+        compressToJpeg(self::makePng(1, 1));
     }
 
     public function testExtensionNameIsWhatTheSdkChecks(): void

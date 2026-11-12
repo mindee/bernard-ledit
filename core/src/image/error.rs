@@ -62,10 +62,8 @@ pub enum ImageError {
         jpeg_quality: u8,
     },
 
-    /// Compression somehow returned a bigger object than the input.
-    #[error(
-        "compression returned a bigger object than the input: {compressed_size} > {initial_size}"
-    )]
+    /// JPEG compression did not make the image smaller than its input.
+    #[error("compression did not reduce the image size: {compressed_size} >= {initial_size}")]
     SizeIncreased {
         /// Initial byte sequence size.
         initial_size: usize,
