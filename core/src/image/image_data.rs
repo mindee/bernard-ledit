@@ -327,26 +327,23 @@ pub fn compress_decoded(
     }
 }
 
-/// Compresses an image, returning the compressed bytes and the new dimensions.
-/// # Errors
-/// Return [`ImageError`] if either the decode or compress operation fails
-pub fn compress_image(
-    data: &[u8],
-    quality: u8,
-    mw: Option<u32>,
-    mh: Option<u32>,
-    optimize: bool,
-) -> Result<Option<(Vec<u8>, u32, u32)>, ImageError> {
-    let img = Image::decode(data)?;
-    compress_decoded(&img, quality, mw, mh, optimize, Some(data.len()))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::common::parse_output_format;
     use ::image::{ImageFormat, RgbImage};
     use std::io::Cursor;
+
+    fn compress_image(
+        data: &[u8],
+        quality: u8,
+        mw: Option<u32>,
+        mh: Option<u32>,
+        optimize: bool,
+    ) -> Result<Option<(Vec<u8>, u32, u32)>, ImageError> {
+        let img = Image::decode(data)?;
+        compress_decoded(&img, quality, mw, mh, optimize, Some(data.len()))
+    }
 
     /// Build deterministic raster bytes of a solid-colour image in `format`,
     /// so tests can assert exact dimensions without depending on fixture files.
