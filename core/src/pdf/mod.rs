@@ -35,12 +35,6 @@ static PDFIUM: OnceLock<Pdfium> = OnceLock::new();
 /// Serializes PDFium operations that are not thread-safe.
 pub(crate) static NATIVE_LOCK: Mutex<()> = Mutex::new(());
 
-/// Returns `true` if `PDFium` has been bound.
-#[must_use]
-pub fn is_initialized() -> bool {
-    PDFIUM.get().is_some()
-}
-
 /// Binds `PDFium` from a shared library on disk. Does NOT work for `static-pdfium`.
 /// # Errors
 /// * `PdfiumError` If `PDFium` library binding fails.

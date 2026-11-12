@@ -69,13 +69,6 @@ impl Document {
         Ok(index.into())
     }
 
-    /// Retrieves all pages.
-    ///
-    /// # Errors
-    /// Returns a [`PdfError`] if page retrieval fails.
-    pub fn pages(&self) -> Vec<Page<'_>> {
-        self.inner.pages().iter().map(Page::new).collect()
-    }
 
     /// Import a subset of pages from `src` into `self`, appending them.
     /// 1-indexed page numbers, auto-converts 0 to 1.
