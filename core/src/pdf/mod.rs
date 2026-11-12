@@ -10,8 +10,6 @@ pub mod error;
 pub mod extract;
 /// PDF fixing utility.
 pub mod fix;
-/// Font resolution module.
-pub mod font_resolver;
 /// JPEG embedding module.
 pub mod jpeg;
 /// PDF Page module.
