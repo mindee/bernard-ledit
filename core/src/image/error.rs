@@ -1,5 +1,3 @@
-use crate::pdf::PdfError;
-
 /// Errors that can occur when decoding or encoding images.
 #[derive(Debug, thiserror::Error)]
 pub enum ImageError {
@@ -77,16 +75,10 @@ pub enum ImageError {
 /// Errors related to image extraction.
 #[derive(Debug, thiserror::Error)]
 pub enum ImageExtractError {
-    /// Errors related to image extraction in PDFs.
-    #[error(transparent)]
-    Pdf(#[from] PdfError),
     /// Errors related to image extraction in images.
     #[error(transparent)]
     Image(#[from] ImageError),
-    /// Page does not exist (single images only have page 0).
-    #[error("Page index {0} out of bounds (an image has 1 page)")]
-    PageOutOfRange(u16),
-    /// Polygon is empty or falls outside the page.
-    #[error("polygon is empty or falls outside the page")]
+    /// Polygon is empty or falls outside the image.
+    #[error("polygon is empty or falls outside the image")]
     EmptyPolygon(),
 }

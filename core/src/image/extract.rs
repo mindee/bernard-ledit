@@ -1,32 +1,16 @@
 use crate::image::Image;
 use crate::image::error::ImageExtractError;
-use crate::pdf::Document;
-use ::image::ImageFormat;
 
-/// Crops one `Image` per polygon from page `page_id` of a PDF or image.
+/// Crops one `Image` per polygon from an image.
 /// # Errors
 /// Returns an [`ImageExtractError`] if the polygon is empty or if the polygon is out of bounds.
 pub fn extract_from_polygons(
-    data: &[u8],
-    page_id: u16,
+    image: &Image,
     polygons: &[Vec<(f32, f32)>],
-    dpi: f32,
 ) -> Result<Vec<Image>, ImageExtractError> {
-    let page_img = if data.starts_with(b"%PDF-") {
-        let doc = Document::from_bytes(data.to_vec())?;
-        doc.page(page_id)?
-            .render_image(dpi / 72.0)?
-            .with_format(ImageFormat::Jpeg)
-    } else if page_id == 0 {
-        Image::decode(data)?
-    } else {
-        return Err(ImageExtractError::PageOutOfRange(page_id));
-    };
-
     polygons
         .iter()
-        .enumerate()
-        .map(|(_, poly)| page_img.crop_polygon(poly))
+        .map(|poly| image.crop_polygon(poly))
         .collect()
 }
 
@@ -59,5 +43,37 @@ impl Image {
             return Err(ImageExtractError::EmptyPolygon());
         }
         Ok(self.crop(left, top, right, bottom)?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ::image::{DynamicImage, RgbImage};
+
+    fn test_image() -> Image {
+        Image::from_dynamic(DynamicImage::ImageRgb8(RgbImage::new(20, 10)))
+    }
+
+    #[test]
+    fn extracts_one_crop_per_polygon() {
+        let image = test_image();
+        let crops = extract_from_polygons(
+            &image,
+            &[vec![(0.0, 0.0), (0.5, 0.0), (0.5, 1.0), (0.0, 1.0)]],
+        )
+        .unwrap();
+
+        assert_eq!(crops.len(), 1);
+        assert_eq!(crops[0].size(), (10, 10));
+    }
+
+    #[test]
+    fn rejects_empty_polygon() {
+        let image = test_image();
+        assert!(matches!(
+            extract_from_polygons(&image, &[vec![]]),
+            Err(ImageExtractError::EmptyPolygon())
+        ));
     }
 }

@@ -196,23 +196,18 @@ pub fn compress(
     Ok(out)
 }
 
-/// Crops one image per polygon from page `$page_id` of a PDF, rendered at `$dpi`, or of an image.
+/// Crops one image per polygon from an `Image`.
 /// # Parameters
-/// - `page_id`: `int<0, 65535>` 0 for an image.
+/// - `image`: `\BernardLedit\Image\Image` The decoded image to crop.
 /// - `polygons`: `list<list<array{0: float, 1: float}>>` Points as `[$x, $y]`, relative to the
-///   page's width and height.
-/// - `dpi`: `float` A finite number between 1 and 1200; unused for an image.
+///   image's width and height.
 /// # Returns
 /// `list<\BernardLedit\Image\Image>` One image per polygon, in the same order.
 /// # Errors
-/// - `\ValueError` if `$page_id` or `$dpi` is out of range, a point doesn't have exactly two
-///   coordinates, a polygon is empty or falls outside the page, or there's no page `$page_id`.
-/// - `\BernardLedit\Image\ImageException` if `$data` is neither a PDF nor an identifiable,
-///   decodable image.
-/// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't be loaded, or can't read or render the
-///   PDF.
+/// - `\ValueError` if a point doesn't have exactly two coordinates or a polygon is empty or falls
+///   outside the image.
+/// - `\BernardLedit\Image\ImageException` if cropping fails.
 #[php_function]
-#[php(defaults(dpi = 72.0))]
 #[php(name = "BernardLedit\\Image\\extractFromPolygons")]
 #[allow(clippy::needless_pass_by_value)]
 #[allow(
@@ -220,13 +215,9 @@ pub fn compress(
     reason = "Core takes in f32, PHP needs f64"
 )]
 pub fn extract_from_polygons(
-    data: BinarySlice<u8>,
-    page_id: i64,
+    image: &PhpImage,
     polygons: Vec<Vec<Vec<f64>>>,
-    dpi: f64,
 ) -> PhpResult<Vec<PhpImage>> {
-    let page_id = args::page_index("page_id", page_id)?;
-    let dpi = args::dpi(dpi)?;
     if polygons.iter().flatten().any(|point| point.len() != 2) {
         return Err(value_error(
             "Each polygon point must contain exactly two coordinates".into(),
@@ -242,17 +233,9 @@ pub fn extract_from_polygons(
         })
         .collect();
 
-    if data.starts_with(b"%PDF-") {
-        crate::pdf::ensure_pdfium()?;
-    }
-    bernard_ledit::image::extract::extract_from_polygons(
-        &data,
-        page_id,
-        polygons_f32.as_slice(),
-        dpi,
-    )
-    .map(|v| v.into_iter().map(PhpImage::from_core).collect())
-    .map_err(|e| format_image_extract_err(&e))
+    bernard_ledit::image::extract::extract_from_polygons(&image.inner, polygons_f32.as_slice())
+        .map(|v| v.into_iter().map(PhpImage::from_core).collect())
+        .map_err(|e| format_image_extract_err(&e))
 }
 
 /// Registers the internal functions in this module.

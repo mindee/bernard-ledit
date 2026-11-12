@@ -274,13 +274,6 @@ impl Image {
             q -= 5;
         }
     }
-
-    /// Force-sets an image format.
-    #[must_use]
-    pub(crate) const fn with_format(mut self, format: ImageFormat) -> Self {
-        self.format = Some(format);
-        self
-    }
 }
 
 /// Encode JPEG (scaled).

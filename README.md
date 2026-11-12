@@ -133,13 +133,11 @@ out = compress(
 out = Image(data).compress(quality=85)
 
 # --- extract crops ---
-# `data` is an image or a PDF. Polygons are lists of normalized (x, y) points (0..1);
+# Pass a decoded Image. Polygons are normalized (x, y) points (0..1);
 # each crop is the polygon's bounding box. Returns one Image per polygon.
 crops = extract_from_polygons(
-    data,
-    page_id=0,
+    img,
     polygons=[[(0.1, 0.1), (0.5, 0.1), (0.5, 0.4), (0.1, 0.4)]],
-    dpi=72.0,  # PDF rendering resolution
 )
 crops[0].save("crop.jpg")
 ```

@@ -12,7 +12,6 @@ use PHPUnit\Framework\TestCase;
 
 use function BernardLedit\Image\compress as compressImage;
 use function BernardLedit\Image\decode;
-use function BernardLedit\Image\extractFromPolygons;
 use function BernardLedit\Image\guessFormat;
 use function BernardLedit\Pdf\applyPageOptions;
 use function BernardLedit\Pdf\compress as compressPdf;
@@ -29,8 +28,6 @@ final class ExceptionClassesTest extends TestCase
 {
     use DeclaredThrows;
 
-    private const FULL = [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]];
-
     private static function file(string $name): string
     {
         return file_get_contents(TEST_ROOT_PATH . '/file_types/' . $name);
@@ -46,10 +43,6 @@ final class ExceptionClassesTest extends TestCase
         yield 'decode' => ['BernardLedit\Image\decode', fn () => decode($heic)];
         yield 'new Image' => ['BernardLedit\Image\Image::__construct', fn () => new Image($heic)];
         yield 'Image\compress' => ['BernardLedit\Image\compress', fn () => compressImage($heic)];
-        yield 'extractFromPolygons' => [
-            'BernardLedit\Image\extractFromPolygons',
-            fn () => extractFromPolygons($heic, 0, [self::FULL]),
-        ];
         yield 'extractFromPageRanges' => [
             'BernardLedit\Pdf\extractFromPageRanges',
             fn () => extractFromPageRanges($heic, [[0]]),
@@ -73,16 +66,6 @@ final class ExceptionClassesTest extends TestCase
     {
         $pdf = self::file('pdf/multipage.pdf');
         $twelvePages = 'Page index 40 out of bounds (document has 12 pages)';
-        yield 'extractFromPolygons on an image' => [
-            'BernardLedit\Image\extractFromPolygons',
-            fn () => extractFromPolygons(self::file('receipt.jpg'), 1, [self::FULL]),
-            'Page index 1 out of bounds (an image has 1 page)',
-        ];
-        yield 'extractFromPolygons on a PDF' => [
-            'BernardLedit\Image\extractFromPolygons',
-            fn () => extractFromPolygons($pdf, 40, [self::FULL]),
-            $twelvePages,
-        ];
         yield 'extractFromPageRanges' => [
             'BernardLedit\Pdf\extractFromPageRanges',
             fn () => extractFromPageRanges($pdf, [[40]]),
@@ -123,18 +106,6 @@ final class ExceptionClassesTest extends TestCase
     {
         $pdf = self::file('pdf/multipage.pdf');
         $jpeg = self::file('receipt.jpg');
-        yield 'page_id' => [
-            'BernardLedit\Image\extractFromPolygons',
-            fn () => extractFromPolygons($pdf, -1, [self::FULL]),
-            'page_id must be between 0 and 65535, got -1',
-        ];
-        foreach (['0' => 0.0, '-1' => -1.0, 'NaN' => NAN, 'inf' => INF, '5000' => 5000.0] as $shown => $dpi) {
-            yield "dpi $shown" => [
-                'BernardLedit\Image\extractFromPolygons',
-                fn () => extractFromPolygons($pdf, 0, [self::FULL], $dpi),
-                "dpi must be a finite number between 1 and 1200, got $shown",
-            ];
-        }
         yield 'Image\compress quality' => [
             'BernardLedit\Image\compress',
             fn () => compressImage($jpeg, 300),

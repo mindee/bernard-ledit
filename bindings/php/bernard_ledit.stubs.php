@@ -101,18 +101,15 @@ namespace BernardLedit\Image {
     function decode(string $data): \BernardLedit\Image\Image {}
 
     /**
-     * Crops one image per polygon from page `$page_id` of a PDF, rendered at `$dpi`, or of an image.
+     * Crops one image per polygon from an `Image`.
      *
-     * @param string $data
-     * @param int<0, 65535> $page_id 0 for an image.
-     * @param list<list<array{0: float, 1: float}>> $polygons Points as `[$x, $y]`, relative to the page's width and height.
-     * @param float $dpi A finite number between 1 and 1200; unused for an image.
+     * @param \BernardLedit\Image\Image $image
+     * @param list<list<array{0: float, 1: float}>> $polygons Points as `[$x, $y]`, relative to the image's width and height.
      * @return list<\BernardLedit\Image\Image> One image per polygon, in the same order.
-     * @throws \ValueError if `$page_id` or `$dpi` is out of range, a point doesn't have exactly two coordinates, a polygon is empty or falls outside the page, or there's no page `$page_id`.
-     * @throws \BernardLedit\Image\ImageException if `$data` is neither a PDF nor an identifiable, decodable image.
-     * @throws \BernardLedit\Pdf\PdfiumException if `PDFium` can't be loaded, or can't read or render the PDF.
+     * @throws \ValueError if a point doesn't have exactly two coordinates or a polygon is empty or falls outside the image.
+     * @throws \BernardLedit\Image\ImageException if cropping fails.
      */
-    function extractFromPolygons(string $data, int $page_id, array $polygons, float $dpi = 72.0): array {}
+    function extractFromPolygons(\BernardLedit\Image\Image $image, array $polygons): array {}
 
     /**
      * `BernardLedit\Image\guessFormat(string $data): string`

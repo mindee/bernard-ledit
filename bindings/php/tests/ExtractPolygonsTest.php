@@ -22,8 +22,8 @@ final class ExtractPolygonsTest extends TestCase
     public function testFullPagePolygonKeepsSize(): void
     {
         $bytes = $this->loadFileContents('receipt.jpg');
-        [$img] = extractFromPolygons($bytes, 0, [self::FULL]);
         $source = new \BernardLedit\Image\Image($bytes);
+        [$img] = extractFromPolygons($source, [self::FULL]);
         $this->assertSame($source->getWidth(), $img->getWidth());
         $this->assertSame($source->getHeight(), $img->getHeight());
         $this->assertSame('JPEG', $img->getFormat());
@@ -33,46 +33,35 @@ final class ExtractPolygonsTest extends TestCase
     {
         $bytes = $this->loadFileContents('receipt.jpg');
         $source = new \BernardLedit\Image\Image($bytes);
-        [$img] = extractFromPolygons($bytes, 0, [self::QUARTER]);
+        [$img] = extractFromPolygons($source, [self::QUARTER]);
         $this->assertEqualsWithDelta($source->getWidth() / 2, $img->getWidth(), 1);
         $this->assertEqualsWithDelta($source->getHeight() / 2, $img->getHeight(), 1);
     }
 
     public function testOneImagePerPolygon(): void
     {
-        $images = extractFromPolygons($this->loadFileContents('receipt.jpg'), 0, [self::FULL, self::QUARTER]);
+        $image = new \BernardLedit\Image\Image($this->loadFileContents('receipt.jpg'));
+        $images = extractFromPolygons($image, [self::FULL, self::QUARTER]);
         $this->assertCount(2, $images);
-    }
-
-    public function testFromPdfIsJpeg(): void
-    {
-        $pdf = $this->loadFileContents('pdf/multipage.pdf');
-        [$img] = extractFromPolygons($pdf, 0, [self::FULL]);
-        $this->assertSame('JPEG', $img->getFormat());
-        $this->assertGreaterThan(0, $img->getWidth());
-    }
-
-    public function testImagePageOutOfRangeThrows(): void
-    {
-        $this->expectException(\ValueError::class);
-        extractFromPolygons($this->loadFileContents('receipt.jpg'), 1, [self::FULL]);
     }
 
     public function testEmptyPolygonThrows(): void
     {
         $this->expectException(\ValueError::class);
-        extractFromPolygons($this->loadFileContents('receipt.jpg'), 0, [[]]);
+        $image = new \BernardLedit\Image\Image($this->loadFileContents('receipt.jpg'));
+        extractFromPolygons($image, [[]]);
     }
 
     public function testMalformedPointThrows(): void
     {
         $this->expectException(\ValueError::class);
-        extractFromPolygons($this->loadFileContents('receipt.jpg'), 0, [[[0.0, 0.0, 0.0]]]);
+        $image = new \BernardLedit\Image\Image($this->loadFileContents('receipt.jpg'));
+        extractFromPolygons($image, [[[0.0, 0.0, 0.0]]]);
     }
 
-    public function testGarbageThrows(): void
+    public function testRequiresImage(): void
     {
-        $this->expectException(\BernardLedit\Image\ImageException::class);
-        extractFromPolygons('not an image', 0, [self::FULL]);
+        $this->expectException(\TypeError::class);
+        extractFromPolygons($this->loadFileContents('receipt.jpg'), [self::FULL]);
     }
 }
