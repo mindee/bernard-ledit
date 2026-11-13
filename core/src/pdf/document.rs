@@ -188,7 +188,13 @@ impl Document {
         w_pt: f32,
         h_pt: f32,
     ) -> Result<(), PdfError> {
-        let doc = Self::from_jpeg(jpeg, f64::from(w_pt), f64::from(h_pt)).map_err(jpeg_page_err)?;
+        let doc = Self::from_jpeg(jpeg, f64::from(w_pt), f64::from(h_pt)).map_err(|e| match e {
+            PdfBuilderError::Pdf(inner) => inner,
+            PdfBuilderError::Image(
+                inner @ (JpegError::InvalidJpeg | JpegError::UnsupportedColorSpace(_)),
+            ) => ImageError::Decode(format!("invalid JPEG: {inner}")).into(),
+            other => PdfError::Other(other.to_string()),
+        })?;
         self.inner.pages_mut().append(&doc.inner)?;
         Ok(())
     }
@@ -256,17 +262,6 @@ impl Document {
             }
         }
         Ok(Some(out))
-    }
-}
-
-/// Reports JPEG data that can't be embedded as a decode error, and keeps PDF errors as they are.
-fn jpeg_page_err(e: PdfBuilderError) -> PdfError {
-    match e {
-        PdfBuilderError::Pdf(inner) => inner,
-        PdfBuilderError::Image(
-            inner @ (JpegError::InvalidJpeg | JpegError::UnsupportedColorSpace(_)),
-        ) => ImageError::Decode(format!("invalid JPEG: {inner}")).into(),
-        other => PdfError::Other(other.to_string()),
     }
 }
 
