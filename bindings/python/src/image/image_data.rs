@@ -1,5 +1,4 @@
 use super::error::format_image_err;
-use crate::input::BinaryInput;
 use bernard_ledit::image::{
     FilterType, Image, format_name, guess_format as core_guess, parse_output_format,
 };
@@ -24,8 +23,8 @@ impl PyImage {
 impl PyImage {
     #[new]
     #[pyo3(signature = (data))]
-    fn new(data: BinaryInput<'_>) -> PyResult<Self> {
-        let inner = Image::decode(&data.into_vec()?).map_err(|e| format_image_err(&e))?;
+    fn new(data: &[u8]) -> PyResult<Self> {
+        let inner = Image::decode(data).map_err(|e| format_image_err(&e))?;
         Ok(Self { inner })
     }
 
@@ -117,12 +116,7 @@ impl PyImage {
 /// # Errors
 /// Returns an error if the image data is invalid.
 #[pyfunction]
-pub fn guess_format(data: &Bound<'_, PyAny>) -> PyResult<&'static str> {
-    let bytes: Vec<u8> = if data.hasattr("read")? {
-        data.call_method0("read")?.extract()?
-    } else {
-        data.extract()?
-    };
-    let fmt = core_guess(&bytes).map_err(|e| format_image_err(&e))?;
+pub fn guess_format(data: &[u8]) -> PyResult<&'static str> {
+    let fmt = core_guess(data).map_err(|e| format_image_err(&e))?;
     Ok(format_name(fmt).unwrap_or("UNKNOWN"))
 }

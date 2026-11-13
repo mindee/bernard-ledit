@@ -1,4 +1,4 @@
-from typing import BinaryIO, final
+from typing import final
 
 __all__ = [
     "Image",
@@ -12,7 +12,7 @@ class ImageExtractError(Exception): ...
 
 @final
 class Image:
-    def __new__(cls, data: bytes | BinaryIO) -> Image: ...
+    def __new__(cls, data: bytes) -> Image: ...
     @property
     def size(self) -> tuple[int, int]: ...
     @property
@@ -33,5 +33,5 @@ class Image:
     ) -> bytes: ...
 
 def guess_format(
-    data: bytes | BinaryIO,
+    data: bytes,
 ) -> str: ...

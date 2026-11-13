@@ -1,7 +1,6 @@
-import os
 from collections.abc import Iterator
 from types import TracebackType
-from typing import BinaryIO, final
+from typing import final
 
 from bernard_ledit.image import Image
 
@@ -61,11 +60,9 @@ class PdfPage:
     def render(self, scale: float = 1.0) -> Image: ...
     def __repr__(self) -> str: ...
 
-PdfInput = bytes | str | os.PathLike | BinaryIO
-
 @final
 class PdfDocument:
-    def __new__(cls, input: PdfInput) -> PdfDocument: ...
+    def __new__(cls, input: bytes) -> PdfDocument: ...
     def __getitem__(self, index: int, /) -> PdfPage: ...
     def __iter__(self) -> Iterator[PdfPage]: ...
     @staticmethod
@@ -92,16 +89,16 @@ class PdfDocument:
         dpi: float = 150.0,
     ) -> PdfDocument | None: ...
 
-def fix_pdf(data: bytes | BinaryIO, maximum_offset: int = 500) -> bytes: ...
+def fix_pdf(data: bytes, maximum_offset: int = 500) -> bytes: ...
 def compress_to_jpeg(
-    data: PdfInput,
+    data: bytes,
     quality: int = 85,
     optimize: bool = True,
     dpi: float = 150.0,
 ) -> bytes: ...
 def extract_from_page_ranges(
-    data: PdfInput, page_indexes: list[list[int]]
+    data: bytes, page_indexes: list[list[int]]
 ) -> list[PdfDocument]: ...
 def apply_page_options(
-    data: PdfInput, operation: str, on_min_pages: int, page_indexes: list[int]
+    data: bytes, operation: str, on_min_pages: int, page_indexes: list[int]
 ) -> tuple[PdfDocument | None, list[int]]: ...

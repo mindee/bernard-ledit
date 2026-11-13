@@ -63,8 +63,11 @@ def test_decode_records_format(request, fixture, expected):
     assert width > 0 and height > 0
 
 
-def test_constructor_accepts_file_like(jpg_bytes):
-    assert Image(io.BytesIO(jpg_bytes)).size == Image(jpg_bytes).size
+def test_constructor_rejects_file_like_without_reading(jpg_bytes):
+    stream = io.BytesIO(jpg_bytes)
+    with pytest.raises(TypeError):
+        Image(stream)
+    assert stream.tell() == 0
 
 
 def test_constructor_garbage_errors():
@@ -218,8 +221,11 @@ def test_guess_format_from_bytes(request, fixture, expected):
     assert guess_format(request.getfixturevalue(fixture)) == expected
 
 
-def test_guess_format_from_file_like(png_bytes):
-    assert guess_format(io.BytesIO(png_bytes)) == "PNG"
+def test_guess_format_rejects_file_like_without_reading(png_bytes):
+    stream = io.BytesIO(png_bytes)
+    with pytest.raises(TypeError):
+        guess_format(stream)
+    assert stream.tell() == 0
 
 
 def test_guess_format_garbage_errors():

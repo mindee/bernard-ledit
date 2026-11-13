@@ -87,6 +87,9 @@ pip install bernard-ledit
 
 The wheel bundles the compiled Rust extension and pdfium – no system dependencies required.
 
+Document and image inputs must be `bytes`, not paths or file-like objects. The calling application
+handles all file and stream I/O, including writing returned bytes.
+
 ### Image API
 
 ```python
@@ -97,8 +100,8 @@ from bernard_ledit.common import format_from_extension
 from bernard_ledit.image import Image, guess_format
 
 # --- load ---
-# Accepts bytes or any binary file-like object (BytesIO, BufferedReader, …)
-img = Image(open("photo.jpg", "rb"))
+# Accepts bytes only; the calling application handles file I/O.
+img = Image(Path("photo.jpg").read_bytes())
 img = Image(b"\xff\xd8\xff...")
 print(img)  # Image(1920x1080, format:JPEG)
 print(img.size)  # (1920, 1080)
@@ -146,15 +149,17 @@ Supported encode formats: `JPEG`, `PNG`, `PDF`, `TIFF`, `WEBP`, `BMP`, `GIF`, `A
 ### PDF API
 
 ```python
+import io
+from pathlib import Path
+
 from bernard_ledit.pdf import PdfDocument
 
 # --- load ---
-doc = PdfDocument(open("document.pdf", "rb"))  # also accepts bytes or path
+doc = PdfDocument(Path("document.pdf").read_bytes())
 doc = PdfDocument(b"...")
-doc = PdfDocument("/path/to/file.pdf")
 
 # context-manager (auto-close)
-with PdfDocument("document.pdf") as doc:
+with PdfDocument(Path("document.pdf").read_bytes()) as doc:
     print(len(doc))  # page count
     page = doc[0]  # or doc.get_page(0)
     print(page.text())  # extracted text
@@ -166,8 +171,8 @@ rasterized_image = doc.get_page(0).render()
 jpeg_bytes = rasterized_image.encode("JPEG", jpeg_quality=85)
 
 # --- split / merge ---
-a = PdfDocument("a.pdf")
-b = PdfDocument("b.pdf")
+a = PdfDocument(Path("a.pdf").read_bytes())
+b = PdfDocument(Path("b.pdf").read_bytes())
 out = PdfDocument.new()
 out.import_pages(a, [0, 1])
 out.import_pages(b, [0])

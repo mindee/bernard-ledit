@@ -50,9 +50,11 @@ def test_extract_keeps_requested_pages_in_order(multipage):
     assert stars(doc[1]) == 1
 
 
-def test_extract_accepts_file_like(multipage):
-    docs = bl_pdf.extract_from_page_ranges(io.BytesIO(multipage), [[0]])
-    assert len(docs) == 1
+def test_extract_rejects_file_like_without_reading(multipage):
+    stream = io.BytesIO(multipage)
+    with pytest.raises(TypeError):
+        bl_pdf.extract_from_page_ranges(stream, [[0]])
+    assert stream.tell() == 0
 
 
 def test_extract_output_roundtrips(multipage):

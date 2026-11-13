@@ -1,6 +1,5 @@
 //! PDF document.
 use super::page::PyPdfPage;
-use crate::input::PdfInput;
 use crate::pdf::error::{closed_err, format_pdf_err};
 use bernard_ledit::pdf::Document;
 use pyo3::prelude::*;
@@ -54,11 +53,10 @@ impl PyPdfPageIterator {
 /// PDF document methods.
 #[pymethods]
 impl PyPdfDocument {
-    /// Load a PDF from a file-like object or raw bytes.
+    /// Load a PDF from raw bytes.
     #[new]
-    fn new(input: PdfInput<'_>) -> PyResult<Self> {
-        let bytes = input.into_vec()?;
-        let doc = Document::decode(&bytes).map_err(|e| format_pdf_err(&e))?;
+    fn new(input: &[u8]) -> PyResult<Self> {
+        let doc = Document::decode(input).map_err(|e| format_pdf_err(&e))?;
 
         Ok(Self {
             inner: Mutex::new(Some(doc)),
@@ -255,24 +253,18 @@ impl PyPdfDocument {
 /// Returns [`PdfError`] if the PDF cannot be compressed.
 #[pyfunction]
 #[pyo3(signature = (data, quality = 85, optimize = true, dpi = 150.0))]
-pub fn compress_to_jpeg(
-    data: PdfInput<'_>,
-    quality: u8,
-    optimize: bool,
-    dpi: f32,
-) -> PyResult<Vec<u8>> {
-    let data = data.into_vec()?;
-    let doc = Document::decode(&data).map_err(|e| format_pdf_err(&e))?;
+pub fn compress_to_jpeg(data: &[u8], quality: u8, optimize: bool, dpi: f32) -> PyResult<Vec<u8>> {
+    let doc = Document::decode(data).map_err(|e| format_pdf_err(&e))?;
     let Some(out) = doc
         .compress_to_jpeg(quality, optimize, dpi)
         .map_err(|e| format_pdf_err(&e))?
     else {
-        return Ok(data);
+        return Ok(data.to_vec());
     };
     let bytes = out.to_bytes().map_err(|e| format_pdf_err(&e))?;
     Ok(if bytes.len() < data.len() {
         bytes
     } else {
-        data
+        data.to_vec()
     })
 }

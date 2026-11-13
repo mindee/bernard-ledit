@@ -1,4 +1,6 @@
 import io
+from functools import partial
+from pathlib import Path
 
 import pytest
 
@@ -7,7 +9,9 @@ from bernard_ledit.pdf import (
     PdfDocument,
     PdfiumError,
     PdfPage,
+    apply_page_options,
     compress_to_jpeg,
+    extract_from_page_ranges,
 )
 
 
@@ -17,10 +21,12 @@ def test_document_from_bytes(test_data_dir):
     assert len(doc) == 10
 
 
-def test_document_from_file_like(test_data_dir):
+def test_document_rejects_file_like_without_reading(test_data_dir):
     data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
-    doc = PdfDocument(io.BytesIO(data))
-    assert len(doc) == 1
+    stream = io.BytesIO(data)
+    with pytest.raises(TypeError):
+        PdfDocument(stream)
+    assert stream.tell() == 0
 
 
 def test_document_from_invalid_bytes():
@@ -201,23 +207,33 @@ def test_document_iteration_empty():
     assert len(pages) == 0
 
 
-def test_document_from_str_path(test_data_dir):
-    path_str = str(test_data_dir / "file_types/pdf/blank.pdf")
-    doc = PdfDocument(path_str)
-    assert len(doc) == 10
+@pytest.mark.parametrize(
+    "operation",
+    [
+        PdfDocument,
+        compress_to_jpeg,
+        partial(extract_from_page_ranges, page_indexes=[[0]]),
+        partial(
+            apply_page_options,
+            operation="KEEP_ONLY",
+            on_min_pages=0,
+            page_indexes=[0],
+        ),
+    ],
+)
+@pytest.mark.parametrize("path_type", [str, Path])
+def test_pdf_operations_reject_paths(test_data_dir, operation, path_type):
+    path = path_type(test_data_dir / "file_types/pdf/blank_1.pdf")
+    with pytest.raises(TypeError):
+        operation(path)
 
 
-def test_document_from_pathlib_path(test_data_dir):
-    path_obj = test_data_dir / "file_types/pdf/blank_1.pdf"
-    doc = PdfDocument(path_obj)
-    assert len(doc) == 1
-
-
-def test_document_from_nonexistent_path():
-    with pytest.raises(
-        OSError, match=r"Failed to read this_file_does_not_exist_xyz\.pdf:.*"
-    ):
-        PdfDocument("this_file_does_not_exist_xyz.pdf")
+def test_compress_rejects_file_like_without_reading(test_data_dir):
+    data = (test_data_dir / "file_types/pdf/multipage.pdf").read_bytes()
+    stream = io.BytesIO(data)
+    with pytest.raises(TypeError):
+        compress_to_jpeg(stream)
+    assert stream.tell() == 0
 
 
 def test_document_has_no_content_true():
