@@ -8,8 +8,6 @@ pub mod error;
 pub mod extract;
 /// PDF fixing utility.
 pub mod fix;
-/// JPEG embedding module.
-pub mod jpeg;
 /// PDF Page module.
 pub mod page;
 /// Page options to apply to a PDF.

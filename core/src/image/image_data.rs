@@ -169,8 +169,7 @@ impl Image {
     /// Encode to `format` at `jpeg_quality` (`jpeg_quality` and `jpeg_optimize` affect JPEG only).
     ///
     /// Accepts any raster [`ImageFormat`] or [`OutputFormat::Pdf`]. Choosing PDF
-    /// produces a single-page document that embeds the image as a JPEG, so no
-    /// separate trip through the `pdf` module is needed.
+    /// produces a single-page document that embeds the image as a JPEG.
     /// jpeg_quality and jpeg_optimize only affect JPEG encoding and PDF encoding because the image is embedded as a JPEG in the PDF.
     /// # Errors
     /// Returns `ImageError::Encode` if encoding fails or `ImageError::InvalidDimensions`
@@ -235,7 +234,10 @@ impl Image {
     /// `/Filter /DCTDecode`. The page maps one image pixel to one PDF point.
     fn encode_pdf(&self, jpeg_quality: u8, jpeg_optimize: bool) -> Result<Vec<u8>, ImageError> {
         let jpeg_bytes = self.encode_raster(ImageFormat::Jpeg, jpeg_quality, jpeg_optimize)?;
-        crate::pdf::jpeg::build_jpeg_pdf_autosize(&jpeg_bytes)
+        let document = crate::pdf::document::Document::from_jpeg_autosize(&jpeg_bytes)
+            .map_err(|e| ImageError::Encode(e.to_string()))?;
+        document
+            .to_bytes()
             .map_err(|e| ImageError::Encode(e.to_string()))
     }
 
@@ -471,36 +473,35 @@ mod tests {
 
     #[test]
     fn encode_pdf_has_magic_bytes_and_embeds_jpeg() {
+        crate::pdf::pdfium();
         let bytes = synth_bytes(24, 12, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
         let pdf = img.encode(OutputFormat::Pdf, 85, false).unwrap();
-        assert!(pdf.starts_with(b"%PDF-1.4\n"), "PDF header missing");
-        assert!(pdf.ends_with(b"%%EOF\n"), "PDF %%EOF marker missing");
-        assert!(
-            String::from_utf8_lossy(&pdf).contains("/Filter /DCTDecode"),
-            "embedded JPEG (DCTDecode) missing"
-        );
+        assert!(pdf.starts_with(b"%PDF-"), "PDF header missing");
+        let document = crate::pdf::document::Document::decode(&pdf).unwrap();
+        assert_eq!(document.page_count().unwrap(), 1);
+        assert_eq!(document.page(0).unwrap().size(), (24.0, 12.0));
     }
 
     #[test]
     fn encode_pdf_media_box_matches_image_size() {
+        crate::pdf::pdfium();
         let bytes = synth_bytes(40, 25, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
         let pdf = img.encode(OutputFormat::Pdf, 85, false).unwrap();
-        assert!(
-            String::from_utf8_lossy(&pdf).contains("/MediaBox [0 0 40 25]"),
-            "PDF page size should map 1 pixel to 1 point"
-        );
+        let document = crate::pdf::document::Document::decode(&pdf).unwrap();
+        assert_eq!(document.page(0).unwrap().size(), (40.0, 25.0));
     }
 
     #[test]
     fn encode_pdf_via_string_format() {
+        crate::pdf::pdfium();
         let bytes = synth_bytes(16, 16, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
         let format = parse_output_format("pdf").unwrap();
         assert_eq!(format, OutputFormat::Pdf);
         let pdf = img.encode(format, 85, false).unwrap();
-        assert!(pdf.starts_with(b"%PDF-1.4\n"));
+        assert!(pdf.starts_with(b"%PDF-"));
     }
 
     #[test]

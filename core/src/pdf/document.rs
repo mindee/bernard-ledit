@@ -1,11 +1,11 @@
 use crate::image::ImageError;
 use crate::pdf::error::{ImageError as JpegError, PdfBuilderError, PdfError};
-use crate::pdf::jpeg::{build_jpeg_pdf, build_jpeg_pdf_autosize};
 use crate::pdf::text_char::TextChar;
 use crate::pdf::{page::Page, pdfium};
 
 use ::image::ImageFormat;
 use pdfium_render::prelude::*;
+use std::io::Cursor;
 
 /// A struct that represents a PDF document.
 ///
@@ -145,31 +145,63 @@ impl Document {
         Ok(characters)
     }
 
-    /// Build a single-page PDF from a JPEG-encoded image.
+    fn from_jpeg_with_page_size(
+        jpeg_bytes: &[u8],
+        page_size: Option<(f64, f64)>,
+    ) -> Result<Self, PdfBuilderError> {
+        let mut inner = pdfium().create_new_pdf().map_err(PdfError::from)?;
+        let mut image = PdfPageImageObject::new_from_jpeg_reader(&inner, Cursor::new(jpeg_bytes))
+            .map_err(|_| PdfBuilderError::Image(JpegError::InvalidJpeg))?;
+        let image_size = image
+            .width()
+            .and_then(|width| image.height().map(|height| (width, height)))
+            .map_err(|_| PdfBuilderError::Image(JpegError::InvalidJpeg))?;
+        if image_size.0 == 0 || image_size.1 == 0 {
+            return Err(PdfBuilderError::Image(JpegError::InvalidJpeg));
+        }
+        let (width, height) = match page_size {
+            Some(size) => size,
+            None => (f64::from(image_size.0), f64::from(image_size.1)),
+        };
+
+        {
+            let mut page = inner
+                .pages_mut()
+                .create_page_at_end(PdfPagePaperSize::Custom(
+                    PdfPoints::new(width as f32),
+                    PdfPoints::new(height as f32),
+                ))
+                .map_err(PdfError::from)?;
+            image
+                .scale(width as f32, height as f32)
+                .map_err(PdfError::from)?;
+            page.objects_mut()
+                .add_image_object(image)
+                .map_err(|_| PdfBuilderError::Image(JpegError::AddObject))?;
+        }
+
+        Ok(Self { inner })
+    }
+
+    /// Build a single-page PDF from a JPEG-encoded image using PDFium.
     ///
     /// `width` and `height` are the PDF page dimensions in points.
     ///
-    /// The JPEG bytes are embedded **as-is** using `/Filter /DCTDecode` so no pixel
-    /// decode or re-encode occurs. The resulting PDF is approximately
-    /// `jpeg_bytes.len() + 500 bytes` of PDF framing overhead.
+    /// PDFium embeds the original JPEG stream without decoding and re-encoding it.
     ///
     /// # Errors
-    /// Returns a [`PdfBuilderError`] if the JPEG header cannot be parsed or
-    /// if PDF creation fails.
+    /// Returns a [`PdfBuilderError`] if PDFium cannot load the JPEG or create the page.
     pub fn from_jpeg(jpeg_bytes: &[u8], width: f64, height: f64) -> Result<Self, PdfBuilderError> {
-        let pdf_bytes = build_jpeg_pdf(jpeg_bytes, width, height)?;
-        Self::decode(&pdf_bytes).map_err(PdfBuilderError::Pdf)
+        Self::from_jpeg_with_page_size(jpeg_bytes, Some((width, height)))
     }
 
-    /// Build a single-page PDF from a JPEG-encoded image.
+    /// Build a single-page PDF from a JPEG-encoded image using PDFium.
     ///
-    /// `width` and `height` are determined from the JPEG header.
+    /// The page dimensions are set to the JPEG's intrinsic pixel dimensions in points.
     /// # Errors
-    /// Returns a [`PdfBuilderError`] if the JPEG header cannot be parsed or
-    /// if PDF creation fails.
+    /// Returns a [`PdfBuilderError`] if PDFium cannot load the JPEG or create the page.
     pub fn from_jpeg_autosize(jpeg_bytes: &[u8]) -> Result<Self, PdfBuilderError> {
-        let pdf_bytes = build_jpeg_pdf_autosize(jpeg_bytes)?;
-        Self::decode(&pdf_bytes).map_err(PdfBuilderError::Pdf)
+        Self::from_jpeg_with_page_size(jpeg_bytes, None)
     }
 
     /// Appends a JPEG as a new page.
@@ -275,6 +307,46 @@ mod tests {
         let jpeg = test_data_bytes!("file_types/receipt.jpg");
         let doc = Document::from_jpeg(jpeg, 100.0, 100.0).unwrap();
         assert_eq!(doc.page_count().unwrap(), 1);
+    }
+
+    #[test]
+    fn test_from_jpeg_autosize_uses_image_dimensions() {
+        pdfium();
+        let jpeg = test_data_bytes!("file_types/receipt.jpg");
+        let image_size = crate::image::Image::decode(jpeg).unwrap().size();
+        let doc = Document::from_jpeg_autosize(jpeg).unwrap();
+        assert_eq!(
+            doc.page(0).unwrap().size(),
+            (image_size.0 as f32, image_size.1 as f32)
+        );
+    }
+
+    #[test]
+    fn test_loads_and_renders_cmyk_jpeg() {
+        pdfium();
+        let jpeg = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/test_data/cmyk-red.jpg"
+        ));
+        let doc = Document::from_jpeg_autosize(jpeg).unwrap();
+        let pdf_bytes = doc.to_bytes().unwrap();
+        assert!(
+            pdf_bytes.windows(jpeg.len()).any(|window| window == jpeg),
+            "expected PDFium to preserve the original JPEG stream"
+        );
+        let rendered = doc.page(0).unwrap().render(1.0).unwrap();
+        let png = rendered
+            .encode(::image::ImageFormat::Png, 85, false)
+            .unwrap();
+        let pixel = ::image::load_from_memory(&png)
+            .unwrap()
+            .to_rgb8()
+            .get_pixel(4, 4)
+            .0;
+        assert!(
+            pixel[0] > 200 && pixel[1] < 80 && pixel[2] < 80,
+            "expected red pixel from CMYK JPEG, got {pixel:?}"
+        );
     }
 
     #[test]

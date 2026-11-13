@@ -67,21 +67,6 @@ mod tests {
     use image::{ImageBuffer, ImageFormat, Rgb};
     use std::io::Cursor;
 
-    /// Minimal synthetic JPEG: valid SOF0 header, no pixel data.
-    /// Sufficient for `from_jpeg` (PDF embedding) but NOT for `render()`.
-    fn make_minimal_jpeg(width: u16, height: u16) -> Vec<u8> {
-        let mut data = vec![
-            0xFF, 0xD8, // SOI
-            0xFF, 0xC0, // SOF0
-            0x00, 0x08, // segment length
-            0x08, // precision
-        ];
-        data.extend_from_slice(&height.to_be_bytes());
-        data.extend_from_slice(&width.to_be_bytes());
-        data.push(3);
-        data
-    }
-
     /// Fully valid JPEG, required for tests that call `render()`.
     fn make_real_jpeg(width: u32, height: u32) -> Vec<u8> {
         let img: ImageBuffer<Rgb<u8>, _> =
@@ -94,7 +79,7 @@ mod tests {
     #[test]
     fn test_size_matches_requested_dimensions() {
         pdfium();
-        let jpeg = make_minimal_jpeg(200, 150);
+        let jpeg = make_real_jpeg(200, 150);
         let doc = Document::from_jpeg(&jpeg, 200.0, 150.0).unwrap();
         assert_eq!(doc.page(0).unwrap().size(), (200.0, 150.0));
     }
@@ -102,7 +87,7 @@ mod tests {
     #[test]
     fn test_size_non_square_no_width_height_swap() {
         pdfium();
-        let jpeg = make_minimal_jpeg(100, 300);
+        let jpeg = make_real_jpeg(100, 300);
         let doc = Document::from_jpeg(&jpeg, 100.0, 300.0).unwrap();
         assert_eq!(doc.page(0).unwrap().size(), (100.0, 300.0));
     }
@@ -110,7 +95,7 @@ mod tests {
     #[test]
     fn test_is_empty_false_for_jpeg_page() {
         pdfium();
-        let jpeg = make_minimal_jpeg(10, 10);
+        let jpeg = make_real_jpeg(10, 10);
         let doc = Document::from_jpeg(&jpeg, 10.0, 10.0).unwrap();
         assert!(!doc.page(0).unwrap().is_empty().unwrap());
     }
