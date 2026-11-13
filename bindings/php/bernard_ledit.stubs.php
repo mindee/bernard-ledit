@@ -85,6 +85,14 @@ namespace BernardLedit\Image {
          * @throws \ValueError if `$width` or `$height` is out of range.
          */
         public function resize(int $width, int $height): \BernardLedit\Image\Image {}
+
+        /**
+         * Returns the image bytes.
+         *
+         * @return string
+         * @throws \BernardLedit\Image\ImageException if the image bytes can't be retrieved.
+         */
+        public function toBytes(): string {}
     }
 
     /**
@@ -137,7 +145,7 @@ namespace BernardLedit\Pdf {
          * @throws \BernardLedit\Pdf\PdfiumException if `PDFium` can't save the document.
          * @throws \Exception if the document is closed.
          */
-        public function asBytes(): string {}
+        public function toBytes(): string {}
 
         /**
          * Close the document. Closing it again does nothing.

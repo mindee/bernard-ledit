@@ -51,6 +51,12 @@ final class ImageTest extends TestCase
         self::assertSame('JPEG', guessFormat($out));
     }
 
+    public function testToBytesReturnsBytes(): void
+    {
+        $bytes = decode(self::loadFileContents('receipt.jpg'))->toBytes();
+        self::assertNotSame('', $bytes);
+    }
+
     public function testInvalidDataThrowsImageException(): void
     {
         // Input that isn't an identifiable or decodable image is an ImageException everywhere;

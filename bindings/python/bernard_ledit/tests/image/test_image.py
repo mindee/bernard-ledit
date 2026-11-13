@@ -72,6 +72,12 @@ def test_constructor_garbage_errors():
         Image(b"\xde\xad\xbe\xef")
 
 
+def test_to_bytes_returns_bytes(jpg_bytes):
+    encoded = Image(jpg_bytes).to_bytes()
+    assert isinstance(encoded, bytes)
+    assert encoded
+
+
 def test_constructor_empty_errors():
     with pytest.raises(ImageError):
         Image(b"")

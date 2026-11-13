@@ -154,7 +154,7 @@ impl PyPdfDocument {
     }
 
     /// Retrieve the bytes from the document.
-    fn as_bytes<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
+    fn to_bytes<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
         let owned_bytes = self
             .with_doc(Document::to_bytes)?
             .map_err(|e| format_pdf_err(&e))?;

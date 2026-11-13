@@ -91,7 +91,7 @@ impl PhpPdfDocument {
     /// # Errors
     /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't save the document.
     /// - `\Exception` if the document is closed.
-    pub fn as_bytes(&self) -> PhpResult<Binary<u8>> {
+    pub fn to_bytes(&self) -> PhpResult<Binary<u8>> {
         let out = self.with_doc(|d| d.to_bytes().map_err(|e| map_pdf_err(&e)))??;
         Ok(Binary::new(out))
     }

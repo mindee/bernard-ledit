@@ -81,10 +81,10 @@ def test_import_pages_from_self_raises(test_data_dir):
         doc.import_pages(doc, [0])
 
 
-def test_as_bytes_writes_reloadable_pdf(test_data_dir):
+def test_to_bytes_writes_reloadable_pdf(test_data_dir):
     data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
     doc = PdfDocument(data)
-    saved = doc.as_bytes()
+    saved = doc.to_bytes()
     assert saved.startswith(b"%PDF-")
     reloaded = PdfDocument(saved)
     assert len(reloaded) == len(doc)

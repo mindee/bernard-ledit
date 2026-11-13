@@ -57,7 +57,7 @@ def test_extract_accepts_file_like(multipage):
 
 def test_extract_output_roundtrips(multipage):
     (doc,) = bl_pdf.extract_from_page_ranges(multipage, [[0, 1]])
-    output = doc.as_bytes()
+    output = doc.to_bytes()
     assert output.startswith(b"%PDF-")
     assert len(bl_pdf.PdfDocument(output)) == 2
 

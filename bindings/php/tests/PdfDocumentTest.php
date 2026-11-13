@@ -84,10 +84,10 @@ final class PdfDocumentTest extends TestCase
         $doc->importPages($doc, [0]);
     }
 
-    public function testSaveReturnsReloadablePdfBytes(): void
+    public function testToBytesReturnsReloadablePdfBytes(): void
     {
         $doc = new PdfDocument(self::pdf('blank_1.pdf'));
-        $saved = $doc->asBytes();
+        $saved = $doc->toBytes();
 
         self::assertStringStartsWith('%PDF-', $saved);
 
@@ -102,7 +102,7 @@ final class PdfDocumentTest extends TestCase
         self::assertNotFalse($path);
 
         try {
-            file_put_contents($path, $doc->asBytes());
+            file_put_contents($path, $doc->toBytes());
             $bytes = file_get_contents($path);
             self::assertStringStartsWith('%PDF-', $bytes);
 

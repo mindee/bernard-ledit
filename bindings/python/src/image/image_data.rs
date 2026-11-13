@@ -107,7 +107,7 @@ impl PyImage {
     }
 
     /// Retrieve the bytes from the image.
-    fn as_bytes<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
+    fn to_bytes<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
         let owned_bytes = self.inner.to_bytes().map_err(|e| format_image_err(&e))?;
         Ok(PyBytes::new(py, owned_bytes.as_slice()))
     }

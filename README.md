@@ -173,7 +173,7 @@ out.import_pages(a, [0, 1])
 out.import_pages(b, [0])
 
 buf = io.BytesIO()
-buf.write(out.as_bytes())
+buf.write(out.to_bytes())
 
 ```
 

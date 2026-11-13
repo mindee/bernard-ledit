@@ -141,6 +141,14 @@ impl PhpImage {
             .map_err(|e| map_image_err(&e))?;
         Ok(Binary::new(bytes))
     }
+
+    /// Returns the image bytes as a PHP string.
+    /// # Errors
+    /// - `\BernardLedit\Image\ImageException` if the image bytes can't be retrieved.
+    pub fn to_bytes(&self) -> PhpResult<Binary<u8>> {
+        let bytes = self.inner.to_bytes().map_err(|e| map_image_err(&e))?;
+        Ok(Binary::new(bytes))
+    }
 }
 
 impl PhpImage {
