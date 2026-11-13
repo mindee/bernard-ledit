@@ -74,13 +74,6 @@ pub fn parse_format(name: &str) -> Result<ImageFormat, ImageError> {
 }
 
 impl Image {
-    /// Creates a new image from raw data.
-    /// # Errors
-    /// Returns an error if the image data is invalid or the format is not supported.
-    pub fn new(data: &[u8]) -> Result<Self, ImageError> {
-        Self::decode(data)
-    }
-
     /// Decode any supported raster and records the sniffed format.
     /// # Errors
     /// Returns an error if the image data is invalid or the format is not supported.

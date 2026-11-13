@@ -60,7 +60,7 @@ impl PyPdfDocument {
     #[new]
     fn new(input: PdfInput<'_>) -> PyResult<Self> {
         let bytes = input.into_vec()?;
-        let doc = Document::from_bytes(bytes).map_err(|e| format_pdf_err(&e))?;
+        let doc = Document::decode(&bytes).map_err(|e| format_pdf_err(&e))?;
 
         Ok(Self {
             inner: Mutex::new(Some(doc)),
@@ -293,7 +293,7 @@ pub fn compress_to_jpeg(
     dpi: f32,
 ) -> PyResult<Vec<u8>> {
     let data = data.into_vec()?;
-    let doc = Document::from_bytes(data.clone()).map_err(|e| format_pdf_err(&e))?;
+    let doc = Document::decode(&data).map_err(|e| format_pdf_err(&e))?;
     let Some(out) = doc
         .compress_to_jpeg(quality, optimize, dpi)
         .map_err(|e| format_pdf_err(&e))?

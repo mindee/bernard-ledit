@@ -34,11 +34,11 @@ pub fn extract_from_page_ranges(
 /// Returns a [`PdfExtractError`] if the data cannot be decoded as a PDF.
 fn load_as_pdf(data: &[u8]) -> Result<Document, PdfExtractError> {
     if data.starts_with(b"%PDF-") {
-        return Ok(Document::from_bytes(data.to_vec())?);
+        return Ok(Document::decode(data)?);
     }
     if guess_format(data)? == ImageFormat::Jpeg {
         return Ok(Document::from_jpeg_autosize(data)?);
     }
     let pdf = Image::decode(data)?.encode(OutputFormat::Pdf, 85, true)?;
-    Ok(Document::from_bytes(pdf)?)
+    Ok(Document::decode(&pdf)?)
 }

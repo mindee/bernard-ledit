@@ -26,7 +26,7 @@ impl PhpPdfDocument {
     #[allow(clippy::needless_pass_by_value)]
     pub fn __construct(data: BinarySlice<u8>) -> PhpResult<Self> {
         super::ensure_pdfium()?;
-        let doc = Document::from_bytes(data.to_vec()).map_err(|e| map_pdf_err(&e))?;
+        let doc = Document::decode(&data).map_err(|e| map_pdf_err(&e))?;
         Ok(Self::wrap(doc))
     }
 
@@ -211,7 +211,7 @@ pub fn compress_to_jpeg(
     let quality = args::int("quality", quality, 5, 100)?;
     let dpi = args::dpi(dpi.unwrap_or(150.0))?;
     super::ensure_pdfium()?;
-    let doc = Document::from_bytes(data.to_vec()).map_err(|e| map_pdf_err(&e))?;
+    let doc = Document::decode(&data).map_err(|e| map_pdf_err(&e))?;
     let Some(out) = doc
         .compress_to_jpeg(quality, optimize.unwrap_or(true), dpi)
         .map_err(|e| map_pdf_err(&e))?

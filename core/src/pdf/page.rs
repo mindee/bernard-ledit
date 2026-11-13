@@ -138,8 +138,7 @@ mod tests {
     #[test]
     fn test_chars_returns_text_chars() {
         pdfium();
-        let doc = Document::from_bytes(test_data_bytes!("file_types/pdf/multipage.pdf").to_vec())
-            .unwrap();
+        let doc = Document::decode(test_data_bytes!("file_types/pdf/multipage.pdf")).unwrap();
         let chars = doc.page(0).unwrap().chars().unwrap();
         assert_eq!(chars.len(), 1);
         assert_eq!(chars[0].char, '*');

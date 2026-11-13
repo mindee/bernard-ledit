@@ -16,14 +16,23 @@ pub struct Document {
 }
 
 impl Document {
-    /// Load a PDF from in-memory bytes.
+    /// Decode a PDF from in-memory bytes.
     ///
     /// # Errors
     ///
-    /// Returns a [`PdfError`] if loading the PDF fails.
-    pub fn from_bytes(bytes: Vec<u8>) -> Result<Self, PdfError> {
-        let inner = pdfium().load_pdf_from_byte_vec(bytes, None)?;
+    /// Returns a [`PdfError`] if decoding the PDF fails.
+    pub fn decode(data: &[u8]) -> Result<Self, PdfError> {
+        let inner = pdfium().load_pdf_from_byte_vec(data.to_vec(), None)?;
         Ok(Self { inner })
+    }
+
+    /// Save to a buffer and return it as an u8 vec.
+    /// # Errors
+    /// Returns a [`PdfError`] if saving the document fails.
+    pub fn to_bytes(&self) -> Result<Vec<u8>, PdfError> {
+        let mut buffer: Vec<u8> = Vec::new();
+        self.save(&mut buffer)?;
+        Ok(buffer)
     }
 
     /// Create an empty PDF document.
@@ -105,15 +114,6 @@ impl Document {
         Ok(())
     }
 
-    /// Save to a buffer and return it as an u8 vec.
-    /// # Errors
-    /// Returns a [`PdfError`] if saving the document fails.
-    pub fn to_bytes(&self) -> Result<Vec<u8>, PdfError> {
-        let mut buffer: Vec<u8> = Vec::new();
-        self.save(&mut buffer)?;
-        Ok(buffer)
-    }
-
     /// Extract all text from the document, concatenating pages with newlines.
     ///
     /// # Errors
@@ -165,7 +165,7 @@ impl Document {
     /// if PDF creation fails.
     pub fn from_jpeg(jpeg_bytes: &[u8], width: f64, height: f64) -> Result<Self, PdfBuilderError> {
         let pdf_bytes = build_jpeg_pdf(jpeg_bytes, width, height)?;
-        Self::from_bytes(pdf_bytes).map_err(PdfBuilderError::Pdf)
+        Self::decode(&pdf_bytes).map_err(PdfBuilderError::Pdf)
     }
 
     /// Build a single-page PDF from a JPEG-encoded image.
@@ -176,7 +176,7 @@ impl Document {
     /// if PDF creation fails.
     pub fn from_jpeg_autosize(jpeg_bytes: &[u8]) -> Result<Self, PdfBuilderError> {
         let pdf_bytes = build_jpeg_pdf_autosize(jpeg_bytes)?;
-        Self::from_bytes(pdf_bytes).map_err(PdfBuilderError::Pdf)
+        Self::decode(&pdf_bytes).map_err(PdfBuilderError::Pdf)
     }
 
     /// Rasterizes a PDF page into an image.
@@ -311,22 +311,22 @@ mod tests {
     }
 
     #[test]
-    fn test_loads_from_bytes() {
+    fn test_decodes_from_bytes() {
         pdfium();
         let bytes = test_data_bytes!("file_types/pdf/blank.pdf");
-        let doc = Document::from_bytes(bytes.to_vec()).unwrap();
+        let doc = Document::decode(bytes).unwrap();
         let page_count = doc.page_count().unwrap();
         let saved = doc.inner.save_to_bytes().unwrap();
-        let reloaded = Document::from_bytes(saved).unwrap();
+        let reloaded = Document::decode(&saved).unwrap();
         assert_eq!(reloaded.page_count().unwrap(), page_count);
     }
 
     #[test]
     #[should_panic(expected = "called `Result::unwrap()` on an `Err` value")]
-    fn test_loads_invalid_bytes() {
+    fn test_decodes_invalid_bytes() {
         pdfium();
         let bytes = test_data_bytes!("file_types/pdf/broken_unfixable.pdf");
-        let _ = Document::from_bytes(bytes.to_vec()).unwrap();
+        let _ = Document::decode(bytes).unwrap();
     }
 
     #[test]
@@ -340,7 +340,7 @@ mod tests {
     fn test_returns_page_at_index() {
         pdfium();
         let bytes = test_data_bytes!("file_types/pdf/multipage.pdf");
-        let doc = Document::from_bytes(bytes.to_vec()).unwrap();
+        let doc = Document::decode(bytes).unwrap();
         let page3 = doc.page(2);
         assert_eq!(page3.unwrap().text().unwrap(), "***\r\n***\r\n***");
     }
@@ -350,7 +350,7 @@ mod tests {
         pdfium();
         let bytes_doc_1 = test_data_bytes!("file_types/pdf/blank.pdf");
         let bytes_doc_2 = test_data_bytes!("file_types/receipt.jpg");
-        let doc = Document::from_bytes(bytes_doc_1.to_vec()).unwrap();
+        let doc = Document::decode(bytes_doc_1).unwrap();
         let mut doc2 = Document::from_jpeg(bytes_doc_2, 10.0, 10.0).unwrap();
         doc2.import_pages(&doc, &[0]).unwrap();
         assert_eq!(doc2.page_count().unwrap(), 2);
@@ -361,8 +361,8 @@ mod tests {
         pdfium();
         let bytes_multipage = test_data_bytes!("file_types/pdf/multipage.pdf");
         let bytes_blank = test_data_bytes!("file_types/pdf/blank_1.pdf");
-        let doc = Document::from_bytes(bytes_multipage.to_vec()).unwrap();
-        let mut doc_blank = Document::from_bytes(bytes_blank.to_vec()).unwrap();
+        let doc = Document::decode(bytes_multipage).unwrap();
+        let mut doc_blank = Document::decode(bytes_blank).unwrap();
         doc_blank
             .import_pages(&doc, &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
             .unwrap();
@@ -373,12 +373,12 @@ mod tests {
     fn test_save() {
         pdfium();
         let bytes = test_data_bytes!("file_types/pdf/blank.pdf");
-        let doc = Document::from_bytes(bytes.to_vec()).unwrap();
+        let doc = Document::decode(bytes).unwrap();
         let page_count = doc.page_count().unwrap();
         let mut buf = Vec::new();
         doc.save(&mut buf).unwrap();
         assert_ne!(buf.len(), 0);
-        let reloaded = Document::from_bytes(buf).unwrap();
+        let reloaded = Document::decode(&buf).unwrap();
         assert_eq!(reloaded.page_count().unwrap(), page_count);
     }
 
@@ -388,15 +388,15 @@ mod tests {
         pdfium();
         let bytes_doc_1 = test_data_bytes!("file_types/pdf/blank_1.pdf");
         let bytes_doc_2 = test_data_bytes!("file_types/pdf/blank_1.pdf");
-        let doc = Document::from_bytes(bytes_doc_1.to_vec()).unwrap();
-        let mut doc2 = Document::from_bytes(bytes_doc_2.to_vec()).unwrap();
+        let doc = Document::decode(bytes_doc_1).unwrap();
+        let mut doc2 = Document::decode(bytes_doc_2).unwrap();
         doc2.import_pages(&doc, &[100, 101, 102]).unwrap();
     }
     #[test]
     fn test_page_out_of_bounds() {
         pdfium();
         let bytes = test_data_bytes!("file_types/pdf/blank_1.pdf");
-        let doc = Document::from_bytes(bytes.to_vec()).unwrap();
+        let doc = Document::decode(bytes).unwrap();
         let out_of_bounds = |r: Result<(), PdfError>| {
             matches!(
                 r,
@@ -414,10 +414,10 @@ mod tests {
     fn test_has_text() {
         pdfium();
         let bytes_multipage: &[u8] = test_data_bytes!("file_types/pdf/multipage.pdf");
-        let doc = Document::from_bytes(bytes_multipage.to_vec()).unwrap();
+        let doc = Document::decode(bytes_multipage).unwrap();
         assert!(doc.has_text().unwrap());
         let bytes_blank: &[u8] = test_data_bytes!("file_types/pdf/blank_1.pdf");
-        let doc_blank = Document::from_bytes(bytes_blank.to_vec()).unwrap();
+        let doc_blank = Document::decode(bytes_blank).unwrap();
         assert!(!doc_blank.has_text().unwrap());
     }
 
@@ -425,7 +425,7 @@ mod tests {
     fn test_extract_chars() {
         pdfium();
         let bytes_multipage: &[u8] = test_data_bytes!("file_types/pdf/multipage.pdf");
-        let doc = Document::from_bytes(bytes_multipage.to_vec()).unwrap();
+        let doc = Document::decode(bytes_multipage).unwrap();
         for i in 0..doc.page_count().unwrap() {
             let chars = doc.page(i).unwrap().chars().unwrap();
             let text = doc.page(i).unwrap().text().unwrap();
@@ -441,10 +441,10 @@ mod tests {
     fn test_is_empty() {
         pdfium();
         let bytes_multipage: &[u8] = test_data_bytes!("file_types/pdf/multipage.pdf");
-        let doc = Document::from_bytes(bytes_multipage.to_vec()).unwrap();
+        let doc = Document::decode(bytes_multipage).unwrap();
         assert!(!doc.has_no_content().unwrap());
         let bytes_blank: &[u8] = test_data_bytes!("file_types/pdf/blank.pdf");
-        let doc_blank = Document::from_bytes(bytes_blank.to_vec()).unwrap();
+        let doc_blank = Document::decode(bytes_blank).unwrap();
         assert!(doc_blank.has_no_content().unwrap());
     }
 }
