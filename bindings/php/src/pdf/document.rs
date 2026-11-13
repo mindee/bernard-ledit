@@ -4,8 +4,7 @@ use super::{
 };
 use crate::args::{self, value_error};
 use crate::pdf::error::format_pdf_extract_err;
-use crate::pdf::text_char::PhpTextChar;
-use bernard_ledit::pdf::{Document, TextChar};
+use bernard_ledit::pdf::Document;
 use ext_php_rs::{binary::Binary, binary_slice::BinarySlice, prelude::*};
 use std::sync::{Arc, Mutex};
 
@@ -26,7 +25,7 @@ impl PhpPdfDocument {
     #[allow(clippy::needless_pass_by_value)]
     pub fn __construct(data: BinarySlice<u8>) -> PhpResult<Self> {
         super::ensure_pdfium()?;
-        let doc = Document::from_bytes(data.to_vec()).map_err(|e| map_pdf_err(&e))?;
+        let doc = Document::decode(&data).map_err(|e| map_pdf_err(&e))?;
         Ok(Self::wrap(doc))
     }
 
@@ -92,58 +91,9 @@ impl PhpPdfDocument {
     /// # Errors
     /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't save the document.
     /// - `\Exception` if the document is closed.
-    pub fn as_bytes(&self) -> PhpResult<Binary<u8>> {
-        let mut out: Vec<u8> = Vec::new();
-        self.with_doc(|d| d.save(&mut out).map_err(|e| map_pdf_err(&e)))??;
+    pub fn to_bytes(&self) -> PhpResult<Binary<u8>> {
+        let out = self.with_doc(|d| d.to_bytes().map_err(|e| map_pdf_err(&e)))??;
         Ok(Binary::new(out))
-    }
-
-    /// Rasterizes a page from a given index as a JPEG, at 72 DPI.
-    /// # Parameters
-    /// - `index`: `int<0, 65535>`
-    /// - `quality`: `int<1, 100>`
-    /// # Errors
-    /// - `\ValueError` if `$index` or `$quality` is out of range, or there's no page `$index`.
-    /// - `\BernardLedit\Image\ImageException` if JPEG encoding fails.
-    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't render the page.
-    /// - `\Exception` if the document is closed.
-    pub fn rasterize_page_to_jpeg_bytes(&self, index: i64, quality: i64) -> PhpResult<Binary<u8>> {
-        let index = args::page_index("index", index)?;
-        let quality = args::quality(quality, 1)?;
-        self.with_doc(|d| {
-            d.rasterize_page(index, quality)
-                .map_err(|e| map_pdf_err(&e))
-        })?
-        .map(Binary::new)
-    }
-
-    /// Appends a JPEG as a page of the document.
-    /// # Errors
-    /// - `\BernardLedit\Image\ImageException` if `$jpeg` is invalid, truncated or in an unsupported
-    ///   color space.
-    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't append the page.
-    /// - `\Exception` if the document is closed.
-    #[allow(clippy::needless_pass_by_value)]
-    pub fn append_jpeg_page(&self, jpeg: BinarySlice<u8>) -> PhpResult<()> {
-        self.with_doc_mut(|d| d.append_jpeg_page(&jpeg).map_err(|e| map_pdf_err(&e)))?
-    }
-
-    /// Append multiple JPEG pages to the document.
-    /// # Parameters
-    /// - `jpegs`: `list<string>`
-    /// # Errors
-    /// - `\BernardLedit\Image\ImageException` if one of `$jpegs` is invalid, truncated or in an
-    ///   unsupported color space.
-    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't append a page.
-    /// - `\Exception` if the document is closed.
-    #[allow(clippy::needless_pass_by_value)]
-    pub fn append_multiple_jpeg_pages(&self, jpegs: Vec<BinarySlice<u8>>) -> PhpResult<()> {
-        let vec_slices: Vec<&[u8]> = jpegs.iter().map(|jpeg| jpeg.as_ref()).collect();
-        self.with_doc_mut(|d| {
-            d.append_multiple_jpeg_pages(&vec_slices)
-                .map_err(|e| map_pdf_err(&e))
-        })
-        .flatten()
     }
 
     /// Retrieves the entire text from a document as a string.
@@ -152,26 +102,6 @@ impl PhpPdfDocument {
     /// - `\Exception` if the document is closed.
     pub fn get_text(&self) -> PhpResult<String> {
         self.with_doc(|d| d.text().map_err(|e| map_pdf_err(&e)))?
-    }
-
-    /// Append text to a page.
-    /// # Parameters
-    /// - `page_idx`: `int<0, 65535>`
-    /// - `chars`: `list<\BernardLedit\Pdf\TextChar>`
-    /// # Errors
-    /// - `\ValueError` if `$page_idx` is out of range, or there's no page `$page_idx`.
-    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't add the text.
-    /// - `\Exception` if the document is closed.
-    #[allow(clippy::needless_pass_by_value)]
-    pub fn add_text(&self, page_idx: i64, chars: Vec<&PhpTextChar>) -> PhpResult<()> {
-        let page_idx = args::page_index("page_idx", page_idx)?;
-        let contiguous_chars: Vec<TextChar> = chars.into_iter().map(Into::into).collect();
-
-        self.with_doc_mut(|d| {
-            d.add_text(page_idx.into(), contiguous_chars.as_ref())
-                .map_err(|e| map_pdf_err(&e))
-        })
-        .flatten()
     }
 
     /// Check if the document has any text.
@@ -201,6 +131,7 @@ impl PhpPdfDocument {
     /// Returns `null` when there is nothing to gain (e.g. text-only documents).
     /// # Parameters
     /// - `quality`: `int<5, 100>`
+    /// - `optimize`: `bool` Optimize JPEG Huffman tables.
     /// - `dpi`: `float` A finite number between 1 and 1200.
     /// # Errors
     /// - `\ValueError` if `$quality` or `$dpi` is out of range.
@@ -209,11 +140,16 @@ impl PhpPdfDocument {
     ///   document.
     /// - `\Exception` if the document is closed.
     #[php(defaults(quality = 85, optimize = true, dpi = 150.0))]
-    pub fn compress(&self, quality: i64, optimize: bool, dpi: f64) -> PhpResult<Option<Self>> {
-        let quality = args::quality(quality, 5)?;
+    pub fn compress_to_jpeg(
+        &self,
+        quality: i64,
+        optimize: bool,
+        dpi: f64,
+    ) -> PhpResult<Option<Self>> {
+        let quality = args::int("quality", quality, 5, 100)?;
         let dpi = args::dpi(dpi)?;
         let out = self
-            .with_doc(|d| d.compress(quality, dpi, optimize))?
+            .with_doc(|d| d.compress_to_jpeg(quality, optimize, dpi))?
             .map_err(|e| map_pdf_err(&e))?;
         Ok(out.map(Self::wrap))
     }
@@ -234,18 +170,13 @@ impl PhpPdfDocument {
         let d = g.as_ref().ok_or_else(closed_err)?;
         Ok(f(d))
     }
-
-    #[allow(clippy::significant_drop_tightening)]
-    pub(crate) fn with_doc_mut<R>(&self, f: impl FnOnce(&mut Document) -> R) -> PhpResult<R> {
-        let mut g = self.inner.lock().map_err(|_| closed_err())?;
-        let d = g.as_mut().ok_or_else(closed_err)?;
-        Ok(f(d))
-    }
 }
 
-/// Compresses PDF bytes. Returns the input unchanged if it can't be made smaller.
+/// Compresses PDF bytes by re-encoding scanned pages as JPEG. Returns the input unchanged if it
+/// can't be made smaller.
 /// # Parameters
 /// - `quality`: `int<5, 100>`
+/// - `optimize`: `bool|null` Whether to optimize JPEG Huffman tables; defaults to `true`.
 /// - `dpi`: `float|null` A finite number between 1 and 1200; 150 if `null`.
 /// # Errors
 /// - `\ValueError` if `$quality` or `$dpi` is out of range.
@@ -253,21 +184,21 @@ impl PhpPdfDocument {
 /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't be loaded, `$data` isn't a PDF it can
 ///   read, or it can't render a page or build the new document.
 #[php_function]
-#[php(name = "BernardLedit\\Pdf\\compress")]
+#[php(name = "BernardLedit\\Pdf\\compressToJpeg")]
 #[php(defaults(quality = 85, optimize = None, dpi = None))]
 #[allow(clippy::needless_pass_by_value)]
-pub fn compress(
+pub fn compress_to_jpeg(
     data: BinarySlice<u8>,
     quality: i64,
     optimize: Option<bool>,
     dpi: Option<f64>,
 ) -> PhpResult<Binary<u8>> {
-    let quality = args::quality(quality, 5)?;
+    let quality = args::int("quality", quality, 5, 100)?;
     let dpi = args::dpi(dpi.unwrap_or(150.0))?;
     super::ensure_pdfium()?;
-    let doc = Document::from_bytes(data.to_vec()).map_err(|e| map_pdf_err(&e))?;
+    let doc = Document::decode(&data).map_err(|e| map_pdf_err(&e))?;
     let Some(out) = doc
-        .compress(quality, dpi, optimize.unwrap_or(true))
+        .compress_to_jpeg(quality, optimize.unwrap_or(true), dpi)
         .map_err(|e| map_pdf_err(&e))?
     else {
         return Ok(Binary::new(data.to_vec()));
@@ -314,6 +245,6 @@ pub fn extract_from_page_ranges(
 /// Registers the internal functions in this module.
 pub fn register_functions(builder: ModuleBuilder) -> ModuleBuilder {
     builder
-        .function(wrap_function!(compress))
+        .function(wrap_function!(compress_to_jpeg))
         .function(wrap_function!(extract_from_page_ranges))
 }

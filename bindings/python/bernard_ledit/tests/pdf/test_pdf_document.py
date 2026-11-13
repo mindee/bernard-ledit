@@ -1,13 +1,17 @@
 import io
+from functools import partial
+from pathlib import Path
 
 import pytest
 
+from bernard_ledit.image import Image
 from bernard_ledit.pdf import (
     PdfDocument,
     PdfiumError,
     PdfPage,
-    TextChar,
-    compress,
+    apply_page_options,
+    compress_to_jpeg,
+    extract_from_page_ranges,
 )
 
 
@@ -17,10 +21,12 @@ def test_document_from_bytes(test_data_dir):
     assert len(doc) == 10
 
 
-def test_document_from_file_like(test_data_dir):
+def test_document_rejects_file_like_without_reading(test_data_dir):
     data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
-    doc = PdfDocument(io.BytesIO(data))
-    assert len(doc) == 1
+    stream = io.BytesIO(data)
+    with pytest.raises(TypeError):
+        PdfDocument(stream)
+    assert stream.tell() == 0
 
 
 def test_document_from_invalid_bytes():
@@ -81,12 +87,10 @@ def test_import_pages_from_self_raises(test_data_dir):
         doc.import_pages(doc, [0])
 
 
-def test_save_writes_reloadable_pdf(test_data_dir):
+def test_to_bytes_writes_reloadable_pdf(test_data_dir):
     data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
     doc = PdfDocument(data)
-    buf = io.BytesIO()
-    doc.save(buf)
-    saved = buf.getvalue()
+    saved = doc.to_bytes()
     assert saved.startswith(b"%PDF-")
     reloaded = PdfDocument(saved)
     assert len(reloaded) == len(doc)
@@ -122,50 +126,6 @@ def test_context_manager_does_not_suppress_exceptions(test_data_dir):
             _ = 1 / 0
 
 
-def test_add_text_updates_text_and_chars(test_data_dir):
-    data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
-    doc = PdfDocument(data)
-    doc.add_text(
-        0,
-        [
-            TextChar(
-                "A",
-                "Arial",
-                12.0,
-                300,
-                bounds=(0.0, 0.0, 10.0, 10.0),
-            )
-        ],
-    )
-
-    page = doc.get_page(0)
-    assert page.text() == "A"
-    chars = page.chars()
-    assert len(chars) == 1
-    assert chars[0].char == "A"
-    assert chars[0].font_name == "Helvetica"
-
-
-def test_append_jpeg_page(test_data_dir):
-    doc = PdfDocument.new()
-    jpeg_data = (test_data_dir / "file_types/receipt.jpg").read_bytes()
-    doc.append_jpeg_page(jpeg_data)
-    assert len(doc) == 1
-
-
-def test_append_jpeg_page_invalid_data():
-    doc = PdfDocument.new()
-    with pytest.raises(PdfiumError):
-        doc.append_jpeg_page(b"not a valid jpeg")
-
-
-def test_append_multiple_jpeg_pages(test_data_dir):
-    doc = PdfDocument.new()
-    jpeg_data = (test_data_dir / "file_types/receipt.jpg").read_bytes()
-    doc.append_multiple_jpeg_pages([jpeg_data, jpeg_data, jpeg_data])
-    assert len(doc) == 3
-
-
 def test_has_text_true(test_data_dir):
     data = (test_data_dir / "file_types/pdf/multipage.pdf").read_bytes()
     doc = PdfDocument(data)
@@ -178,32 +138,33 @@ def test_has_text_false(test_data_dir):
     assert doc.has_text() is False
 
 
-def test_rasterize_page_returns_jpeg_bytes(test_data_dir):
+def test_page_render_returns_image(test_data_dir):
     data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
     doc = PdfDocument(data)
 
-    jpeg_bytes = doc.rasterize_page(0, 85)
+    image = doc.get_page(0).render()
 
-    assert isinstance(jpeg_bytes, bytes)
-    assert len(jpeg_bytes) > 0
-    assert jpeg_bytes.startswith(b"\xff\xd8")
+    assert isinstance(image, Image)
+    assert image.size[0] > 0
+    assert image.size[1] > 0
+    assert image.encode("JPEG").startswith(b"\xff\xd8")
 
 
-def test_rasterize_page_out_of_bounds_raises(test_data_dir):
+def test_page_render_out_of_bounds_raises(test_data_dir):
     data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
     doc = PdfDocument(data)
 
     with pytest.raises(IndexError, match="Page index 99 out of bounds"):
-        doc.rasterize_page(99, 85)
+        doc.get_page(99).render()
 
 
-def test_rasterize_page_fails_on_closed_doc(test_data_dir):
+def test_page_render_fails_on_closed_doc(test_data_dir):
     data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
     doc = PdfDocument(data)
     doc.close()
 
     with pytest.raises(RuntimeError):
-        doc.rasterize_page(0, 85)
+        doc.get_page(0).render()
 
 
 def test_document_getitem_returns_page(test_data_dir):
@@ -246,23 +207,33 @@ def test_document_iteration_empty():
     assert len(pages) == 0
 
 
-def test_document_from_str_path(test_data_dir):
-    path_str = str(test_data_dir / "file_types/pdf/blank.pdf")
-    doc = PdfDocument(path_str)
-    assert len(doc) == 10
+@pytest.mark.parametrize(
+    "operation",
+    [
+        PdfDocument,
+        compress_to_jpeg,
+        partial(extract_from_page_ranges, page_indexes=[[0]]),
+        partial(
+            apply_page_options,
+            operation="KEEP_ONLY",
+            on_min_pages=0,
+            page_indexes=[0],
+        ),
+    ],
+)
+@pytest.mark.parametrize("path_type", [str, Path])
+def test_pdf_operations_reject_paths(test_data_dir, operation, path_type):
+    path = path_type(test_data_dir / "file_types/pdf/blank_1.pdf")
+    with pytest.raises(TypeError):
+        operation(path)
 
 
-def test_document_from_pathlib_path(test_data_dir):
-    path_obj = test_data_dir / "file_types/pdf/blank_1.pdf"
-    doc = PdfDocument(path_obj)
-    assert len(doc) == 1
-
-
-def test_document_from_nonexistent_path():
-    with pytest.raises(
-        OSError, match=r"Failed to read this_file_does_not_exist_xyz\.pdf:.*"
-    ):
-        PdfDocument("this_file_does_not_exist_xyz.pdf")
+def test_compress_rejects_file_like_without_reading(test_data_dir):
+    data = (test_data_dir / "file_types/pdf/multipage.pdf").read_bytes()
+    stream = io.BytesIO(data)
+    with pytest.raises(TypeError):
+        compress_to_jpeg(stream)
+    assert stream.tell() == 0
 
 
 def test_document_has_no_content_true():
@@ -276,34 +247,12 @@ def test_document_has_no_content_false(test_data_dir):
     assert doc.has_no_content() is False
 
 
-def test_save_(test_data_dir):
-    data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
-    doc = PdfDocument(data)
-    with io.BytesIO() as buf:
-        doc.save(buf)
-        saved = buf.getvalue()
-        assert saved.startswith(b"%PDF-")
-
-
-def test_save_to_path(test_data_dir, tmp_path):
-    data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
-    doc = PdfDocument(data)
-
-    file_path = tmp_path / "save_to_file.pdf"
-
-    doc.save_to_file(file_path)
-
-    with open(file_path, "rb") as f:
-        saved = f.read()
-        assert saved.startswith(b"%PDF-")
-
-
 def test_compress_text_pdf_is_noop(test_data_dir):
     data = (test_data_dir / "file_types/pdf/multipage.pdf").read_bytes()
-    assert compress(data, quality=85) == data
+    assert compress_to_jpeg(data, quality=85) == data
 
     with PdfDocument(data) as doc:
-        assert doc.compress() is None
+        assert doc.compress_to_jpeg() is None
 
 
 def test_document_iterator_stays_exhausted_after_append(test_data_dir):

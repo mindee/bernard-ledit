@@ -1,5 +1,3 @@
-use crate::pdf::PdfError;
-
 /// Errors that can occur when decoding or encoding images.
 #[derive(Debug, thiserror::Error)]
 pub enum ImageError {
@@ -22,10 +20,6 @@ pub enum ImageError {
     /// Image is less than 4 bytes, making it too small to be a valid image.
     #[error("not enough data to determine image format")]
     NotEnoughData,
-
-    /// Filter is not supported.
-    #[error("unknown resize filter: {0}")]
-    UnknownFilter(String),
 
     /// Image is too small to be resized.
     #[error(
@@ -59,17 +53,17 @@ pub enum ImageError {
         height: u32,
     },
 
-    /// Successive quality values applied to compression operation are too low.
-    #[error("successive quality values applied to compression operation are too low: {quality}")]
+    /// Successive JPEG quality values applied to compression operation are too low.
+    #[error(
+        "successive JPEG quality values applied to compression operation are too low: {jpeg_quality}"
+    )]
     ProgressiveQualityTooLow {
-        /// Quality applied to compression.
-        quality: u8,
+        /// JPEG quality applied to compression.
+        jpeg_quality: u8,
     },
 
-    /// Compression somehow returned a bigger object than the input.
-    #[error(
-        "compression returned a bigger object than the input: {compressed_size} > {initial_size}"
-    )]
+    /// JPEG compression did not make the image smaller than its input.
+    #[error("compression did not reduce the image size: {compressed_size} >= {initial_size}")]
     SizeIncreased {
         /// Initial byte sequence size.
         initial_size: usize,
@@ -81,16 +75,10 @@ pub enum ImageError {
 /// Errors related to image extraction.
 #[derive(Debug, thiserror::Error)]
 pub enum ImageExtractError {
-    /// Errors related to image extraction in PDFs.
-    #[error(transparent)]
-    Pdf(#[from] PdfError),
     /// Errors related to image extraction in images.
     #[error(transparent)]
     Image(#[from] ImageError),
-    /// Page does not exist (single images only have page 0).
-    #[error("Page index {0} out of bounds (an image has 1 page)")]
-    PageOutOfRange(u16),
-    /// Polygon is empty or falls outside the page.
-    #[error("polygon {0} is empty or falls outside the page")]
-    EmptyPolygon(usize),
+    /// Polygon is empty or falls outside the image.
+    #[error("polygon is empty or falls outside the image")]
+    EmptyPolygon(),
 }

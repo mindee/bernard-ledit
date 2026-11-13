@@ -7,9 +7,7 @@ use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/config.php';
 
-use function BernardLedit\Image\extractFromPolygons;
-
-final class ExtractPolygonsTest extends TestCase
+final class CropPolygonTest extends TestCase
 {
     private const FULL = [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]];
     private const QUARTER = [[0.0, 0.0], [0.5, 0.0], [0.5, 0.5], [0.0, 0.5]];
@@ -22,8 +20,8 @@ final class ExtractPolygonsTest extends TestCase
     public function testFullPagePolygonKeepsSize(): void
     {
         $bytes = $this->loadFileContents('receipt.jpg');
-        [$img] = extractFromPolygons($bytes, 0, [self::FULL]);
         $source = new \BernardLedit\Image\Image($bytes);
+        $img = $source->cropPolygon(self::FULL);
         $this->assertSame($source->getWidth(), $img->getWidth());
         $this->assertSame($source->getHeight(), $img->getHeight());
         $this->assertSame('JPEG', $img->getFormat());
@@ -33,46 +31,29 @@ final class ExtractPolygonsTest extends TestCase
     {
         $bytes = $this->loadFileContents('receipt.jpg');
         $source = new \BernardLedit\Image\Image($bytes);
-        [$img] = extractFromPolygons($bytes, 0, [self::QUARTER]);
+        $img = $source->cropPolygon(self::QUARTER);
         $this->assertEqualsWithDelta($source->getWidth() / 2, $img->getWidth(), 1);
         $this->assertEqualsWithDelta($source->getHeight() / 2, $img->getHeight(), 1);
     }
 
-    public function testOneImagePerPolygon(): void
+    public function testCanCropMultiplePolygonsIndependently(): void
     {
-        $images = extractFromPolygons($this->loadFileContents('receipt.jpg'), 0, [self::FULL, self::QUARTER]);
-        $this->assertCount(2, $images);
-    }
-
-    public function testFromPdfIsJpeg(): void
-    {
-        $pdf = $this->loadFileContents('pdf/multipage.pdf');
-        [$img] = extractFromPolygons($pdf, 0, [self::FULL]);
-        $this->assertSame('JPEG', $img->getFormat());
-        $this->assertGreaterThan(0, $img->getWidth());
-    }
-
-    public function testImagePageOutOfRangeThrows(): void
-    {
-        $this->expectException(\ValueError::class);
-        extractFromPolygons($this->loadFileContents('receipt.jpg'), 1, [self::FULL]);
+        $image = new \BernardLedit\Image\Image($this->loadFileContents('receipt.jpg'));
+        $crops = [$image->cropPolygon(self::FULL), $image->cropPolygon(self::QUARTER)];
+        $this->assertCount(2, $crops);
     }
 
     public function testEmptyPolygonThrows(): void
     {
         $this->expectException(\ValueError::class);
-        extractFromPolygons($this->loadFileContents('receipt.jpg'), 0, [[]]);
+        $image = new \BernardLedit\Image\Image($this->loadFileContents('receipt.jpg'));
+        $image->cropPolygon([]);
     }
 
     public function testMalformedPointThrows(): void
     {
         $this->expectException(\ValueError::class);
-        extractFromPolygons($this->loadFileContents('receipt.jpg'), 0, [[[0.0, 0.0, 0.0]]]);
-    }
-
-    public function testGarbageThrows(): void
-    {
-        $this->expectException(\BernardLedit\Image\ImageException::class);
-        extractFromPolygons('not an image', 0, [self::FULL]);
+        $image = new \BernardLedit\Image\Image($this->loadFileContents('receipt.jpg'));
+        $image->cropPolygon([[0.0, 0.0, 0.0]]);
     }
 }

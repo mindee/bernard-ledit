@@ -111,7 +111,7 @@ mod tests {
 
         let fixed = fix_pdf(&data, 500).unwrap();
         assert_eq!(fixed, pdf);
-        let doc = Document::from_bytes(fixed.to_vec()).unwrap();
+        let doc = Document::decode(&fixed).unwrap();
         assert_eq!(doc.page_count().unwrap(), 12);
     }
 }

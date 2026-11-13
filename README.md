@@ -20,21 +20,20 @@ audited implementation.
 - [Features](#features)
 - [Architecture](#architecture)
 - [Python binding](#python-binding)
-    - [Installation](#installation)
-    - [Image API](#image-api)
-    - [PDF API](#pdf-api)
-    - [Geometry API](#geometry-api-deprecated)
+  - [Installation](#installation)
+  - [Image API](#image-api)
+  - [PDF API](#pdf-api)
+  - [Geometry API](#geometry-api-deprecated)
 - [PHP binding](#php-binding)
 - [PDFium: dynamic and static builds](#pdfium-dynamic-and-static-builds)
 - [Development](#development)
-    - [Prerequisites](#prerequisites)
-    - [Build](#build)
-    - [Test](#test)
-    - [Lint](#lint)
-    - [CI](#ci)
+  - [Prerequisites](#prerequisites)
+  - [Build](#build)
+  - [Test](#test)
+  - [Lint](#lint)
+  - [CI](#ci)
 - [Bindings](#bindings)
 - [Thread safety](#thread-safety)
-- [Third-party notices](#third-party-notices)
 - [License](#license)
 
 ---
@@ -42,9 +41,9 @@ audited implementation.
 ## Features
 
 | Area         | Capabilities                                                                                                                                                                                        |
-|--------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Image**    | Decode (JPEG, PNG, TIFF, WebP, BMP, GIF, …), crop, resize, encode, compress, save to path or buffer, extract polygon crops from images and PDF pages                                                |
-| **PDF**      | Load, split, merge, rasterise pages to JPEG, embed images, extract text and character metadata, add text overlays, compress scans, extract sub-documents, apply page options, repair broken headers |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Image**    | Decode (JPEG, PNG, TIFF, WebP, BMP, GIF, …), crop, resize, encode, compress to JPEG, save to path or buffer, extract polygon crops from images and PDF pages                                         |
+| **PDF**      | Load, split, merge, rasterise pages to images, embed images, extract text and character metadata, compress scans, extract sub-documents, apply page options, repair broken headers |
 | **Geometry** | Point and polygon primitives, currently not in use.                                                                                                                                                 |
 
 ---
@@ -69,7 +68,7 @@ bernard-ledit/
 │   ├── nodejs/
 │   └── ruby/
 ├── tools/
-│   └── pdfium-static/      # Builds, namespaces and downloads static PDFium libraries
+│   └── pdfium-static/      # Builds and downloads static PDFium libraries
 └── .github/workflows/      # CI, see below
 ```
 
@@ -88,14 +87,21 @@ pip install bernard-ledit
 
 The wheel bundles the compiled Rust extension and pdfium – no system dependencies required.
 
+Document and image inputs must be `bytes`, not paths or file-like objects. The calling application
+handles all file and stream I/O, including writing returned bytes.
+
 ### Image API
 
 ```python
-from bernard_ledit.image import Image, guess_format, compress, extract_from_polygons
+import io
+from pathlib import Path
+
+from bernard_ledit.common import format_from_extension
+from bernard_ledit.image import Image, guess_format
 
 # --- load ---
-# Accepts bytes or any binary file-like object (BytesIO, BufferedReader, …)
-img = Image(open("photo.jpg", "rb"))
+# Accepts bytes only; the calling application handles file I/O.
+img = Image(Path("photo.jpg").read_bytes())
 img = Image(b"\xff\xd8\xff...")
 print(img)  # Image(1920x1080, format:JPEG)
 print(img.size)  # (1920, 1080)
@@ -106,42 +112,35 @@ cropped = img.crop(left=0, top=0, right=960, bottom=540)
 resized = img.resize(640, 360)  # exact size, Lanczos filter
 
 # --- encode ---
-jpeg_bytes = img.encode("JPEG", quality=85)  # optimize=True by default (mozjpeg)
+jpeg_bytes = img.encode("JPEG", jpeg_quality=85, jpeg_optimize=True)
 png_bytes = img.encode("PNG")
 pdf_bytes = img.encode("PDF")  # single-page PDF via DCTDecode
+# JPEG Huffman tables are optimized by default; pass jpeg_optimize=False to disable.
 
 # --- save ---
-img.save("out.jpg")  # format inferred from extension
-img.save(pathlib.Path("out.png"))
-img.save(buffer, format="JPEG")  # write to any writable buffer
-img.save("out.pdf", format="PDF")  # force PDF regardless of extension
+Path("out.jpg").write_bytes(img.encode(format_from_extension("jpg")))
+Path("out.png").write_bytes(img.encode(format_from_extension("png")))
+buffer = io.BytesIO()
+buffer.write(img.encode("JPEG"))
+Path("out.pdf").write_bytes(img.encode(format_from_extension("pdf")))
 
 # --- helpers ---
 fmt = guess_format(data)  # "JPEG" | "PNG" | "TIFF" | …
 
-# --- compress ---
-# Re-encodes as JPEG and returns bytes. If the result would not be smaller than
-# the input (and no downscale was requested), the input is returned unchanged.
-out = compress(
-    data,
+# --- compress to JPEG ---
+# Re-encodes as JPEG. If dimensions are unchanged and the output isn't smaller
+# than the source, raises ImageError.
+out = img.compress_to_jpeg(
     quality=85,
+    optimize=True,
     max_width=1024,  # aspect-preserving downscale, never upscales
     max_height=1024,
-    optimize=True,
 )
-# The method form returns None instead when there is nothing to gain.
-out = Image(data).compress(quality=85)
 
-# --- extract crops ---
-# `data` is an image or a PDF. Polygons are lists of normalized (x, y) points (0..1);
-# each crop is the polygon's bounding box. Returns one Image per polygon.
-crops = extract_from_polygons(
-    data,
-    page_id=0,
-    polygons=[[(0.1, 0.1), (0.5, 0.1), (0.5, 0.4), (0.1, 0.4)]],
-    dpi=72.0,  # PDF rendering resolution
-)
-crops[0].save("crop.jpg")
+# --- crop by polygon ---
+# Polygon points are normalized (x, y) coordinates (0..1).
+crop = img.crop_polygon([(0.1, 0.1), (0.5, 0.1), (0.5, 0.4), (0.1, 0.4)])
+Path("crop.jpg").write_bytes(crop.encode(format_from_extension("jpg")))
 ```
 
 Supported encode formats: `JPEG`, `PNG`, `PDF`, `TIFF`, `WEBP`, `BMP`, `GIF`, `AVIF`, `ICO`, `QOI`, `TGA`, `PNM`,
@@ -150,63 +149,51 @@ Supported encode formats: `JPEG`, `PNG`, `PDF`, `TIFF`, `WEBP`, `BMP`, `GIF`, `A
 ### PDF API
 
 ```python
+import io
+from pathlib import Path
+
 from bernard_ledit.pdf import PdfDocument
 
 # --- load ---
-doc = PdfDocument(open("document.pdf", "rb"))  # also accepts bytes or path
+doc = PdfDocument(Path("document.pdf").read_bytes())
 doc = PdfDocument(b"...")
-doc = PdfDocument("/path/to/file.pdf")
 
 # context-manager (auto-close)
-with PdfDocument("document.pdf") as doc:
+with PdfDocument(Path("document.pdf").read_bytes()) as doc:
     print(len(doc))  # page count
     page = doc[0]  # or doc.get_page(0)
-    print(page.get_size())  # PageSize(width=595.0, height=842.0)
     print(page.text())  # extracted text
-    print(page.chars())  # list[TextChar] with font/bounds metadata
-    print(page.rotation())  # 0 | 90 | 180 | 270
-    bitmap = page.render_to_bitmap(scale=2.0)  # PdfBitmap at 2× scale (was page.render)
-    png_bytes = bitmap.to_png_bytes()
+    image = page.render(scale=2.0)  # Image at 2× scale
+    png_bytes = image.encode("PNG")
 
-# --- rasterise a page to JPEG ---
-jpeg_bytes = doc.rasterize_page(page_index=0, quality=85)
+# --- rasterise a page to an image ---
+rasterized_image = doc.get_page(0).render()
+jpeg_bytes = rasterized_image.encode("JPEG", jpeg_quality=85)
 
 # --- split / merge ---
-a = PdfDocument("a.pdf")
-b = PdfDocument("b.pdf")
+a = PdfDocument(Path("a.pdf").read_bytes())
+b = PdfDocument(Path("b.pdf").read_bytes())
 out = PdfDocument.new()
 out.import_pages(a, [0, 1])
 out.import_pages(b, [0])
 
 buf = io.BytesIO()
-out.save(buf)
-out.save_to_file("merged.pdf")
+buf.write(out.to_bytes())
 
-# --- embed images ---
-doc = PdfDocument.new()
-doc.append_jpeg_page(jpeg_bytes)
-doc.append_multiple_jpeg_pages([jpeg1, jpeg2])
-
-# --- overlay text ---
-from bernard_ledit.pdf import TextChar
-
-chars = [TextChar(char="A", font_name="Helvetica", font_size=12.0,
-                  font_weight=400, bounds=(50.0, 100.0, 62.0, 112.0))]
-doc.add_text(page_idx=0, chars=chars)
 ```
 
 ```python
 from bernard_ledit.pdf import (
-    PdfDocument, compress, extract_from_page_ranges, fix_pdf, apply_page_options,
+    PdfDocument, compress_to_jpeg, extract_from_page_ranges, fix_pdf, apply_page_options,
 )
 
-# --- compress ---
+# --- compress to JPEG ---
 # Only pages without a text layer (scans) are rasterised and re-encoded as JPEG.
 # Returns the input unchanged if the result would not be smaller.
-smaller = compress(pdf_bytes, quality=85, optimize=True, dpi=150.0)
+smaller = compress_to_jpeg(pdf_bytes, quality=85, optimize=True, dpi=150.0)
 # The method form returns a new PdfDocument, or None when there is nothing to gain.
 with PdfDocument(pdf_bytes) as doc:
-    result = doc.compress(quality=85)
+    result = doc.compress_to_jpeg(quality=85, optimize=True, dpi=150.0)
 
 # --- extract sub-documents ---
 # `data` is a PDF or an image (treated as a one-page document).
@@ -281,18 +268,17 @@ PDFium comes from [bblanchon/pdfium-binaries](https://github.com/bblanchon/pdfiu
 `core/pdfium-release`](core/pdfium-release). Builds use it in one of two ways:
 
 |                   | Dynamic (default)                                                                                                       | Static                                                                                                                                        |
-|-------------------|-------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Used for**      | Development and tests                                                                                                   | Released packages                                                                                                                             |
 | **How**           | `core/build.rs` downloads the shared library into `core/.pdfium_cache`; the binding loads it at runtime (`PDFIUM_PATH`) | PDFium is linked into the binding at build time: `PDFIUM_STATIC_LIB_PATH` points to the library, and a static feature selects the C++ runtime |
 | **Cargo feature** | none                                                                                                                    | `static-pdfium` (Linux, libstdc++), `static-pdfium-libcxx` (macOS, libc++), `static-pdfium-msvc` (Windows)                                    |
 
 Static libraries are prebuilt by [`build-static-pdfium.yml`](.github/workflows/build-static-pdfium.yml) and published,
 each with a `.sha256` checksum, to the `pdfium-static-<release>` GitHub release of this repository (e.g.
-`pdfium-static-chromium_8076`). PDFium's bundled libjpeg-turbo symbols are renamed with a `bernard_pdfium_` prefix, so
-they cannot clash with mozjpeg.
+`pdfium-static-chromium_8076`). Each target's archive is published with its corresponding license bundle.
 
 | Target              | For                                        |
-|---------------------|--------------------------------------------|
+| ------------------- | ------------------------------------------ |
 | `linux-x64-glibc`   | Linux x86_64, glibc 2.35+                  |
 | `linux-arm64-glibc` | Linux arm64, glibc 2.35+                   |
 | `linux-x64-musl`    | Alpine x86_64                              |
@@ -321,11 +307,11 @@ PDFIUM_OS=linux PDFIUM_CPU=x64 bash tools/pdfium-static/build.sh
 ### Prerequisites
 
 | Tool                                                     | Purpose                                     |
-|----------------------------------------------------------|---------------------------------------------|
+| -------------------------------------------------------- | ------------------------------------------- |
 | Rust 1.99.0 (pinned in `rust-toolchain.toml`)            | Core + all bindings                         |
 | Rust nightly                                             | PHP binding on Windows only (ext-php-rs)    |
 | [just](https://github.com/casey/just)                    | Task runner                                 |
-| A C compiler + cmake + nasm                              | mozjpeg (bundled, built from source)        |
+| A C compiler + cmake + nasm                              | Building static PDFium libraries            |
 | [maturin](https://github.com/PyO3/maturin)               | Build Python wheels                         |
 | Python ≥ 3.9 + virtualenv                                | Python binding tests                        |
 | PHP ≥ 8.1 with its dev headers (`php-config`) + Composer | PHP binding build and tests                 |
@@ -378,7 +364,7 @@ just php stubs-check       # fails if the committed PHP stubs are out of date
 ### CI
 
 | Workflow                           | What it does                                                                                                              |
-|------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `pull-request.yml`, `main-dev.yml` | Entry points: run the unit tests, binding tests and linters                                                               |
 | `build-static-pdfium.yml`          | Builds and publishes any missing static PDFium library, then runs `_php-static-check.yml` against the published libraries |
 | `_php-static-check.yml`            | Builds and tests the PHP extension with static PDFium: PHP 8.1 – 8.5, ZTS and NTS, on every target with a PHP build       |
@@ -388,7 +374,7 @@ just php stubs-check       # fails if the committed PHP stubs are out of date
 ## Bindings
 
 | Language | Crate / Package        | Status                                             |
-|----------|------------------------|----------------------------------------------------|
+| -------- | ---------------------- | -------------------------------------------------- |
 | Python   | `bernard-ledit` (PyPI) | ✅ Active                                          |
 | PHP      | `bindings/php`         | ✅ Active, used by the PHP SDK; PIE release coming |
 | Java     | `bindings/java`        | 🚧 In progress (geometry)                          |
@@ -400,18 +386,11 @@ just php stubs-check       # fails if the committed PHP stubs are out of date
 
 ## Thread safety
 
-All pdfium rendering and mozjpeg encoding calls are serialized behind process-wide mutexes.
+PDFium rendering calls are serialized by a process-wide mutex.
 The Python GIL additionally protects single-threaded callers.
 
 **Safe:** single-threaded Python, Python `threading` (GIL held in Rust), separate `multiprocessing` workers.  
 **Avoid:** `os.fork()` after a `PdfDocument` has been opened in the parent process.
-
----
-
-## Third-party notices
-
-This distribution bundles mozjpeg (libjpeg-turbo + IJG). See [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES) for the full
-attribution text required by their licenses.
 
 ---
 

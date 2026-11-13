@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
+use BernardLedit\Image\Image;
 use BernardLedit\Pdf\PdfDocument;
 use BernardLedit\Pdf\PdfiumException;
 
@@ -83,10 +84,10 @@ final class PdfDocumentTest extends TestCase
         $doc->importPages($doc, [0]);
     }
 
-    public function testSaveReturnsReloadablePdfBytes(): void
+    public function testToBytesReturnsReloadablePdfBytes(): void
     {
         $doc = new PdfDocument(self::pdf('blank_1.pdf'));
-        $saved = $doc->asBytes();
+        $saved = $doc->toBytes();
 
         self::assertStringStartsWith('%PDF-', $saved);
 
@@ -101,7 +102,7 @@ final class PdfDocumentTest extends TestCase
         self::assertNotFalse($path);
 
         try {
-            file_put_contents($path, $doc->asBytes());
+            file_put_contents($path, $doc->toBytes());
             $bytes = file_get_contents($path);
             self::assertStringStartsWith('%PDF-', $bytes);
 
@@ -129,33 +130,6 @@ final class PdfDocumentTest extends TestCase
         self::assertTrue(true); // No exception = pass.
     }
 
-    public function testAppendJpegPage(): void
-    {
-        $doc = PdfDocument::create();
-        $jpeg = file_get_contents(self::FIXTURES . '/receipt.jpg');
-
-        $doc->appendJpegPage($jpeg);
-
-        self::assertSame(1, $doc->getPageCount());
-    }
-
-    public function testAppendJpegPageInvalidDataThrows(): void
-    {
-        $doc = PdfDocument::create();
-        $this->expectException(\BernardLedit\Image\ImageException::class);
-        $doc->appendJpegPage('not a valid jpeg');
-    }
-
-    public function testAppendMultipleJpegPages(): void
-    {
-        $doc = PdfDocument::create();
-        $jpeg = file_get_contents(self::FIXTURES . '/receipt.jpg');
-
-        $doc->appendMultipleJpegPages([$jpeg, $jpeg, $jpeg]);
-
-        self::assertSame(3, $doc->getPageCount());
-    }
-
     public function testHasTextTrue(): void
     {
         $doc = new PdfDocument(self::pdf('multipage.pdf'));
@@ -180,46 +154,31 @@ final class PdfDocumentTest extends TestCase
         self::assertFalse($doc->hasNoContent());
     }
 
-    public function testRasterizePageReturnsJpegBytes(): void
+    public function testPageRenderReturnsImage(): void
     {
         $doc = new PdfDocument(self::pdf('blank_1.pdf'));
-        $jpeg = $doc->rasterizePageToJpegBytes(0, 85);
+        $image = $doc->getPage(0)->render();
 
-        self::assertGreaterThan(0, strlen($jpeg));
-        self::assertSame("\xFF\xD8", substr($jpeg, 0, 2));
+        self::assertInstanceOf(Image::class, $image);
+        self::assertGreaterThan(0, $image->getWidth());
+        self::assertGreaterThan(0, $image->getHeight());
+        self::assertSame("\xFF\xD8", substr($image->encode('JPEG'), 0, 2));
     }
 
-    public function testRasterizePageOutOfBoundsThrowsValueError(): void
+    public function testPageRenderOutOfBoundsThrowsValueError(): void
     {
         $doc = new PdfDocument(self::pdf('blank_1.pdf'));
         $this->expectException(\ValueError::class);
-        $doc->rasterizePageToJpegBytes(99, 85);
+        $doc->getPage(99)->render();
     }
 
-    public function testRasterizePageOnClosedDocumentThrows(): void
+    public function testPageRenderOnClosedDocumentThrows(): void
     {
         $doc = new PdfDocument(self::pdf('blank_1.pdf'));
         $doc->close();
 
         $this->expectException(\Exception::class);
-        $doc->rasterizePageToJpegBytes(0, 85);
+        $doc->getPage(0)->render();
     }
 
-    public function testAddTextUpdatesTextAndChars(): void
-    {
-        $doc = new PdfDocument(self::pdf('blank_1.pdf'));
-        $char = new \BernardLedit\Pdf\TextChar('A', 'Arial', 12.0, 300, null, null, 0, [0.0, 0.0, 10.0, 10.0]);
-
-        $doc->addText(0, [$char]);
-
-        $page = $doc->getPage(0);
-        self::assertSame('A', $page->getText());
-
-        $chars = $page->getChars();
-        self::assertCount(1, $chars);
-        self::assertInstanceOf(\BernardLedit\Pdf\TextChar::class, $chars[0]);
-        self::assertSame('A', (string) $chars[0]);
-        $debug = $chars[0]->__debugInfo();
-        self::assertSame('Helvetica', $debug['font_name']);
-    }
 }

@@ -24,11 +24,11 @@ def test_apply_page_options_valid_remove(test_data_dir):
     assert doc.get_page(0) is not None
 
 
-def test_apply_page_options_with_binary_io(test_data_dir):
+def test_apply_page_options_rejects_binary_io_without_reading(test_data_dir):
     with open(test_data_dir / "file_types/pdf/multipage.pdf", "rb") as f:
-        doc, skipped = apply_page_options(f, KEEP, on_min_pages=1, page_indexes=[0])
-
-    assert doc is not None
+        with pytest.raises(TypeError):
+            apply_page_options(f, KEEP, on_min_pages=1, page_indexes=[0])
+        assert f.tell() == 0
 
 
 def test_apply_page_options_min_pages_threshold(test_data_dir):

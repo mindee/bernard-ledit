@@ -1,10 +1,9 @@
 import io
-import os
 
 import pytest
 
 import bernard_ledit.image as bl_image
-from bernard_ledit.image import Image, compress, guess_format
+from bernard_ledit.image import Image, guess_format
 
 ImageError = getattr(
     bl_image, "ImageError", getattr(bl_image, "PyImageError", Exception)
@@ -29,38 +28,28 @@ def tiff_bytes(test_data_dir):
     return (test_data_dir / "file_types/receipt.tiff").read_bytes()
 
 
-def test_compress_png(png_bytes):
-    compressed = compress(png_bytes, quality=85, optimize=True)
+def test_image_compress_to_jpeg_png(png_bytes):
+    compressed = Image(png_bytes).compress_to_jpeg(quality=85, optimize=True)
     assert isinstance(compressed, bytes)
     assert 0 < len(compressed) < len(png_bytes)
 
 
-def test_compress_jpg(jpg_bytes):
-    compressed = compress(jpg_bytes, quality=85, optimize=True)
+def test_image_compress_to_jpeg_jpg(jpg_bytes):
+    compressed = Image(jpg_bytes).compress_to_jpeg(quality=85, optimize=True)
     assert isinstance(compressed, bytes)
     assert 0 < len(compressed) < len(jpg_bytes)
 
 
-def test_compress_png_shrinks(png_bytes):
-    out = compress(png_bytes, quality=85)
+def test_image_compress_to_jpeg_png_shrinks(png_bytes):
+    out = Image(png_bytes).compress_to_jpeg(quality=85)
     assert len(out) <= len(png_bytes)
     assert Image(out).format == "JPEG"
 
 
-def test_compress_with_bounds_always_resizes(jpg_bytes):
-    out = compress(jpg_bytes, max_width=100, max_height=100)
+def test_image_compress_to_jpeg_with_bounds_always_resizes(jpg_bytes):
+    out = Image(jpg_bytes).compress_to_jpeg(max_width=100, max_height=100)
     width, height = Image(out).size
     assert width <= 100 and height <= 100
-
-
-def test_compress_accepts_file_like(jpg_bytes):
-    out = compress(io.BytesIO(jpg_bytes), quality=85)
-    assert isinstance(out, bytes)
-
-
-def test_compress_garbage_errors():
-    with pytest.raises(ImageError):
-        compress(b"not an image")
 
 
 @pytest.mark.parametrize(
@@ -74,13 +63,22 @@ def test_decode_records_format(request, fixture, expected):
     assert width > 0 and height > 0
 
 
-def test_constructor_accepts_file_like(jpg_bytes):
-    assert Image(io.BytesIO(jpg_bytes)).size == Image(jpg_bytes).size
+def test_constructor_rejects_file_like_without_reading(jpg_bytes):
+    stream = io.BytesIO(jpg_bytes)
+    with pytest.raises(TypeError):
+        Image(stream)
+    assert stream.tell() == 0
 
 
 def test_constructor_garbage_errors():
     with pytest.raises(ImageError):
         Image(b"\xde\xad\xbe\xef")
+
+
+def test_to_bytes_returns_bytes(jpg_bytes):
+    encoded = Image(jpg_bytes).to_bytes()
+    assert isinstance(encoded, bytes)
+    assert encoded
 
 
 def test_constructor_empty_errors():
@@ -164,7 +162,7 @@ def test_resize_zero_dimension_errors(jpg_bytes, width, height):
 
 
 def test_encode_jpeg_magic_bytes(png_bytes):
-    out = Image(png_bytes).encode("JPEG", quality=85)
+    out = Image(png_bytes).encode("JPEG", jpeg_quality=85)
     assert isinstance(out, bytes)
     assert out.startswith(JPEG_MAGIC)
 
@@ -187,23 +185,16 @@ def test_encode_pdf_produces_single_page_pdf(jpg_bytes):
 
 def test_encode_jpeg_roundtrip_keeps_size(png_bytes):
     img = Image(png_bytes)
-    reloaded = Image(img.encode("JPEG", quality=90))
+    reloaded = Image(img.encode("JPEG", jpeg_quality=90))
     assert reloaded.size == img.size
     assert reloaded.format == "JPEG"
 
 
-def test_encode_lower_quality_is_not_larger(jpg_bytes):
+def test_encode_lower_jpeg_quality_is_not_larger(jpg_bytes):
     img = Image(jpg_bytes)
-    high = img.encode("JPEG", quality=95, optimize=False)
-    low = img.encode("JPEG", quality=20, optimize=False)
+    high = img.encode("JPEG", jpeg_quality=95)
+    low = img.encode("JPEG", jpeg_quality=20)
     assert len(low) <= len(high)
-
-
-def test_encode_optimize_is_not_larger(jpg_bytes):
-    img = Image(jpg_bytes)
-    plain = img.encode("JPEG", quality=85, optimize=False)
-    optimized = img.encode("JPEG", quality=85, optimize=True)
-    assert len(optimized) <= len(plain)
 
 
 def test_encode_unknown_format_errors(jpg_bytes):
@@ -211,82 +202,15 @@ def test_encode_unknown_format_errors(jpg_bytes):
         Image(jpg_bytes).encode("not-a-format")
 
 
-@pytest.mark.parametrize("quality", [0, 101])
-def test_encode_jpeg_invalid_quality_errors(jpg_bytes, quality):
+@pytest.mark.parametrize("jpeg_quality", [0, 101])
+def test_encode_jpeg_invalid_jpeg_quality_errors(jpg_bytes, jpeg_quality):
     with pytest.raises(ImageError):
-        Image(jpg_bytes).encode("JPEG", quality=quality)
+        Image(jpg_bytes).encode("JPEG", jpeg_quality=jpeg_quality)
 
 
-def test_encode_pdf_invalid_quality_errors(jpg_bytes):
+def test_encode_pdf_invalid_jpeg_quality_errors(jpg_bytes):
     with pytest.raises(ImageError):
-        Image(jpg_bytes).encode("PDF", quality=0)
-
-
-@pytest.mark.parametrize(
-    "name, magic",
-    [
-        ("out.png", PNG_MAGIC),
-        ("out.jpg", JPEG_MAGIC),
-        ("out.jpeg", JPEG_MAGIC),
-        ("out.pdf", b"%PDF-"),
-    ],
-)
-def test_save_to_path_infers_format_from_extension(jpg_bytes, tmp_path, name, magic):
-    dest = tmp_path / name
-    Image(jpg_bytes).save(str(dest))
-    assert dest.read_bytes().startswith(magic)
-
-
-def test_save_tif_extension_maps_to_tiff(jpg_bytes, tmp_path):
-    dest = tmp_path / "out.tif"
-    Image(jpg_bytes).save(dest)
-    assert Image(dest.read_bytes()).format == "TIFF"
-
-
-def test_save_accepts_pathlike(jpg_bytes, tmp_path):
-    dest = tmp_path / "out.png"
-    Image(jpg_bytes).save(dest)  # pathlib.Path implements os.PathLike
-    assert os.path.getsize(dest) > 0
-
-
-def test_save_explicit_format_overrides_extension(jpg_bytes, tmp_path):
-    dest = tmp_path / "out.jpg"
-    Image(jpg_bytes).save(dest, format="PNG")
-    assert dest.read_bytes().startswith(PNG_MAGIC)
-
-
-def test_save_to_buffer_uses_image_format(png_bytes):
-    buf = io.BytesIO()
-    Image(png_bytes).save(buf)
-    assert buf.getvalue().startswith(PNG_MAGIC)
-
-
-def test_save_to_buffer_with_explicit_format(png_bytes):
-    buf = io.BytesIO()
-    Image(png_bytes).save(buf, format="PDF")
-    assert buf.getvalue().startswith(b"%PDF-")
-
-
-def test_save_roundtrips(png_bytes, tmp_path):
-    img = Image(png_bytes)
-    dest = tmp_path / "out.png"
-    img.save(dest)
-    assert Image(dest.read_bytes()).size == img.size
-
-
-def test_save_unknown_extension_errors(jpg_bytes, tmp_path):
-    with pytest.raises(ImageError):
-        Image(jpg_bytes).save(tmp_path / "out.notaformat")
-
-
-def test_save_unknown_format_errors(jpg_bytes):
-    with pytest.raises(ImageError):
-        Image(jpg_bytes).save(io.BytesIO(), format="nope")
-
-
-def test_save_to_missing_directory_raises_ioerror(jpg_bytes, tmp_path):
-    with pytest.raises(OSError):
-        Image(jpg_bytes).save(tmp_path / "missing" / "out.jpg")
+        Image(jpg_bytes).encode("PDF", jpeg_quality=0)
 
 
 @pytest.mark.parametrize(
@@ -297,8 +221,11 @@ def test_guess_format_from_bytes(request, fixture, expected):
     assert guess_format(request.getfixturevalue(fixture)) == expected
 
 
-def test_guess_format_from_file_like(png_bytes):
-    assert guess_format(io.BytesIO(png_bytes)) == "PNG"
+def test_guess_format_rejects_file_like_without_reading(png_bytes):
+    stream = io.BytesIO(png_bytes)
+    with pytest.raises(TypeError):
+        guess_format(stream)
+    assert stream.tell() == 0
 
 
 def test_guess_format_garbage_errors():

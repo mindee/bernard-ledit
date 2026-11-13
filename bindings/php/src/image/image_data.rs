@@ -1,11 +1,10 @@
 use super::error::{format_image_extract_err, map_image_err, unknown_format_err};
 use crate::args::{self, value_error};
 use bernard_ledit::image::{
-    Filter, Image, format_name, guess_format as core_guess, parse_output_format,
+    FilterType, Image, format_name, guess_format as core_guess, parse_output_format,
 };
 use ext_php_rs::types::Zval;
 use ext_php_rs::{binary::Binary, binary_slice::BinarySlice, prelude::*};
-use std::str::FromStr;
 
 #[php_class]
 #[php(name = "BernardLedit\\Image\\Image")]
@@ -80,6 +79,29 @@ impl PhpImage {
             .map_err(|e| map_image_err(&e))
     }
 
+    /// Crops the bounding box of a polygon from this image.
+    /// # Parameters
+    /// - `polygon`: `list<array{0: float, 1: float}>` Normalized points relative to the image size.
+    /// # Errors
+    /// - `\ValueError` if the polygon is empty, malformed, or its bounding box is empty.
+    /// - `\BernardLedit\Image\ImageException` if cropping fails.
+    #[allow(clippy::cast_possible_truncation)]
+    pub fn crop_polygon(&self, polygon: Vec<Vec<f64>>) -> PhpResult<Self> {
+        if polygon.iter().any(|point| point.len() != 2) {
+            return Err(value_error(
+                "Each polygon point must contain exactly two coordinates".into(),
+            ));
+        }
+        let polygon: Vec<(f32, f32)> = polygon
+            .into_iter()
+            .map(|point| (point[0] as f32, point[1] as f32))
+            .collect();
+        self.inner
+            .crop_polygon(&polygon)
+            .map(PhpImage::from_core)
+            .map_err(|e| format_image_extract_err(&e))
+    }
+
     /// Resizes the image to `$width` by `$height` pixels, with a Lanczos filter.
     /// # Parameters
     /// - `width`: `int<1, 4294967295>`
@@ -89,9 +111,8 @@ impl PhpImage {
     pub fn resize(&self, width: i64, height: i64) -> PhpResult<Self> {
         let width = args::int("width", width, 1, u32::MAX)?;
         let height = args::int("height", height, 1, u32::MAX)?;
-        let filter = Filter::from_str("lanczos").map_err(|e| map_image_err(&e))?;
         self.inner
-            .resize(width, height, filter.0)
+            .resize(width, height, FilterType::Lanczos3)
             .map(|inner| Self { inner })
             .map_err(|e| map_image_err(&e))
     }
@@ -99,19 +120,33 @@ impl PhpImage {
     /// Returns the encoded bytes as a PHP string.
     /// # Parameters
     /// - `format`: `string` An output format: `"JPEG"`, `"PNG"`, `"PDF"`, etc.
-    /// - `quality`: `int<1, 100>` Only used by JPEG and PDF.
+    /// - `jpeg_quality`: `int<1, 100>` Only used by JPEG and PDF.
+    /// - `jpeg_optimize`: `bool` Optimize JPEG Huffman tables.
     /// # Errors
-    /// - `\ValueError` if `$format` isn't a supported output format, or `$quality` is out of
+    /// - `\ValueError` if `$format` isn't a supported output format, or `$jpeg_quality` is out of
     ///   range.
     /// - `\BernardLedit\Image\ImageException` if encoding fails.
-    #[php(defaults(quality = 85, optimize = true))]
-    pub fn encode(&self, format: &str, quality: i64, optimize: bool) -> PhpResult<Binary<u8>> {
-        let quality = args::quality(quality, 1)?;
+    #[php(defaults(jpeg_quality = 85, jpeg_optimize = true))]
+    pub fn encode(
+        &self,
+        format: &str,
+        jpeg_quality: i64,
+        jpeg_optimize: bool,
+    ) -> PhpResult<Binary<u8>> {
+        let jpeg_quality = args::jpeg_quality(jpeg_quality, 1)?;
         let fmt = parse_output_format(format).map_err(|e| map_image_err(&e))?;
         let bytes = self
             .inner
-            .encode(fmt, quality, optimize)
+            .encode(fmt, jpeg_quality, jpeg_optimize)
             .map_err(|e| map_image_err(&e))?;
+        Ok(Binary::new(bytes))
+    }
+
+    /// Returns the image bytes as a PHP string.
+    /// # Errors
+    /// - `\BernardLedit\Image\ImageException` if the image bytes can't be retrieved.
+    pub fn to_bytes(&self) -> PhpResult<Binary<u8>> {
+        let bytes = self.inner.to_bytes().map_err(|e| map_image_err(&e))?;
         Ok(Binary::new(bytes))
     }
 }
@@ -147,30 +182,35 @@ pub fn guess_format(data: BinarySlice<u8>) -> PhpResult<&'static str> {
     format_name(fmt).ok_or_else(unknown_format_err)
 }
 
-/// Compresses an image as a JPEG, scaled down to fit `$max_width` and `$max_height`. Returns the
-/// input unchanged if that doesn't make it smaller.
+/// Compresses an image to JPEG, scaled down to fit `$max_width` and `$max_height`.
 /// # Parameters
 /// - `quality`: `int<5, 100>`
+/// - `optimize`: `bool|null`
 /// - `max_width`: `int<1, 4294967295>|null`
 /// - `max_height`: `int<1, 4294967295>|null`
 /// # Returns
 /// `array{0: string, 1: int, 2: int}` `[$bytes, $width, $height]`.
 /// # Errors
 /// - `\ValueError` if `$quality`, `$max_width` or `$max_height` is out of range.
-/// - `\BernardLedit\Image\ImageException` if `$data` isn't an identifiable image, or can't be
-///   decoded or encoded.
+/// - `\BernardLedit\Image\ImageException` if `$data` isn't an identifiable image, can't be
+///   decoded or encoded, or the output isn't smaller.
 #[php_function]
-#[php(name = "BernardLedit\\Image\\compress")]
-#[php(defaults(quality = 85, max_width = None, max_height = None, optimize = None))]
+#[php(name = "BernardLedit\\Image\\compressToJpeg")]
+#[php(defaults(
+    quality = 85,
+    optimize = None,
+    max_width = None,
+    max_height = None
+))]
 #[allow(clippy::needless_pass_by_value)]
-pub fn compress(
+pub fn compress_to_jpeg(
     data: BinarySlice<u8>,
     quality: i64,
+    optimize: Option<bool>,
     max_width: Option<i64>,
     max_height: Option<i64>,
-    optimize: Option<bool>,
 ) -> PhpResult<Vec<Zval>> {
-    let quality = args::quality(quality, 5)?;
+    let quality = args::int("quality", quality, 5, 100)?;
     let max_width = max_width
         .map(|w| args::int("max_width", w, 1, u32::MAX))
         .transpose()?;
@@ -179,12 +219,8 @@ pub fn compress(
         .transpose()?;
     let image = Image::decode(&data).map_err(|e| map_image_err(&e))?;
     let (bytes, w, h) = image
-        .compress(quality, max_width, max_height, optimize.unwrap_or(true))
-        .map_err(|e| map_image_err(&e))?
-        .unwrap_or_else(|| {
-            let (w, h) = image.size();
-            (data.to_vec(), w, h)
-        });
+        .compress_to_jpeg(quality, optimize.unwrap_or(true), max_width, max_height)
+        .map_err(|e| map_image_err(&e))?;
     let mut out = Vec::with_capacity(3);
     let mut z = Zval::new();
     z.set_binary(bytes);
@@ -197,70 +233,10 @@ pub fn compress(
     Ok(out)
 }
 
-/// Crops one image per polygon from page `$page_id` of a PDF, rendered at `$dpi`, or of an image.
-/// # Parameters
-/// - `page_id`: `int<0, 65535>` 0 for an image.
-/// - `polygons`: `list<list<array{0: float, 1: float}>>` Points as `[$x, $y]`, relative to the
-///   page's width and height.
-/// - `dpi`: `float` A finite number between 1 and 1200; unused for an image.
-/// # Returns
-/// `list<\BernardLedit\Image\Image>` One image per polygon, in the same order.
-/// # Errors
-/// - `\ValueError` if `$page_id` or `$dpi` is out of range, a point doesn't have exactly two
-///   coordinates, a polygon is empty or falls outside the page, or there's no page `$page_id`.
-/// - `\BernardLedit\Image\ImageException` if `$data` is neither a PDF nor an identifiable,
-///   decodable image.
-/// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't be loaded, or can't read or render the
-///   PDF.
-#[php_function]
-#[php(defaults(dpi = 72.0))]
-#[php(name = "BernardLedit\\Image\\extractFromPolygons")]
-#[allow(clippy::needless_pass_by_value)]
-#[allow(
-    clippy::cast_possible_truncation,
-    reason = "Core takes in f32, PHP needs f64"
-)]
-pub fn extract_from_polygons(
-    data: BinarySlice<u8>,
-    page_id: i64,
-    polygons: Vec<Vec<Vec<f64>>>,
-    dpi: f64,
-) -> PhpResult<Vec<PhpImage>> {
-    let page_id = args::page_index("page_id", page_id)?;
-    let dpi = args::dpi(dpi)?;
-    if polygons.iter().flatten().any(|point| point.len() != 2) {
-        return Err(value_error(
-            "Each polygon point must contain exactly two coordinates".into(),
-        ));
-    }
-    let polygons_f32: Vec<Vec<(f32, f32)>> = polygons
-        .into_iter()
-        .map(|polygon| {
-            polygon
-                .into_iter()
-                .map(|point| (point[0] as f32, point[1] as f32))
-                .collect()
-        })
-        .collect();
-
-    if data.starts_with(b"%PDF-") {
-        crate::pdf::ensure_pdfium()?;
-    }
-    bernard_ledit::image::extract::extract_from_polygons(
-        &data,
-        page_id,
-        polygons_f32.as_slice(),
-        dpi,
-    )
-    .map(|v| v.into_iter().map(PhpImage::from_core).collect())
-    .map_err(|e| format_image_extract_err(&e))
-}
-
 /// Registers the internal functions in this module.
 pub fn register_functions(builder: ModuleBuilder) -> ModuleBuilder {
     builder
         .function(wrap_function!(decode))
         .function(wrap_function!(guess_format))
-        .function(wrap_function!(compress))
-        .function(wrap_function!(extract_from_polygons))
+        .function(wrap_function!(compress_to_jpeg))
 }

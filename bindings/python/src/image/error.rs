@@ -1,4 +1,3 @@
-use crate::pdf::error::PyPdfiumError;
 use bernard_ledit::image::ImageError;
 use bernard_ledit::image::error::ImageExtractError;
 use pyo3::exceptions::PyValueError;
@@ -26,7 +25,6 @@ pub fn format_image_err(e: &ImageError) -> PyErr {
         ImageError::UnsupportedFormat(_)
         | ImageError::UnknownFormat
         | ImageError::NotEnoughData
-        | ImageError::UnknownFilter(_)
         | ImageError::InvalidCrop { .. }
         | ImageError::InvalidDimensions { .. }
         | ImageError::ProgressiveQualityTooLow { .. }
@@ -41,9 +39,6 @@ pub fn format_image_err(e: &ImageError) -> PyErr {
 pub fn format_image_extract_err(e: &ImageExtractError) -> PyErr {
     match e {
         ImageExtractError::Image(inner) => format_image_err(inner),
-        ImageExtractError::PageOutOfRange(..) | ImageExtractError::EmptyPolygon(..) => {
-            PyImageExtractError::new_err(e.to_string())
-        }
-        ImageExtractError::Pdf(..) => PyPdfiumError::new_err(e.to_string()),
+        ImageExtractError::EmptyPolygon() => PyImageExtractError::new_err(e.to_string()),
     }
 }
