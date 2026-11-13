@@ -81,12 +81,10 @@ def test_import_pages_from_self_raises(test_data_dir):
         doc.import_pages(doc, [0])
 
 
-def test_save_writes_reloadable_pdf(test_data_dir):
+def test_as_bytes_writes_reloadable_pdf(test_data_dir):
     data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
     doc = PdfDocument(data)
-    buf = io.BytesIO()
-    doc.save(buf)
-    saved = buf.getvalue()
+    saved = doc.as_bytes()
     assert saved.startswith(b"%PDF-")
     reloaded = PdfDocument(saved)
     assert len(reloaded) == len(doc)
@@ -231,15 +229,6 @@ def test_document_has_no_content_false(test_data_dir):
     data = (test_data_dir / "file_types/pdf/multipage.pdf").read_bytes()
     doc = PdfDocument(data)
     assert doc.has_no_content() is False
-
-
-def test_save_(test_data_dir):
-    data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
-    doc = PdfDocument(data)
-    with io.BytesIO() as buf:
-        doc.save(buf)
-        saved = buf.getvalue()
-        assert saved.startswith(b"%PDF-")
 
 
 def test_compress_text_pdf_is_noop(test_data_dir):

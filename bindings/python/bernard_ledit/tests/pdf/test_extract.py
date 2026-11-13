@@ -57,10 +57,9 @@ def test_extract_accepts_file_like(multipage):
 
 def test_extract_output_roundtrips(multipage):
     (doc,) = bl_pdf.extract_from_page_ranges(multipage, [[0, 1]])
-    buf = io.BytesIO()
-    doc.save(buf)
-    assert buf.getvalue().startswith(b"%PDF-")
-    assert len(bl_pdf.PdfDocument(buf.getvalue())) == 2
+    output = doc.as_bytes()
+    assert output.startswith(b"%PDF-")
+    assert len(bl_pdf.PdfDocument(output)) == 2
 
 
 @pytest.mark.parametrize("fixture", ["receipt.jpg", "receipt.png"])

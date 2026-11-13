@@ -30,8 +30,8 @@ impl Document {
     /// # Errors
     /// Returns a [`PdfError`] if saving the document fails.
     pub fn to_bytes(&self) -> Result<Vec<u8>, PdfError> {
-        let mut buffer: Vec<u8> = Vec::new();
-        self.save(&mut buffer)?;
+        let mut buffer = Vec::new();
+        self.inner.save_to_writer(&mut buffer)?;
         Ok(buffer)
     }
 }
@@ -104,15 +104,6 @@ impl Document {
         self.inner
             .pages_mut()
             .copy_pages_from_document(&src.inner, &spec, len)?;
-        Ok(())
-    }
-
-    /// Save the document into a writable buffer.
-    ///
-    /// # Errors
-    /// Returns a [`PdfError`] if saving the document fails.
-    pub fn save<W: std::io::Write + 'static>(&self, writer: &mut W) -> Result<(), PdfError> {
-        self.inner.save_to_writer(writer)?;
         Ok(())
     }
 
@@ -365,15 +356,14 @@ mod tests {
     }
 
     #[test]
-    fn test_save() {
+    fn test_to_bytes() {
         pdfium();
         let bytes = test_data_bytes!("file_types/pdf/blank.pdf");
         let doc = Document::decode(bytes).unwrap();
         let page_count = doc.page_count().unwrap();
-        let mut buf = Vec::new();
-        doc.save(&mut buf).unwrap();
-        assert_ne!(buf.len(), 0);
-        let reloaded = Document::decode(&buf).unwrap();
+        let output = doc.to_bytes().unwrap();
+        assert_ne!(output.len(), 0);
+        let reloaded = Document::decode(&output).unwrap();
         assert_eq!(reloaded.page_count().unwrap(), page_count);
     }
 

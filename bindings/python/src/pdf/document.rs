@@ -154,14 +154,6 @@ impl PyPdfDocument {
         Ok(has_text)
     }
 
-    /// Save the document into a file-like object.
-    fn save(&self, buf: &Bound<'_, PyAny>) -> PyResult<()> {
-        let mut bytes: Vec<u8> = Vec::new();
-        self.with_doc(|d| d.save(&mut bytes).map_err(|e| format_pdf_err(&e)))??;
-        buf.call_method1("write", (PyBytes::new(buf.py(), &bytes),))?;
-        Ok(())
-    }
-
     /// Retrieve the bytes from the document.
     fn as_bytes<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
         let owned_bytes = self
