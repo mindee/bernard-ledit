@@ -31,8 +31,8 @@ static-pdfium-msvc = ["static-link"]   # Windows: MSVC links its C++ runtime its
 
 [dependencies]
 serde = { version = "1.0.228", features = ["derive"] }
-pdfium-render = "0.9.4"
 thiserror = "2.0.18"
+pdfium-render = "0.9.4"
 image = "0.25.9"
 jpeg-encoder = "0.7.1"
 

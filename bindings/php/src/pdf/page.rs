@@ -3,7 +3,7 @@ use super::{
     error::{closed_err, map_pdf_err},
 };
 use crate::args;
-use crate::pdf::bitmap::PhpPdfBitmap;
+use crate::image::image_data::PhpImage;
 use bernard_ledit::pdf::{Page, PdfError};
 use ext_php_rs::prelude::*;
 
@@ -30,7 +30,7 @@ impl PdfPage {
         self.with_page(|p| p.text())
     }
 
-    /// Renders the page, at 72 DPI per unit of `$scale`.
+    /// Renders the page as an image, at 72 DPI per unit of `$scale`.
     /// # Parameters
     /// - `scale`: `float` A finite number between 0.01 and 16.
     /// # Errors
@@ -42,10 +42,9 @@ impl PdfPage {
         clippy::cast_possible_truncation,
         reason = "the range fits in f32, which core takes"
     )]
-    pub fn render_to_bitmap(&self, scale: f64) -> PhpResult<PhpPdfBitmap> {
+    pub fn render(&self, scale: f64) -> PhpResult<PhpImage> {
         let scale = args::float("scale", scale, args::MIN_SCALE, args::MAX_SCALE)? as f32;
-        self.with_page(|p| p.render_to_bitmap(scale))
-            .map(PhpPdfBitmap::from)
+        self.with_page(|p| p.render(scale)).map(PhpImage::from)
     }
 }
 

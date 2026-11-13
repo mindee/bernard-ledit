@@ -1,7 +1,5 @@
 //! PDF module.
 
-/// Bitmap module.
-pub mod bitmap;
 /// PDF Document module.
 pub mod document;
 /// PDF Error module.
@@ -19,7 +17,6 @@ pub mod page_options;
 /// Text character module.
 pub mod text_char;
 
-pub use bitmap::Bitmap;
 pub use document::Document;
 pub use error::PdfError;
 pub use page::Page;

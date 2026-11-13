@@ -4,7 +4,7 @@ use crate::pdf::jpeg::{build_jpeg_pdf, build_jpeg_pdf_autosize};
 use crate::pdf::text_char::TextChar;
 use crate::pdf::{page::Page, pdfium};
 
-use ::image::{DynamicImage, ImageFormat};
+use ::image::ImageFormat;
 use pdfium_render::prelude::*;
 
 /// A struct that represents a PDF document.
@@ -183,17 +183,7 @@ impl Document {
     /// # Errors
     /// Returns a [`PdfError`] if the page cannot be rendered.
     pub fn rasterize_page(&self, page_index: u16) -> Result<Image, PdfError> {
-        let index = self.page_index(page_index)?;
-        let rgb_image = {
-            let _pdfium_lock = crate::pdf::NATIVE_LOCK
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            let page = self.inner.pages().get(index)?;
-            let config = PdfRenderConfig::new();
-            let bitmap = page.render_with_config(&config)?;
-            bitmap.as_image()?.into_rgb8()
-        };
-        Ok(Image::from_dynamic(DynamicImage::ImageRgb8(rgb_image)))
+        self.page(page_index)?.render(1.0)
     }
 
     /// Appends a JPEG as a new page.
@@ -273,7 +263,7 @@ impl Document {
             if rasterize {
                 let page = self.page(i)?;
                 let (w_pt, h_pt) = page.size();
-                let img = page.render_image(dpi / 72.0)?;
+                let img = page.render(dpi / 72.0)?;
                 if quality < 5 {
                     return Err(ImageError::ProgressiveQualityTooLow {
                         jpeg_quality: quality,

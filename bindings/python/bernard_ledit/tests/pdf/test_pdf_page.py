@@ -1,25 +1,24 @@
-from bernard_ledit.pdf import (
-    PdfBitmap,
-    PdfDocument,
-)
+from bernard_ledit.image import Image
+from bernard_ledit.pdf import PdfDocument
 
 
-def test_page_render_returns_bitmap(test_data_dir):
+def test_page_render_returns_image(test_data_dir):
     data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
     doc = PdfDocument(data)
-    bitmap = doc.get_page(0).render_to_bitmap()
-    assert isinstance(bitmap, PdfBitmap)
-    assert bitmap.width > 0
-    assert bitmap.height > 0
+    image = doc.get_page(0).render()
+    assert isinstance(image, Image)
+    width, height = image.size
+    assert width > 0
+    assert height > 0
 
 
 def test_page_render_scale_affects_size(test_data_dir):
     data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
     doc = PdfDocument(data)
-    small = doc.get_page(0).render_to_bitmap(scale=1.0)
-    large = doc.get_page(0).render_to_bitmap(scale=2.0)
-    assert large.width >= small.width * 2 - 1
-    assert large.height >= small.height * 2 - 1
+    small = doc.get_page(0).render(scale=1.0).size
+    large = doc.get_page(0).render(scale=2.0).size
+    assert large[0] >= small[0] * 2 - 1
+    assert large[1] >= small[1] * 2 - 1
 
 
 def test_page_text(test_data_dir):

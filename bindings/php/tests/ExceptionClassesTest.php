@@ -145,9 +145,9 @@ final class ExceptionClassesTest extends TestCase
             fn () => compressPdfToJpeg($pdf, 85, null, 0.5),
             'dpi must be a finite number between 1 and 1200, got 0.5',
         ];
-        yield 'renderToBitmap scale' => [
-            'BernardLedit\Pdf\PdfPage::renderToBitmap',
-            fn () => (new PdfDocument($pdf))->getPage(0)->renderToBitmap(0.0),
+        yield 'render scale' => [
+            'BernardLedit\Pdf\PdfPage::render',
+            fn () => (new PdfDocument($pdf))->getPage(0)->render(0.0),
             'scale must be a finite number between 0.01 and 16, got 0',
         ];
         yield 'on_min_pages' => [

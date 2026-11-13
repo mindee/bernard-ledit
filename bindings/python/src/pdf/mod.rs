@@ -1,7 +1,5 @@
 use pyo3::prelude::*;
 
-/// PDF bitmap.
-pub mod bitmap;
 /// PDF document.
 pub mod document;
 /// PDF errors.
@@ -21,7 +19,6 @@ pub fn register_submodule(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(parent.py(), "pdf")?;
     m.add_class::<document::PyPdfDocument>()?;
     m.add_class::<page::PyPdfPage>()?;
-    m.add_class::<bitmap::PyPdfBitmap>()?;
     m.add_class::<text_char::PyTextChar>()?;
     m.add(
         "PdfiumError",

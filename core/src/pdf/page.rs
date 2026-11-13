@@ -1,6 +1,6 @@
 use crate::image::Image;
+use crate::pdf::PdfError;
 use crate::pdf::text_char::TextChar;
-use crate::pdf::{PdfError, bitmap::Bitmap};
 use pdfium_render::prelude::*;
 
 /// A struct that represents a PDF page.
@@ -34,18 +34,6 @@ impl<'a> Page<'a> {
         Ok(self.inner.text()?.all())
     }
 
-    /// Render the page to a bitmap.
-    /// # Errors
-    /// Returns a `PdfError` if the page could not be rendered.
-    pub fn render_to_bitmap(&self, scale: f32) -> Result<Bitmap, PdfError> {
-        let _lock = crate::pdf::NATIVE_LOCK
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let cfg = PdfRenderConfig::new().scale_page_by_factor(scale);
-        let pb = self.inner.render_with_config(&cfg)?;
-        Ok(Bitmap::from_pdfium(&pb))
-    }
-
     /// Extract all characters from the page.
     /// # Errors
     /// Returns a `PdfError` if text extraction fails.
@@ -60,10 +48,10 @@ impl<'a> Page<'a> {
         Ok(chars)
     }
 
-    /// Renders an image at a given scale.
+    /// Renders the page as an image at 72 DPI per unit of `scale`.
     /// # Errors
     /// Returns [`PdfError`] if the image cannot be rendered.
-    pub fn render_image(&self, scale: f32) -> Result<Image, PdfError> {
+    pub fn render(&self, scale: f32) -> Result<Image, PdfError> {
         let _lock = crate::pdf::NATIVE_LOCK
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -128,13 +116,11 @@ mod tests {
     }
 
     #[test]
-    fn test_render_bitmap_size_matches_page_at_scale_one() {
+    fn test_render_image_size_matches_page_at_scale_one() {
         pdfium();
         let jpeg = make_real_jpeg(100, 50);
         let doc = Document::from_jpeg(&jpeg, 100.0, 50.0).unwrap();
-        let bmp = doc.page(0).unwrap().render_to_bitmap(1.0).unwrap();
-        assert_eq!(bmp.width, 100);
-        assert_eq!(bmp.height, 50);
+        assert_eq!(doc.page(0).unwrap().render(1.0).unwrap().size(), (100, 50));
     }
 
     #[test]
@@ -143,19 +129,10 @@ mod tests {
         let jpeg = make_real_jpeg(100, 50);
         let doc = Document::from_jpeg(&jpeg, 100.0, 50.0).unwrap();
         let page = doc.page(0).unwrap();
-        let bmp1 = page.render_to_bitmap(1.0).unwrap();
-        let bmp2 = page.render_to_bitmap(2.0).unwrap();
-        assert!(bmp2.width - 2 * bmp1.width <= 1);
-        assert!(bmp2.height - 2 * bmp1.height <= 1);
-    }
-
-    #[test]
-    fn test_render_rgba_buffer_size_is_consistent() {
-        pdfium();
-        let jpeg = make_real_jpeg(20, 30);
-        let doc = Document::from_jpeg(&jpeg, 20.0, 30.0).unwrap();
-        let bmp = doc.page(0).unwrap().render_to_bitmap(1.0).unwrap();
-        assert_eq!(bmp.rgba.len(), (bmp.width * bmp.height * 4) as usize);
+        let (w1, h1) = page.render(1.0).unwrap().size();
+        let (w2, h2) = page.render(2.0).unwrap().size();
+        assert!(w2 - 2 * w1 <= 1);
+        assert!(h2 - 2 * h1 <= 1);
     }
 
     #[test]

@@ -13,9 +13,9 @@ use std::fmt::Display;
 pub const MIN_DPI: f64 = 1.0;
 /// Highest DPI pages are rendered at: a page's bitmap grows with the square of its DPI.
 pub const MAX_DPI: f64 = 1200.0;
-/// Lowest scale `PdfPage::renderToBitmap` takes.
+/// Lowest scale `PdfPage::render` takes.
 pub const MIN_SCALE: f64 = 0.01;
-/// Highest scale `PdfPage::renderToBitmap` takes, about `MAX_DPI` at 72 DPI per unit.
+/// Highest scale `PdfPage::render` takes, about `MAX_DPI` at 72 DPI per unit.
 pub const MAX_SCALE: f64 = 16.0;
 
 /// A `\ValueError` with `message`.

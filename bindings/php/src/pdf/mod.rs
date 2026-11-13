@@ -1,5 +1,4 @@
 //! PDF utilities of the php bindings for bernard-ledit
-pub mod bitmap;
 pub mod document;
 pub mod error;
 mod fix;
@@ -26,7 +25,6 @@ pub fn register(module: ModuleBuilder) -> ModuleBuilder {
     let module = module
         .class::<document::PhpPdfDocument>()
         .class::<page::PdfPage>()
-        .class::<bitmap::PhpPdfBitmap>()
         .class::<text_char::PhpTextChar>();
 
     let module = document::register_functions(module);

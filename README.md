@@ -153,8 +153,8 @@ with PdfDocument("document.pdf") as doc:
     print(len(doc))  # page count
     page = doc[0]  # or doc.get_page(0)
     print(page.text())  # extracted text
-    bitmap = page.render_to_bitmap(scale=2.0)  # PdfBitmap at 2× scale (was page.render)
-    png_bytes = bitmap.to_png_bytes()
+    image = page.render(scale=2.0)  # Image at 2× scale
+    png_bytes = image.encode("PNG")
 
 # --- rasterise a page to an image ---
 rasterized_image = doc.rasterize_page(page_index=0)

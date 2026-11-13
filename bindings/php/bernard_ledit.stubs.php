@@ -121,53 +121,6 @@ namespace BernardLedit\Image {
 }
 
 namespace BernardLedit\Pdf {
-    class PdfBitmap {
-        public function __construct() {}
-
-        /**
-         * Debug info.
-         *
-         * @return array<string, string>
-         */
-        public function __debugInfo(): array {}
-
-        /**
-         * String rep.
-         *
-         * @return string
-         */
-        public function __toString(): string {}
-
-        /**
-         * Height in pixels.
-         *
-         * @return int
-         */
-        public function getHeight(): int {}
-
-        /**
-         * Width in pixels.
-         *
-         * @return int
-         */
-        public function getWidth(): int {}
-
-        /**
-         * Raw RGBA8 pixel buffer (row-major, 4 bytes per pixel).
-         *
-         * @return string
-         */
-        public function toBytes(): string {}
-
-        /**
-         * Encode the bitmap as a PNG byte stream.
-         *
-         * @return string
-         * @throws \BernardLedit\Image\ImageException if PNG encoding fails.
-         */
-        public function toPngBytes(): string {}
-    }
-
     class PdfDocument {
         /**
          * Create a new instance from bytes.
@@ -307,15 +260,15 @@ namespace BernardLedit\Pdf {
         public function getText(): string {}
 
         /**
-         * Renders the page, at 72 DPI per unit of `$scale`.
+         * Renders the page as an image, at 72 DPI per unit of `$scale`.
          *
          * @param float $scale A finite number between 0.01 and 16.
-         * @return \BernardLedit\Pdf\PdfBitmap
+         * @return \BernardLedit\Image\Image
          * @throws \ValueError if `$scale` is out of range.
          * @throws \BernardLedit\Pdf\PdfiumException if `PDFium` can't render the page.
          * @throws \Exception if the document is closed.
          */
-        public function renderToBitmap(float $scale = 1.0): \BernardLedit\Pdf\PdfBitmap {}
+        public function render(float $scale = 1.0): \BernardLedit\Image\Image {}
     }
 
     /**

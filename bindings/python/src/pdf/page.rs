@@ -1,4 +1,5 @@
-use super::{bitmap::PyPdfBitmap, document::PyPdfDocument};
+use super::document::PyPdfDocument;
+use crate::image::image_data::PyImage;
 use crate::pdf::error::format_pdf_err;
 use pyo3::prelude::*;
 
@@ -21,13 +22,12 @@ impl PyPdfPage {
     }
 
     #[pyo3(signature = (scale = 1.0))]
-    fn render_to_bitmap(&self, py: Python<'_>, scale: f32) -> PyResult<PyPdfBitmap> {
+    fn render(&self, py: Python<'_>, scale: f32) -> PyResult<PyImage> {
         self.doc.borrow(py).with_doc(|d| {
-            let bitmap = d
-                .page(self.index)
-                .and_then(|p| p.render_to_bitmap(scale))
-                .map_err(|e| format_pdf_err(&e))?;
-            Ok(PyPdfBitmap::from(bitmap))
+            d.page(self.index)
+                .and_then(|p| p.render(scale))
+                .map(PyImage::from_core)
+                .map_err(|e| format_pdf_err(&e))
         })?
     }
 
