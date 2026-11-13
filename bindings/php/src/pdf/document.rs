@@ -3,7 +3,6 @@ use super::{
     page::PdfPage,
 };
 use crate::args::{self, value_error};
-use crate::image::image_data::PhpImage;
 use crate::pdf::error::format_pdf_extract_err;
 use bernard_ledit::pdf::Document;
 use ext_php_rs::{binary::Binary, binary_slice::BinarySlice, prelude::*};
@@ -95,19 +94,6 @@ impl PhpPdfDocument {
     pub fn as_bytes(&self) -> PhpResult<Binary<u8>> {
         let out = self.with_doc(|d| d.to_bytes().map_err(|e| map_pdf_err(&e)))??;
         Ok(Binary::new(out))
-    }
-
-    /// Rasterizes a page from a given index into an image, at 72 DPI.
-    /// # Parameters
-    /// - `index`: `int<0, 65535>`
-    /// # Errors
-    /// - `\ValueError` if `$index` is out of range, or there's no page `$index`.
-    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't render the page.
-    /// - `\Exception` if the document is closed.
-    pub fn rasterize_page(&self, index: i64) -> PhpResult<PhpImage> {
-        let index = args::page_index("index", index)?;
-        self.with_doc(|d| d.rasterize_page(index).map_err(|e| map_pdf_err(&e)))?
-            .map(PhpImage::from)
     }
 
     /// Retrieves the entire text from a document as a string.

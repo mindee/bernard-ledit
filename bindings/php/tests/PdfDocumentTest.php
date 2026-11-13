@@ -154,10 +154,10 @@ final class PdfDocumentTest extends TestCase
         self::assertFalse($doc->hasNoContent());
     }
 
-    public function testRasterizePageReturnsImage(): void
+    public function testPageRenderReturnsImage(): void
     {
         $doc = new PdfDocument(self::pdf('blank_1.pdf'));
-        $image = $doc->rasterizePage(0);
+        $image = $doc->getPage(0)->render();
 
         self::assertInstanceOf(Image::class, $image);
         self::assertGreaterThan(0, $image->getWidth());
@@ -165,20 +165,20 @@ final class PdfDocumentTest extends TestCase
         self::assertSame("\xFF\xD8", substr($image->encode('JPEG'), 0, 2));
     }
 
-    public function testRasterizePageOutOfBoundsThrowsValueError(): void
+    public function testPageRenderOutOfBoundsThrowsValueError(): void
     {
         $doc = new PdfDocument(self::pdf('blank_1.pdf'));
         $this->expectException(\ValueError::class);
-        $doc->rasterizePage(99);
+        $doc->getPage(99)->render();
     }
 
-    public function testRasterizePageOnClosedDocumentThrows(): void
+    public function testPageRenderOnClosedDocumentThrows(): void
     {
         $doc = new PdfDocument(self::pdf('blank_1.pdf'));
         $doc->close();
 
         $this->expectException(\Exception::class);
-        $doc->rasterizePage(0);
+        $doc->getPage(0)->render();
     }
 
 }

@@ -1,4 +1,4 @@
-use crate::image::{Image, ImageError};
+use crate::image::ImageError;
 use crate::pdf::error::{ImageError as JpegError, PdfBuilderError, PdfError};
 use crate::pdf::jpeg::{build_jpeg_pdf, build_jpeg_pdf_autosize};
 use crate::pdf::text_char::TextChar;
@@ -170,13 +170,6 @@ impl Document {
     pub fn from_jpeg_autosize(jpeg_bytes: &[u8]) -> Result<Self, PdfBuilderError> {
         let pdf_bytes = build_jpeg_pdf_autosize(jpeg_bytes)?;
         Self::decode(&pdf_bytes).map_err(PdfBuilderError::Pdf)
-    }
-
-    /// Rasterizes a PDF page into an image.
-    /// # Errors
-    /// Returns a [`PdfError`] if the page cannot be rendered.
-    pub fn rasterize_page(&self, page_index: u16) -> Result<Image, PdfError> {
-        self.page(page_index)?.render(1.0)
     }
 
     /// Appends a JPEG as a new page.
@@ -392,7 +385,6 @@ mod tests {
             )
         };
         assert!(out_of_bounds(doc.page(1).map(|_| ())));
-        assert!(out_of_bounds(doc.rasterize_page(1).map(|_| ())));
     }
 
     #[test]

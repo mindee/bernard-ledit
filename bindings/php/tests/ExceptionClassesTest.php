@@ -75,11 +75,6 @@ final class ExceptionClassesTest extends TestCase
             fn () => (new PdfDocument($pdf))->getPage(40),
             $twelvePages,
         ];
-        yield 'rasterizePage' => [
-            'BernardLedit\Pdf\PdfDocument::rasterizePage',
-            fn () => (new PdfDocument($pdf))->rasterizePage(40),
-            $twelvePages,
-        ];
         yield 'importPages' => [
             'BernardLedit\Pdf\PdfDocument::importPages',
             fn () => PdfDocument::create()->importPages(new PdfDocument($pdf), [40]),

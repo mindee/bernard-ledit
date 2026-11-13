@@ -132,11 +132,11 @@ def test_has_text_false(test_data_dir):
     assert doc.has_text() is False
 
 
-def test_rasterize_page_returns_image(test_data_dir):
+def test_page_render_returns_image(test_data_dir):
     data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
     doc = PdfDocument(data)
 
-    image = doc.rasterize_page(0)
+    image = doc.get_page(0).render()
 
     assert isinstance(image, Image)
     assert image.size[0] > 0
@@ -144,21 +144,21 @@ def test_rasterize_page_returns_image(test_data_dir):
     assert image.encode("JPEG").startswith(b"\xff\xd8")
 
 
-def test_rasterize_page_out_of_bounds_raises(test_data_dir):
+def test_page_render_out_of_bounds_raises(test_data_dir):
     data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
     doc = PdfDocument(data)
 
     with pytest.raises(IndexError, match="Page index 99 out of bounds"):
-        doc.rasterize_page(99)
+        doc.get_page(99).render()
 
 
-def test_rasterize_page_fails_on_closed_doc(test_data_dir):
+def test_page_render_fails_on_closed_doc(test_data_dir):
     data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
     doc = PdfDocument(data)
     doc.close()
 
     with pytest.raises(RuntimeError):
-        doc.rasterize_page(0)
+        doc.get_page(0).render()
 
 
 def test_document_getitem_returns_page(test_data_dir):

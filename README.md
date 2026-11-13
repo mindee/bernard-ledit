@@ -162,7 +162,7 @@ with PdfDocument("document.pdf") as doc:
     png_bytes = image.encode("PNG")
 
 # --- rasterise a page to an image ---
-rasterized_image = doc.rasterize_page(page_index=0)
+rasterized_image = doc.get_page(0).render()
 jpeg_bytes = rasterized_image.encode("JPEG", jpeg_quality=85)
 
 # --- split / merge ---
