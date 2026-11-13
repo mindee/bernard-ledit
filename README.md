@@ -90,6 +90,10 @@ The wheel bundles the compiled Rust extension and pdfium – no system dependenc
 ### Image API
 
 ```python
+import io
+from pathlib import Path
+
+from bernard_ledit.common import format_from_extension
 from bernard_ledit.image import Image, guess_format
 
 # --- load ---
@@ -111,10 +115,11 @@ pdf_bytes = img.encode("PDF")  # single-page PDF via DCTDecode
 # JPEG Huffman tables are optimized by default; pass jpeg_optimize=False to disable.
 
 # --- save ---
-img.save("out.jpg")  # format inferred from extension
-img.save(pathlib.Path("out.png"))
-img.save(buffer, format="JPEG")  # write to any writable buffer
-img.save("out.pdf", format="PDF")  # force PDF regardless of extension
+Path("out.jpg").write_bytes(img.encode(format_from_extension("jpg")))
+Path("out.png").write_bytes(img.encode(format_from_extension("png")))
+buffer = io.BytesIO()
+buffer.write(img.encode("JPEG"))
+Path("out.pdf").write_bytes(img.encode(format_from_extension("pdf")))
 
 # --- helpers ---
 fmt = guess_format(data)  # "JPEG" | "PNG" | "TIFF" | …
@@ -132,7 +137,7 @@ out = img.compress_to_jpeg(
 # --- crop by polygon ---
 # Polygon points are normalized (x, y) coordinates (0..1).
 crop = img.crop_polygon([(0.1, 0.1), (0.5, 0.1), (0.5, 0.4), (0.1, 0.4)])
-crop.save("crop.jpg")
+Path("crop.jpg").write_bytes(crop.encode(format_from_extension("jpg")))
 ```
 
 Supported encode formats: `JPEG`, `PNG`, `PDF`, `TIFF`, `WEBP`, `BMP`, `GIF`, `AVIF`, `ICO`, `QOI`, `TGA`, `PNM`,
@@ -169,7 +174,6 @@ out.import_pages(b, [0])
 
 buf = io.BytesIO()
 out.save(buf)
-out.save_to_file("merged.pdf")
 
 ```
 

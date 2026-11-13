@@ -1,5 +1,7 @@
 //! Python bindings for the Bernard l'Édit library.
 
+/// Shared utilities.
+mod common;
 /// Geometry-related functionality.
 mod geometry;
 /// Image-related functionality.
@@ -14,6 +16,7 @@ use pyo3::{Bound, PyResult, pymodule};
 /// Register the Python submodules for the Bernard l'Édit library.
 #[pymodule]
 fn _bernard_ledit(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    common::register_submodule(m)?;
     geometry::register_submodule(m)?;
     pdf::register_submodule(m)?;
     image::register_submodule(m)?;

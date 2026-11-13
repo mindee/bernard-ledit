@@ -1,5 +1,4 @@
 import io
-import os
 
 import pytest
 
@@ -203,73 +202,6 @@ def test_encode_jpeg_invalid_jpeg_quality_errors(jpg_bytes, jpeg_quality):
 def test_encode_pdf_invalid_jpeg_quality_errors(jpg_bytes):
     with pytest.raises(ImageError):
         Image(jpg_bytes).encode("PDF", jpeg_quality=0)
-
-
-@pytest.mark.parametrize(
-    "name, magic",
-    [
-        ("out.png", PNG_MAGIC),
-        ("out.jpg", JPEG_MAGIC),
-        ("out.jpeg", JPEG_MAGIC),
-        ("out.pdf", b"%PDF-"),
-    ],
-)
-def test_save_to_path_infers_format_from_extension(jpg_bytes, tmp_path, name, magic):
-    dest = tmp_path / name
-    Image(jpg_bytes).save(str(dest))
-    assert dest.read_bytes().startswith(magic)
-
-
-def test_save_tif_extension_maps_to_tiff(jpg_bytes, tmp_path):
-    dest = tmp_path / "out.tif"
-    Image(jpg_bytes).save(dest)
-    assert Image(dest.read_bytes()).format == "TIFF"
-
-
-def test_save_accepts_pathlike(jpg_bytes, tmp_path):
-    dest = tmp_path / "out.png"
-    Image(jpg_bytes).save(dest)  # pathlib.Path implements os.PathLike
-    assert os.path.getsize(dest) > 0
-
-
-def test_save_explicit_format_overrides_extension(jpg_bytes, tmp_path):
-    dest = tmp_path / "out.jpg"
-    Image(jpg_bytes).save(dest, format="PNG")
-    assert dest.read_bytes().startswith(PNG_MAGIC)
-
-
-def test_save_to_buffer_uses_image_format(png_bytes):
-    buf = io.BytesIO()
-    Image(png_bytes).save(buf)
-    assert buf.getvalue().startswith(PNG_MAGIC)
-
-
-def test_save_to_buffer_with_explicit_format(png_bytes):
-    buf = io.BytesIO()
-    Image(png_bytes).save(buf, format="PDF")
-    assert buf.getvalue().startswith(b"%PDF-")
-
-
-def test_save_roundtrips(png_bytes, tmp_path):
-    img = Image(png_bytes)
-    dest = tmp_path / "out.png"
-    img.save(dest)
-    assert Image(dest.read_bytes()).size == img.size
-
-
-def test_save_unknown_extension_errors(jpg_bytes, tmp_path):
-    with pytest.raises(ImageError):
-        Image(jpg_bytes).save(tmp_path / "out.notaformat")
-
-
-def test_save_unknown_format_errors(jpg_bytes):
-    with pytest.raises(ImageError):
-        Image(jpg_bytes).save(io.BytesIO(), format="nope")
-
-
-def test_save_to_missing_directory_raises_ioerror(jpg_bytes, tmp_path):
-    with pytest.raises(OSError):
-        Image(jpg_bytes).save(tmp_path / "missing" / "out.jpg")
 
 
 @pytest.mark.parametrize(

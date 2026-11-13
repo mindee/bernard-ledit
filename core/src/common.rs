@@ -16,6 +16,28 @@ pub enum OutputFormat {
     Pdf,
 }
 
+/// Returns the canonical encoding name for a file extension.
+///
+/// The extension may include a leading dot. An empty extension defaults to
+/// `JPEG`; unrecognized extensions are returned uppercased for the encoder to validate.
+#[must_use]
+pub fn format_from_extension(extension: &str) -> String {
+    let extension = extension.trim_start_matches('.');
+    if extension.is_empty() {
+        return "JPEG".to_owned();
+    }
+
+    if extension.eq_ignore_ascii_case("jpg") || extension.eq_ignore_ascii_case("jpeg") {
+        "JPEG".to_owned()
+    } else if extension.eq_ignore_ascii_case("tif") || extension.eq_ignore_ascii_case("tiff") {
+        "TIFF".to_owned()
+    } else if extension.eq_ignore_ascii_case("exr") || extension.eq_ignore_ascii_case("openexr") {
+        "OPENEXR".to_owned()
+    } else {
+        extension.to_ascii_uppercase()
+    }
+}
+
 impl From<ImageFormat> for OutputFormat {
     fn from(format: ImageFormat) -> Self {
         Self::Image(format)
@@ -54,5 +76,20 @@ mod tests {
             parse_output_format("not-a-format"),
             Err(ImageError::UnsupportedFormat(_))
         ));
+    }
+
+    #[test]
+    fn format_from_extension_normalizes_known_extensions() {
+        assert_eq!(format_from_extension("jpg"), "JPEG");
+        assert_eq!(format_from_extension(".JPEG"), "JPEG");
+        assert_eq!(format_from_extension("tif"), "TIFF");
+        assert_eq!(format_from_extension("ExR"), "OPENEXR");
+        assert_eq!(format_from_extension("pdf"), "PDF");
+    }
+
+    #[test]
+    fn format_from_extension_defaults_and_preserves_unknown_extensions() {
+        assert_eq!(format_from_extension(""), "JPEG");
+        assert_eq!(format_from_extension("custom"), "CUSTOM");
     }
 }

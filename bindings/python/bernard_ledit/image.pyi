@@ -1,4 +1,3 @@
-import os
 from typing import BinaryIO, final
 
 __all__ = [
@@ -24,13 +23,6 @@ class Image:
         self, format: str, jpeg_quality: int = 85, jpeg_optimize: bool = True
     ) -> bytes: ...
     def resize(self, width: int, height: int) -> Image: ...
-    def save(
-        self,
-        dest: str | os.PathLike[str] | BinaryIO,
-        format: str | None = None,
-        jpeg_quality: int = 85,
-        jpeg_optimize: bool = True,
-    ) -> None: ...
     def as_bytes(self) -> bytes: ...
     def compress_to_jpeg(
         self,

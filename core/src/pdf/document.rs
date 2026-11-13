@@ -34,11 +34,9 @@ impl Document {
         self.save(&mut buffer)?;
         Ok(buffer)
     }
-
 }
 
 impl Document {
-
     /// Create an empty PDF document.
     ///
     /// # Errors
@@ -220,13 +218,6 @@ impl Document {
             .pages_mut()
             .copy_page_from_document(document, index, index)
             .map_err(PdfError::from)
-    }
-
-    /// Save the document to a file.
-    /// # Errors
-    /// Returns `PdfError` if the file cannot be written.
-    pub fn save_to_file(&self, path: &str) -> Result<(), PdfError> {
-        self.inner.save_to_file(path).map_err(PdfError::from)
     }
 
     /// Checks whether the document has any text.

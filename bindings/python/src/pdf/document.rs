@@ -6,7 +6,6 @@ use crate::pdf::error::{closed_err, format_pdf_err};
 use bernard_ledit::pdf::Document;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
-use std::path::PathBuf;
 use std::sync::Mutex;
 
 /// A PDF document.
@@ -169,21 +168,6 @@ impl PyPdfDocument {
             .with_doc(Document::to_bytes)?
             .map_err(|e| format_pdf_err(&e))?;
         Ok(PyBytes::new(py, owned_bytes.as_slice()))
-    }
-
-    /// Save the document directly to a file path.
-    #[allow(clippy::needless_pass_by_value)]
-    fn save_to_file(&self, path: PathBuf) -> PyResult<()> {
-        let mut file = std::fs::File::create(&path).map_err(|e| {
-            pyo3::exceptions::PyIOError::new_err(format!(
-                "Failed to create file at {}: {}",
-                path.display(),
-                e
-            ))
-        })?;
-        self.with_doc(|d| d.save(&mut file).map_err(|e| format_pdf_err(&e)))??;
-
-        Ok(())
     }
 
     /// Rasterizes a PDF page into an image.

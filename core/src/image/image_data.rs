@@ -102,7 +102,6 @@ impl Image {
 }
 
 impl Image {
-
     /// Creates an `ImageData` from a `DynamicImage`.
     pub(crate) fn from_dynamic(inner: DynamicImage) -> Self {
         let source_len = Some(inner.as_bytes().len());

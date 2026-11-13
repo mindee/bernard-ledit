@@ -84,63 +84,6 @@ impl PyImage {
         Ok(PyBytes::new(py, bytes_vec_u8.as_slice()))
     }
 
-    /// Saves the image to a path-like or a writable buffer.
-    ///
-    /// `format` is inferred from the file extension when saving to a path, or
-    /// from the image's own format when saving to a buffer. Pass an explicit
-    /// `format` string (e.g. `"JPEG"`, `"PNG"`, `"PDF"`) to override.
-    #[pyo3(signature = (dest, format = None, jpeg_quality = 85, jpeg_optimize = true))]
-    fn save(
-        &self,
-        py: Python<'_>,
-        dest: &Bound<'_, PyAny>,
-        format: Option<&str>,
-        jpeg_quality: u8,
-        jpeg_optimize: bool,
-    ) -> PyResult<()> {
-        let is_buffer = dest.hasattr("write")?;
-
-        let fmt_str: String = if let Some(f) = format {
-            f.to_string()
-        } else if is_buffer {
-            self.inner
-                .format()
-                .and_then(format_name)
-                .unwrap_or("JPEG")
-                .to_string()
-        } else {
-            let os = py.import("os")?;
-            let path_str: String = os.call_method1("fspath", (dest,))?.extract()?;
-            let ext = std::path::Path::new(&path_str)
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("jpg")
-                .to_uppercase();
-            match ext.as_str() {
-                "JPG" | "JPEG" => "JPEG".to_string(),
-                "TIF" => "TIFF".to_string(),
-                "EXR" => "OPENEXR".to_string(),
-                _ => ext,
-            }
-        };
-
-        let parsed_format = parse_output_format(&fmt_str).map_err(|e| format_image_err(&e))?;
-        let encoded = self
-            .inner
-            .encode(parsed_format, jpeg_quality, jpeg_optimize)
-            .map_err(|e| format_image_err(&e))?;
-
-        if is_buffer {
-            dest.call_method1("write", (PyBytes::new(py, &encoded),))?;
-        } else {
-            let os = py.import("os")?;
-            let path_str: String = os.call_method1("fspath", (dest,))?.extract()?;
-            std::fs::write(&path_str, &encoded)
-                .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))?;
-        }
-        Ok(())
-    }
-
     fn __repr__(&self) -> String {
         let (w, h) = self.inner.size();
         let fmt = self.inner.format().and_then(format_name).unwrap_or("?");

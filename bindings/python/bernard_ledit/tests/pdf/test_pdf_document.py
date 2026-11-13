@@ -242,19 +242,6 @@ def test_save_(test_data_dir):
         assert saved.startswith(b"%PDF-")
 
 
-def test_save_to_path(test_data_dir, tmp_path):
-    data = (test_data_dir / "file_types/pdf/blank_1.pdf").read_bytes()
-    doc = PdfDocument(data)
-
-    file_path = tmp_path / "save_to_file.pdf"
-
-    doc.save_to_file(file_path)
-
-    with open(file_path, "rb") as f:
-        saved = f.read()
-        assert saved.startswith(b"%PDF-")
-
-
 def test_compress_text_pdf_is_noop(test_data_dir):
     data = (test_data_dir / "file_types/pdf/multipage.pdf").read_bytes()
     assert compress_to_jpeg(data, quality=85) == data
