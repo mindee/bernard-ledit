@@ -35,6 +35,10 @@ impl Document {
         Ok(buffer)
     }
 
+}
+
+impl Document {
+
     /// Create an empty PDF document.
     ///
     /// # Errors

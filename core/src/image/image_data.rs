@@ -99,6 +99,9 @@ impl Image {
     pub fn to_bytes(&self) -> Result<Vec<u8>, ImageError> {
         Ok(self.inner.as_bytes().to_vec())
     }
+}
+
+impl Image {
 
     /// Creates an `ImageData` from a `DynamicImage`.
     pub(crate) fn from_dynamic(inner: DynamicImage) -> Self {
