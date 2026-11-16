@@ -43,6 +43,40 @@ final class ImageTest extends TestCase
         self::assertSame('PNG', $img->getFormat());
     }
 
+    public function testDecodeHeicAndConvert(): void
+    {
+        $data = self::loadFileContents('receipt.heic');
+        self::assertSame('HEIC', guessFormat($data));
+        $img = decode($data);
+        self::assertSame('HEIC', $img->getFormat());
+        self::assertSame([800, 1066], $img->getSize());
+        self::assertSame(800 * 1066 * 3, strlen($img->toBytes()));
+        $resized = $img->resize(80, 107);
+        self::assertSame('HEIC', $resized->getFormat());
+        self::assertSame([80, 107], decode($resized->encode('PNG'))->getSize());
+    }
+
+    public function testHeicEncodingIsExplicitlyUnsupported(): void
+    {
+        $img = decode(self::loadFileContents('receipt.jpg'));
+        $this->expectException(\ValueError::class);
+        $this->expectExceptionMessage('HEIC/HEIF encoding is not supported');
+        $img->encode('HEIC');
+    }
+
+    public function testHeifEncodingIsExplicitlyUnsupported(): void
+    {
+        $img = decode(self::loadFileContents('receipt.jpg'));
+        $this->expectException(\ValueError::class);
+        $this->expectExceptionMessage('HEIC/HEIF encoding is not supported');
+        $img->encode('heif');
+    }
+
+    public function testGuessPdfFormat(): void
+    {
+        self::assertSame('PDF', guessFormat("%PDF-1.7\n"));
+    }
+
     public function testBinaryRoundTripIsNotUtf8Mangled(): void
     {
         $bytes = self::loadFileContents('receipt.jpg');

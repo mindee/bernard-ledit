@@ -25,6 +25,7 @@ audited implementation.
   - [PDF API](#pdf-api)
   - [Geometry API](#geometry-api-deprecated)
 - [PHP binding](#php-binding)
+- [Native libheif prerequisites](#native-libheif-prerequisites)
 - [PDFium: dynamic and static builds](#pdfium-dynamic-and-static-builds)
 - [Development](#development)
   - [Prerequisites](#prerequisites)
@@ -85,7 +86,8 @@ expose the same API idiomatically in each language.
 pip install bernard-ledit
 ```
 
-The wheel bundles the compiled Rust extension and pdfium – no system dependencies required.
+The wheel bundles the compiled Rust extension and PDFium. HEIC support also
+requires system libheif and its HEVC decoder; see [native libheif prerequisites](#native-libheif-prerequisites).
 
 Document and image inputs must be `bytes`, not paths or file-like objects. The calling application
 handles all file and stream I/O, including writing returned bytes.
@@ -145,6 +147,9 @@ Path("crop.jpg").write_bytes(crop.encode(format_from_extension("jpg")))
 
 Supported encode formats: `JPEG`, `PNG`, `PDF`, `TIFF`, `WEBP`, `BMP`, `GIF`, `AVIF`, `ICO`, `QOI`, `TGA`, `PNM`,
 `FARBFELD`, `OPENEXR`.
+
+HEIC support is decode-only; HEIC encoding is unsupported. See
+[image formats](docs/image-formats.md) for the scope and current status.
 
 ### PDF API
 
@@ -236,8 +241,9 @@ the [Mindee PHP SDK](https://github.com/mindee/mindee-api-php). Its PHP API is d
 in [`bindings/php/bernard_ledit.stubs.php`](bindings/php/bernard_ledit.stubs.php), regenerated with `just php stubs`.
 
 **Supported:** PHP 8.1 – 8.5, ZTS and NTS, on Linux (x86_64 and arm64, glibc and musl), macOS (arm64 and x86_64) and
-Windows (x86_64). Released extensions link PDFium statically: they are a single file with no PDFium to install. The
-Linux glibc builds require glibc 2.35 or newer.
+Windows (x86_64). Released extensions link PDFium statically, so no PDFium installation is needed.
+HEIC support requires a separate system libheif at runtime. The Linux glibc builds
+require glibc 2.35 or newer.
 
 ### Installation
 
@@ -259,6 +265,38 @@ Windows); load it with `extension=/path/to/it` in your `php.ini`.
 On Windows, build with Rust nightly (`RUSTUP_TOOLCHAIN=nightly`, required by ext-php-rs) and with the MSVC toolset your
 PHP was built with: 14.29 (v142) for PHP 8.1 – 8.3, 14.44 (v143) for 8.4 and 8.5, downloading the matching
 `win-x64-v142` or `win-x64-v143` library.
+
+---
+
+## Native libheif prerequisites
+
+The always-on HEIC decoder dynamically links **system libheif 1.17 or newer with the
+libde265 HEVC decoder**, including for applications that do not decode HEIC. This applies to
+Rust builds and released Python and PHP bindings; native libheif and its plugins are not bundled.
+An HEVC encoder is not required. Build environments need development headers and library discovery;
+deployment environments need the compatible shared library and decoder, including any separately
+packaged plugin, discoverable by the OS loader. Matching CPU architecture, libc and ABI matter.
+
+- Ubuntu 24.04 build: `sudo apt-get install pkg-config libheif-dev libheif-plugin-libde265`.
+  For deployment install the corresponding runtime library and decoder plugin from the same
+  compatible distribution. Older distributions may not offer libheif 1.17; the extension's
+  glibc 2.35 baseline does not make Ubuntu 24.04's libheif usable on glibc 2.35. Such targets
+  need a separately built or backported, ABI-compatible libheif >= 1.17 and libde265; stock
+  Ubuntu 22.04 packages are too old. The CI extension symbol-version check enforces its 2.35
+  baseline, but does not check the glibc requirements of the separately installed libraries.
+- Alpine: install `libheif-dev` for builds and the matching `libheif` runtime; newer Alpine
+  packages may also require `libheif-libde265`. Check the package's decoder configuration.
+- macOS: `brew install libheif`; ensure the shared library and decoder are available at the
+  install names recorded in the extension on the deployment machine.
+- Windows x64 MSVC: install vcpkg's dynamic `libheif[core,libde265]:x64-windows` port, set
+  `VCPKG_ROOT` and `VCPKGRS_DYNAMIC=1` when building, and make its DLLs available to the loader
+  when running. The extension's MSVC runtime and the system libraries must be compatible.
+
+Do not use wheel repair or packaging steps that vendor libheif or its codec libraries. This
+system-dependency policy needs verification for each wheel/PIE target and deployment: a wheel
+tag or successful build alone does not establish portability, loader paths, or plugin availability.
+No Python wheel publishing workflow exists in this repository. See
+[image formats](docs/image-formats.md) for the decoder scope and licensing/patent caveats.
 
 ---
 
@@ -316,6 +354,7 @@ PDFIUM_OS=linux PDFIUM_CPU=x64 bash tools/pdfium-static/build.sh
 | Python ≥ 3.9 + virtualenv                                | Python binding tests                        |
 | PHP ≥ 8.1 with its dev headers (`php-config`) + Composer | PHP binding build and tests                 |
 | libclang                                                 | PHP binding (ext-php-rs generates bindings) |
+| System libheif ≥ 1.17 + libde265, development files     | HEIC decoder in core and bindings           |
 | [GitHub CLI](https://cli.github.com/)                    | Downloading static PDFium libraries         |
 | Docker                                                   | Building static PDFium for Linux            |
 
@@ -365,7 +404,7 @@ just php stubs-check       # fails if the committed PHP stubs are out of date
 
 | Workflow                           | What it does                                                                                                              |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `pull-request.yml`, `main-dev.yml` | Entry points: run the unit tests, binding tests and linters                                                               |
+| `pull-request.yml`, `main-dev.yml` | Entry points: run the unit tests (including `receipt.heic`), binding tests and linters                                    |
 | `build-static-pdfium.yml`          | Builds and publishes any missing static PDFium library, then runs `_php-static-check.yml` against the published libraries |
 | `_php-static-check.yml`            | Builds and tests the PHP extension with static PDFium: PHP 8.1 – 8.5, ZTS and NTS, on every target with a PHP build       |
 

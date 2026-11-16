@@ -100,7 +100,7 @@ mod tests {
     fn crop_preserves_format() {
         let image = Image::decode(test_data_bytes!("file_types/receipt.jpg")).unwrap();
         let cropped = image.crop(0, 0, 10, 10).unwrap();
-        assert_eq!(cropped.format(), Some(ImageFormat::Jpeg));
+        assert_eq!(cropped.format(), Some(ImageFormat::Jpeg.into()));
     }
 
     #[test]

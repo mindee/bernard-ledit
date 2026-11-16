@@ -23,6 +23,8 @@ jobs:
         with:
           submodules: recursive
 
+      - uses: ./.github/actions/setup-libheif
+
       - name: Cache PDFium binary
         uses: actions/cache@v6
         with:

@@ -75,6 +75,28 @@ def test_constructor_garbage_errors():
         Image(b"\xde\xad\xbe\xef")
 
 
+def test_heic_decode_and_conversion(test_data_dir):
+    data = (test_data_dir / "file_types/receipt.heic").read_bytes()
+    assert guess_format(data) == "HEIC"
+    image = Image(data)
+    assert image.format == "HEIC"
+    assert image.size == (800, 1066)
+    assert len(image.to_bytes()) == 800 * 1066 * 3
+    resized = image.resize(80, 107)
+    assert resized.format == "HEIC"
+    assert Image(resized.encode("PNG")).size == (80, 107)
+
+
+@pytest.mark.parametrize("format_name", ["HEIC", "heif"])
+def test_heic_encoding_is_explicitly_unsupported(jpg_bytes, format_name):
+    with pytest.raises(ImageError, match="HEIC/HEIF encoding is not supported"):
+        Image(jpg_bytes).encode(format_name)
+
+
+def test_guess_pdf_format():
+    assert guess_format(b"%PDF-1.7\n") == "PDF"
+
+
 def test_to_bytes_returns_bytes(jpg_bytes):
     encoded = Image(jpg_bytes).to_bytes()
     assert isinstance(encoded, bytes)

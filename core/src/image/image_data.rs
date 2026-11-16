@@ -1,4 +1,4 @@
-use crate::common::OutputFormat;
+use crate::common::{OutputFormat, Format, guess_format};
 use crate::image::ImageError;
 use ::image::imageops::FilterType;
 use ::image::{DynamicImage, ImageFormat};
@@ -9,42 +9,10 @@ use std::io::Cursor;
 /// A decoded raster image plus the format it was decoded from (if known).
 pub struct Image {
     pub(super) inner: DynamicImage,
-    pub(super) format: Option<ImageFormat>,
+    pub(super) format: Option<Format>,
     /// corresponds to length of encoded image data if format is not `None`.
     /// or length of raw pixel data if format is `None`.
     pub(super) source_len: Option<usize>,
-}
-
-/// Magic-byte sniff. Backs the public `guess_format`.
-/// # Errors
-/// Returns an error if the image format cannot be determined.
-pub fn guess_format(data: &[u8]) -> Result<ImageFormat, ImageError> {
-    image::guess_format(data).map_err(|_| ImageError::UnknownFormat)
-}
-
-/// Stable uppercase name: JPEG, PNG, GIF, WEBP, TIFF, BMP, ICO, ... .
-/// Centralizes the `ImageFormat`->&str mapping used by both `guess_format`
-/// and `Image::format`.
-#[must_use]
-pub const fn format_name(format: ImageFormat) -> Option<&'static str> {
-    match format {
-        ImageFormat::Avif => Some("AVIF"),
-        ImageFormat::Bmp => Some("BMP"),
-        ImageFormat::Dds => Some("DDS"),
-        ImageFormat::Farbfeld => Some("FARBFELD"),
-        ImageFormat::Gif => Some("GIF"),
-        ImageFormat::Hdr => Some("HDR"),
-        ImageFormat::Ico => Some("ICO"),
-        ImageFormat::Jpeg => Some("JPEG"),
-        ImageFormat::OpenExr => Some("OPENEXR"),
-        ImageFormat::Png => Some("PNG"),
-        ImageFormat::Pnm => Some("PNM"),
-        ImageFormat::Qoi => Some("QOI"),
-        ImageFormat::Tga => Some("TGA"),
-        ImageFormat::Tiff => Some("TIFF"),
-        ImageFormat::WebP => Some("WEBP"),
-        _ => None,
-    }
 }
 
 /// Parse an uppercase/lowercase format string into an `ImageFormat`.
@@ -78,11 +46,18 @@ impl Image {
     /// # Errors
     /// Returns an error if the image data is invalid or the format is not supported.
     pub fn decode(data: &[u8]) -> Result<Self, ImageError> {
+        if let Ok(format @ (Format::Heic | Format::Heif)) = guess_format(data) {
+            return Ok(Self {
+                inner: super::heif::decode(data)?,
+                format: Some(format),
+                source_len: Some(data.len()),
+            });
+        }
         let inner = ImageReader::new(Cursor::new(data))
             .with_guessed_format()
             .map_err(|e| ImageError::Decode(e.to_string()))?;
         let source_len = Some(data.len());
-        let format = inner.format();
+        let format = inner.format().map(Format::Image);
         let decoded = inner
             .decode()
             .map_err(|e| ImageError::Decode(e.to_string()))?;
@@ -120,7 +95,7 @@ impl Image {
 
     /// Format this image was decoded from, if known.
     #[must_use]
-    pub const fn format(&self) -> Option<ImageFormat> {
+    pub const fn format(&self) -> Option<Format> {
         self.format
     }
 
@@ -286,7 +261,7 @@ impl Image {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::parse_output_format;
+    use crate::common::{format_name, parse_output_format};
     use ::image::{ImageFormat, RgbImage};
     use std::io::Cursor;
 
@@ -316,19 +291,28 @@ mod tests {
     #[test]
     fn guess_format_png() {
         let bytes = synth_bytes(4, 4, ImageFormat::Png);
-        assert_eq!(guess_format(&bytes).unwrap(), ImageFormat::Png);
+        assert_eq!(
+            guess_format(&bytes).unwrap(),
+            Format::Image(ImageFormat::Png)
+        );
     }
 
     #[test]
     fn guess_format_jpeg_from_fixture() {
         let bytes = test_data_bytes!("file_types/receipt.jpg");
-        assert_eq!(guess_format(bytes).unwrap(), ImageFormat::Jpeg);
+        assert_eq!(
+            guess_format(bytes).unwrap(),
+            Format::Image(ImageFormat::Jpeg)
+        );
     }
 
     #[test]
     fn guess_format_tiff_from_fixture() {
         let bytes = test_data_bytes!("file_types/receipt.tiff");
-        assert_eq!(guess_format(bytes).unwrap(), ImageFormat::Tiff);
+        assert_eq!(
+            guess_format(bytes).unwrap(),
+            Format::Image(ImageFormat::Tiff)
+        );
     }
 
     #[test]
@@ -346,10 +330,10 @@ mod tests {
 
     #[test]
     fn format_name_known_formats() {
-        assert_eq!(format_name(ImageFormat::Jpeg), Some("JPEG"));
-        assert_eq!(format_name(ImageFormat::Png), Some("PNG"));
-        assert_eq!(format_name(ImageFormat::WebP), Some("WEBP"));
-        assert_eq!(format_name(ImageFormat::Tiff), Some("TIFF"));
+        assert_eq!(format_name(ImageFormat::Jpeg.into()), Some("JPEG"));
+        assert_eq!(format_name(ImageFormat::Png.into()), Some("PNG"));
+        assert_eq!(format_name(ImageFormat::WebP.into()), Some("WEBP"));
+        assert_eq!(format_name(ImageFormat::Tiff.into()), Some("TIFF"));
     }
 
     #[test]
@@ -373,7 +357,7 @@ mod tests {
         let bytes = synth_bytes(20, 10, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
         assert_eq!(img.size(), (20, 10));
-        assert_eq!(img.format(), Some(ImageFormat::Png));
+        assert_eq!(img.format(), Some(ImageFormat::Png.into()));
     }
 
     #[test]
@@ -382,7 +366,73 @@ mod tests {
         let img = Image::decode(bytes).unwrap();
         let (w, h) = img.size();
         assert!(w > 0 && h > 0);
-        assert_eq!(img.format(), Some(ImageFormat::Jpeg));
+        assert_eq!(img.format(), Some(ImageFormat::Jpeg.into()));
+    }
+
+    #[test]
+    fn decode_heic_to_rgb_and_reencode_as_png() {
+        let bytes = test_data_bytes!("file_types/receipt.heic");
+        let image = Image::decode(bytes).unwrap();
+        assert_eq!(image.size(), (800, 1066));
+        assert_eq!(image.format(), Some(Format::Heic));
+        assert_eq!(image.inner.color(), image::ColorType::Rgb8);
+        assert_eq!(image.source_len, Some(bytes.len()));
+        let resized = image.resize(80, 107, FilterType::Lanczos3).unwrap();
+        assert_eq!(resized.format(), Some(Format::Heic));
+        let png = resized.encode(ImageFormat::Png, 85, true).unwrap();
+        assert_eq!(Image::decode(&png).unwrap().size(), (80, 107));
+    }
+
+    #[test]
+    fn decode_heic_grid_composites_alpha_on_white() {
+        // Synthetic 128x64 lossless HEVC grid, two 64x64 tiles with alpha strips.
+        let bytes = include_bytes!("../../tests/fixtures/alpha-grid.heic");
+        let image = Image::decode(bytes).unwrap();
+        assert_eq!(image.size(), (128, 64));
+        let rgb = image.inner.as_rgb8().unwrap();
+        assert_eq!(rgb.get_pixel(10, 10).0, [255, 255, 255]);
+        assert_eq!(rgb.get_pixel(40, 10).0, [227, 177, 127]);
+        assert_eq!(rgb.get_pixel(90, 10).0, [200, 100, 0]);
+    }
+
+    #[test]
+    fn decode_hevc_with_generic_heif_brand() {
+        let mut bytes = test_data_bytes!("file_types/receipt.heic").to_vec();
+        let ftyp_len = usize::try_from(u32::from_be_bytes(bytes[..4].try_into().unwrap())).unwrap();
+        for brand in bytes[8..ftyp_len].as_chunks_mut::<4>().0 {
+            if brand == b"heic" {
+                brand.copy_from_slice(b"mif1");
+            }
+        }
+        let image = Image::decode(&bytes).unwrap();
+        assert_eq!(image.format(), Some(Format::Heif));
+        assert_eq!(image.size(), (800, 1066));
+        assert_eq!(image.inner.color(), image::ColorType::Rgb8);
+    }
+
+    #[test]
+    fn decode_heic_applies_container_rotation_once() {
+        // Synthetic red/blue 64x32 image with a 90-degree clockwise irot property.
+        let bytes = include_bytes!("../../tests/fixtures/rotated.heic");
+        let image = Image::decode(bytes).unwrap();
+        assert_eq!(image.size(), (32, 64));
+        let rgb = image.inner.as_rgb8().unwrap();
+        assert!(rgb.get_pixel(16, 8).0[0] > 240);
+        assert!(rgb.get_pixel(16, 56).0[2] > 240);
+    }
+
+    #[test]
+    fn decode_truncated_heic_and_unsupported_heif_codec_fail() {
+        let bytes = test_data_bytes!("file_types/receipt.heic");
+        assert!(matches!(
+            Image::decode(&bytes[..40]),
+            Err(ImageError::Decode(_))
+        ));
+        let jpeg_heif = test_data_bytes!("file_types/receipt.jpg.heif");
+        assert!(matches!(
+            Image::decode(jpeg_heif),
+            Err(ImageError::Decode(_))
+        ));
     }
 
     #[test]
@@ -468,7 +518,7 @@ mod tests {
         let jpeg = img.encode(ImageFormat::Jpeg, 90, false).unwrap();
         let reloaded = Image::decode(&jpeg).unwrap();
         assert_eq!(reloaded.size(), (24, 12));
-        assert_eq!(reloaded.format(), Some(ImageFormat::Jpeg));
+        assert_eq!(reloaded.format(), Some(ImageFormat::Jpeg.into()));
     }
 
     #[test]

@@ -1,5 +1,5 @@
-use crate::common::OutputFormat;
-use crate::image::{Image, guess_format};
+use crate::common::{Format, OutputFormat, guess_format};
+use crate::image::Image;
 use crate::pdf::Document;
 use crate::pdf::error::PdfExtractError;
 use ::image::ImageFormat;
@@ -33,12 +33,28 @@ pub fn extract_from_page_ranges(
 /// # Errors
 /// Returns a [`PdfExtractError`] if the data cannot be decoded as a PDF.
 fn load_as_pdf(data: &[u8]) -> Result<Document, PdfExtractError> {
-    if data.starts_with(b"%PDF-") {
-        return Ok(Document::decode(data)?);
-    }
-    if guess_format(data)? == ImageFormat::Jpeg {
-        return Ok(Document::from_jpeg_autosize(data)?);
+    match guess_format(data)? {
+        Format::Pdf => return Ok(Document::decode(data)?),
+        Format::Image(ImageFormat::Jpeg) => {
+            return Ok(Document::from_jpeg_autosize(data)?);
+        }
+        _ => {}
     }
     let pdf = Image::decode(data)?.encode(OutputFormat::Pdf, 85, true)?;
     Ok(Document::decode(&pdf)?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extracts_heic_as_a_single_page_pdf() {
+        let bytes = include_bytes!("../../tests/fixtures/rotated.heic");
+        let documents = extract_from_page_ranges(bytes, &[vec![0]]).unwrap();
+        assert_eq!(documents.len(), 1);
+        assert_eq!(documents[0].page_count().unwrap(), 1);
+        let encoded = documents[0].to_bytes().unwrap();
+        assert_eq!(guess_format(&encoded).unwrap(), Format::Pdf);
+    }
 }
