@@ -1,8 +1,8 @@
-use crate::common::{OutputFormat, Format, guess_format};
+use crate::common::{Format, OutputFormat, guess_format};
 use crate::image::ImageError;
 use ::image::imageops::FilterType;
 use ::image::{DynamicImage, ImageFormat};
-use image::ImageReader;
+use image::{ImageDecoder, ImageReader};
 use jpeg_encoder::{ColorType as JpegColorType, Encoder as JpegEncoder};
 use std::io::Cursor;
 
@@ -58,11 +58,17 @@ impl Image {
             .map_err(|e| ImageError::Decode(e.to_string()))?;
         let source_len = Some(data.len());
         let format = inner.format().map(Format::Image);
-        let decoded = inner
-            .decode()
+        let mut decoder = inner
+            .into_decoder()
             .map_err(|e| ImageError::Decode(e.to_string()))?;
+        let orientation = decoder
+            .orientation()
+            .map_err(|e| ImageError::Decode(e.to_string()))?;
+        let mut raster =
+            DynamicImage::from_decoder(decoder).map_err(|e| ImageError::Decode(e.to_string()))?;
+        raster.apply_orientation(orientation);
         Ok(Self {
-            inner: decoded,
+            inner: raster,
             format,
             source_len,
         })

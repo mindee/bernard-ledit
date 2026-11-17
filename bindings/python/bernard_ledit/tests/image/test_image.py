@@ -63,6 +63,25 @@ def test_decode_records_format(request, fixture, expected):
     assert width > 0 and height > 0
 
 
+def test_jpeg_exif_rotation_is_applied(jpg_bytes):
+    # Little-endian TIFF directory with EXIF orientation 6 (90 degrees clockwise).
+    exif = (
+        b"Exif\0\0II\x2a\0\x08\0\0\0\x01\0"
+        b"\x12\x01\x03\0\x01\0\0\0\x06\0\0\0\0\0\0\0"
+    )
+    rotated = (
+        jpg_bytes[:2]
+        + b"\xff\xe1"
+        + (len(exif) + 2).to_bytes(2, "big")
+        + exif
+        + jpg_bytes[2:]
+    )
+    width, height = Image(jpg_bytes).size
+    image = Image(rotated)
+    assert image.size == (height, width)
+    assert Image(image.encode("PNG")).size == (height, width)
+
+
 def test_constructor_rejects_file_like_without_reading(jpg_bytes):
     stream = io.BytesIO(jpg_bytes)
     with pytest.raises(TypeError):

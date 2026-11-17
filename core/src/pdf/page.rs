@@ -16,8 +16,80 @@ impl<'a> Page<'a> {
 
     /// Get the size of the page in PDF points.
     #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub(crate) fn size(&self) -> (f32, f32) {
+    pub fn size(&self) -> (f32, f32) {
         (self.inner.width().value, self.inner.height().value)
+    }
+
+    /// Get the clockwise page rotation in degrees.
+    /// # Errors
+    /// Returns [`PdfError`] if the rotation cannot be read.
+    pub fn rotation(&self) -> Result<f32, PdfError> {
+        Ok(self.inner.rotation()?.as_degrees())
+    }
+
+    /// Get the unrotated page bounding box as (left, bottom, right, top).
+    /// # Errors
+    /// Returns [`PdfError`] if the bounding box cannot be read.
+    pub fn bounding_box(&self) -> Result<(f32, f32, f32, f32), PdfError> {
+        let bounds = self.inner.boundaries().bounding()?.bounds;
+        Ok((
+            bounds.left().value,
+            bounds.bottom().value,
+            bounds.right().value,
+            bounds.top().value,
+        ))
+    }
+
+    /// Extract tight character bounds in PDF coordinates.
+    /// # Errors
+    /// Returns [`PdfError`] if character extraction fails.
+    pub fn tight_chars(&self) -> Result<Vec<TextChar>, PdfError> {
+        self.inner
+            .text()?
+            .chars()
+            .iter()
+            .map(|character| TextChar::from_pdf_char(&character, true))
+            .collect()
+    }
+
+    /// Check for visible native text not covered by a page-sized image.
+    /// # Errors
+    /// Returns [`PdfError`] if text or object metadata cannot be read.
+    pub fn is_native(&self, image_area_threshold: f32) -> Result<bool, PdfError> {
+        // TODO: look at the previous implementation of this ?
+        let text = self.inner.text()?;
+        let mut visible = false;
+        for character in text.chars().iter() {
+            if character.unicode_char().is_some_and(|c| !c.is_control())
+                && character.render_mode()? != PdfPageTextRenderMode::Invisible
+                && character.stroke_color()?.alpha() != 0
+            {
+                visible = true;
+                break;
+            }
+        }
+        if !visible {
+            return Ok(false);
+        }
+        let (width, height) = self.size();
+        let objects = self.inner.objects();
+        let mut covering_image = false;
+        for index in (0..objects.len()).rev() {
+            let object = objects.get(index)?;
+            match object.object_type() {
+                PdfPageObjectType::Image => {
+                    let bounds = object.bounds()?.to_rect();
+                    if bounds.width().value * bounds.height().value
+                        > width * height * image_area_threshold
+                    {
+                        covering_image = true;
+                    }
+                }
+                PdfPageObjectType::Text if covering_image => return Ok(false),
+                _ => {}
+            }
+        }
+        Ok(true)
     }
 
     /// Check if the page contains neither test nor objects.
