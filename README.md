@@ -75,6 +75,21 @@ expose the same API idiomatically in each language.
 
 ---
 
+## Overview
+
+Bernard-Ledit uses:
+1. pdfium for PDF manipulation
+2. jpeg-encoder to compress using JPEG
+3. libheif for HEIC/HEIF image decoding
+4. image for general image decoding, encoding, and manipulation
+
+Supported encode formats: `JPEG`, `PNG`, `PDF`, `TIFF`, `WEBP`, `BMP`, `GIF`, `AVIF`, `ICO`, `QOI`, `TGA`, `PNM`,
+`FARBFELD`, `OPENEXR`.
+
+HEIC support is decode-only; HEIC encoding is unsupported. See
+[image formats](docs/image-formats.md) for the scope and current status.
+
+
 ## Python binding
 
 ### Installation
@@ -83,11 +98,6 @@ expose the same API idiomatically in each language.
 pip install bernard-ledit
 ```
 
-The wheel bundles the compiled Rust extension and PDFium. HEIC support also
-requires system libheif and its HEVC decoder; see [native libheif prerequisites](#native-libheif-prerequisites).
-
-Document and image inputs must be `bytes`, not paths or file-like objects. The calling application
-handles all file and stream I/O, including writing returned bytes.
 
 ### Image API
 
@@ -142,11 +152,6 @@ crop = img.crop_polygon([(0.1, 0.1), (0.5, 0.1), (0.5, 0.4), (0.1, 0.4)])
 Path("crop.jpg").write_bytes(crop.encode(format_from_extension("jpg")))
 ```
 
-Supported encode formats: `JPEG`, `PNG`, `PDF`, `TIFF`, `WEBP`, `BMP`, `GIF`, `AVIF`, `ICO`, `QOI`, `TGA`, `PNM`,
-`FARBFELD`, `OPENEXR`.
-
-HEIC support is decode-only; HEIC encoding is unsupported. See
-[image formats](docs/image-formats.md) for the scope and current status.
 
 ### PDF API
 
@@ -372,8 +377,6 @@ just php test-static       # release build, PDFium linked in, no PDFium library 
 just php smoke             # checks that the extension loads
 ```
 
-The PHP test recipes ignore `php.ini` so they test the local build rather than an installed copy.
-They load the required PHP modules explicitly only if they are not already built into PHP.
 
 > **Note:** Rust tests run single-threaded (`RUST_TEST_THREADS=1` via `.cargo/config.toml`) because pdfium's renderer is
 > not thread-safe.
