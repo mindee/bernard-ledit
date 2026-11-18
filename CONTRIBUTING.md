@@ -29,70 +29,8 @@ cargo binstall cargo-deny cargo-nextest cargo-hack
 
 ### Binding-specific dependencies
 
-You only need these if you are working on the corresponding language binding.
-
-#### Python (`bindings/python`)
-
-Python 3.9+ and an active virtualenv (venv, virtualenvwrapper, uv, …) are required. The `dev`
-extra installs [maturin](https://github.com/PyO3/maturin) (used by `just python build`) along with
-the test and lint tools:
-
-```bash
-# Debian / Ubuntu
-sudo apt install python3 python3-venv
-
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e "bindings/python[dev]"   # from the repo root
-```
-
-#### PHP (`bindings/php`)
-
-`ext-php-rs` requires PHP development headers and `libclang` for bindgen:
-
-```bash
-# Debian / Ubuntu
-sudo apt install php-dev libclang-dev
-
-# Fedora / RHEL
-sudo dnf install php-devel clang-devel
-```
-
-#### Node.js (`bindings/nodejs`)
-
-NAPI-RS requires a Node.js runtime. Install it via your system package manager or [nvm](https://github.com/nvm-sh/nvm):
-
-```bash
-# Debian / Ubuntu
-sudo apt install nodejs npm
-```
-
-#### Java (`bindings/java`)
-
-A JDK is required to run the generated UniFFI bindings. Any JDK 11+ distribution works:
-
-```bash
-# Debian / Ubuntu
-sudo apt install default-jdk
-```
-
-#### .NET (`bindings/dotnet`)
-
-The .NET SDK 8.0+ is required:
-
-```bash
-# See https://learn.microsoft.com/en-us/dotnet/core/install/linux
-sudo apt install dotnet-sdk-8.0
-```
-
-#### Ruby (`bindings/ruby`)
-
-Ruby 3.1+ and Bundler are required:
-
-```bash
-# Debian / Ubuntu
-sudo apt install ruby ruby-dev bundler
-```
+For binding-specific setup, build, and test instructions, see the
+[binding documentation](README.md#bindings).
 
 ---
 
@@ -101,12 +39,6 @@ sudo apt install ruby ruby-dev bundler
 ```bash
 # Rust core
 just build
-
-# Python binding (installs into the active virtualenv via maturin develop)
-just python build
-
-# Java binding
-just java build
 ```
 
 ---
@@ -116,9 +48,6 @@ just java build
 ```bash
 # Rust core
 just test
-
-# Python binding
-just python test
 
 # Full Rust check (all feature combinations, lint, tests)
 just check
@@ -136,12 +65,8 @@ just check
 # Rust: fmt check + clippy + cargo-deny + cargo-udeps + hack-check
 just lint
 
-# Python: ruff + mypy
-just python lint-check
-
 # Auto-fix formatting
 just format         # Rust
-just python format  # Python
 ```
 
 ---
