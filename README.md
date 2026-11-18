@@ -372,6 +372,9 @@ just php test-static       # release build, PDFium linked in, no PDFium library 
 just php smoke             # checks that the extension loads
 ```
 
+The PHP test recipes ignore `php.ini` so they test the local build rather than an installed copy.
+They load the required PHP modules explicitly only if they are not already built into PHP.
+
 > **Note:** Rust tests run single-threaded (`RUST_TEST_THREADS=1` via `.cargo/config.toml`) because pdfium's renderer is
 > not thread-safe.
 

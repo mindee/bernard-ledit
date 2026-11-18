@@ -4,9 +4,6 @@ ext_name := if os() == "macos" { "libbernard_ledit_php.dylib" } else if os() == 
 ext_debug := "../../target/debug/" + ext_name
 ext_release := "../../target/release/" + ext_name
 
-# `php -n` skips php.ini, so the extensions the test suite needs are loaded explicitly.
-php_test_exts := "-d extension=dom -d extension=xml -d extension=mbstring -d extension=tokenizer -d extension=ctype -d extension=xmlwriter"
-
 static_feature := if os() == "macos" { "static-pdfium-libcxx" } else if os() == "windows" { "static-pdfium-msvc" } else { "static-pdfium" }
 
 # Where core's build downloads the dynamic PDFium that debug builds load.
@@ -125,7 +122,15 @@ php-with MODE *ARGS:
             ;;
     esac
     ext_dir="$(php -r 'echo ini_get("extension_dir");')"
-    php -n -d extension_dir="$ext_dir" {{php_test_exts}} -d extension="$ext" {{ARGS}}
+    php_args=(-n -d "extension_dir=$ext_dir")
+    # Some PHP builds (e.g. Homebrew) already include these modules even with -n.
+    builtin_modules="$(php -n -m)"
+    for module in dom xml mbstring tokenizer ctype xmlwriter; do
+        if ! grep -Fxiq -- "$module" <<< "$builtin_modules"; then
+            php_args+=(-d "extension=$module")
+        fi
+    done
+    php "${php_args[@]}" -d "extension=$ext" {{ARGS}}
 
 # Prints the path of the dynamic PDFium, downloading it through core's build if it's missing.
 [private]

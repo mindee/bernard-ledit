@@ -38,17 +38,17 @@ final class ExceptionClassesTest extends TestCase
      */
     public static function unidentifiableImage(): iterable
     {
-        $heic = self::file('receipt.heic');
-        yield 'guessFormat' => ['BernardLedit\Image\guessFormat', fn () => guessFormat($heic)];
-        yield 'decode' => ['BernardLedit\Image\decode', fn () => decode($heic)];
-        yield 'new Image' => ['BernardLedit\Image\Image::__construct', fn () => new Image($heic)];
+        $unidentifiable = "\x00\x01\x02\x03";
+        yield 'guessFormat' => ['BernardLedit\Image\guessFormat', fn () => guessFormat($unidentifiable)];
+        yield 'decode' => ['BernardLedit\Image\decode', fn () => decode($unidentifiable)];
+        yield 'new Image' => ['BernardLedit\Image\Image::__construct', fn () => new Image($unidentifiable)];
         yield 'Image\compressToJpeg' => [
             'BernardLedit\Image\compressToJpeg',
-            fn () => compressToJpeg($heic),
+            fn () => compressToJpeg($unidentifiable),
         ];
         yield 'extractFromPageRanges' => [
             'BernardLedit\Pdf\extractFromPageRanges',
-            fn () => extractFromPageRanges($heic, [[0]]),
+            fn () => extractFromPageRanges($unidentifiable, [[0]]),
         ];
     }
 
