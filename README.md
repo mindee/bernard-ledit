@@ -4,12 +4,7 @@
   <img src="docs/resources/bernard-ledit_logo.png" width="40%" alt="Bernard l'Édit">
 </p>
 
-> PDF and image utilities for the Mindee SDK ecosystem.
-
-Bernard l'Édit is a **Rust core library** with per-language bindings that gives every official Mindee Client Library a
-single, high-performance foundation for PDF manipulation and image processing. It replaces a
-patchwork of language-specific dependencies (pypdfium2/Pillow, PDFBox, SkiaSharp, Docnet, origami, Imagick, …) with one
-audited implementation.
+> PDF and image utilities with multiple languages bindings.
 
 > ⚠️ **Status:** under heavy development – APIs may change between minor versions.
 
@@ -38,7 +33,7 @@ audited implementation.
 
 | Area         | Capabilities                                                                                                                                                                                        |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Image**    | Decode (JPEG, PNG, TIFF, WebP, BMP, GIF, HEIC, HEIF …), crop, resize, encode, compress to JPEG, save to path or buffer, extract polygon crops from images and PDF pages                                         |
+| **Image**    | Decode (JPEG, PNG, TIFF, WebP, BMP, GIF, HEIC, HEIF …), crop, resize, encode, compress to JPEG, extract polygon crops from images and PDF pages                                         |
 | **PDF**      | Load, split, merge, rasterise pages to images, embed images, extract text and character metadata, compress scans, extract sub-documents, apply page options, repair broken headers |
 
 ---
