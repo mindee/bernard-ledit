@@ -10,7 +10,7 @@
     <packaging>jar</packaging>
 
     <name>Bernard l'Édit</name>
-    <description>Java bindings for Bernard l'Édit - PDF, image, and geometry utilities.</description>
+    <description>Java bindings for Bernard l'Édit - PDF and image utilities.</description>
     <url>https://github.com/mindee/bernard-ledit</url>
 
     <licenses>

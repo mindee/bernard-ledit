@@ -4,10 +4,10 @@
   <img src="docs/resources/bernard-ledit_logo.png" width="40%" alt="Bernard l'Édit">
 </p>
 
-> PDF, image, and geometry utilities for the Mindee SDK ecosystem.
+> PDF and image utilities for the Mindee SDK ecosystem.
 
 Bernard l'Édit is a **Rust core library** with per-language bindings that gives every official Mindee Client Library a
-single, high-performance foundation for PDF manipulation, image processing, and geometry operations. It replaces a
+single, high-performance foundation for PDF manipulation and image processing. It replaces a
 patchwork of language-specific dependencies (pypdfium2/Pillow, PDFBox, SkiaSharp, Docnet, origami, Imagick, …) with one
 audited implementation.
 
@@ -23,7 +23,6 @@ audited implementation.
   - [Installation](#installation)
   - [Image API](#image-api)
   - [PDF API](#pdf-api)
-  - [Geometry API](#geometry-api-deprecated)
 - [PHP binding](#php-binding)
 - [Native libheif prerequisites](#native-libheif-prerequisites)
 - [PDFium: dynamic and static builds](#pdfium-dynamic-and-static-builds)
@@ -43,9 +42,8 @@ audited implementation.
 
 | Area         | Capabilities                                                                                                                                                                                        |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Image**    | Decode (JPEG, PNG, TIFF, WebP, BMP, GIF, …), crop, resize, encode, compress to JPEG, save to path or buffer, extract polygon crops from images and PDF pages                                         |
+| **Image**    | Decode (JPEG, PNG, TIFF, WebP, BMP, GIF, HEIC, HEIF …), crop, resize, encode, compress to JPEG, save to path or buffer, extract polygon crops from images and PDF pages                                         |
 | **PDF**      | Load, split, merge, rasterise pages to images, embed images, extract text and character metadata, compress scans, extract sub-documents, apply page options, repair broken headers |
-| **Geometry** | Point and polygon primitives, currently not in use.                                                                                                                                                 |
 
 ---
 
@@ -59,7 +57,6 @@ bernard-ledit/
 │   └── src/
 │       ├── image/          # Image decoding, encoding, compression, polygon crops
 │       ├── pdf/            # PDF manipulation via PDFium
-│       ├── geometry/       # Point / Polygon primitives
 │       └── utils/
 ├── bindings/
 │   ├── python/             # PyO3 extension (maturin)
@@ -216,19 +213,6 @@ doc, skipped = apply_page_options(
 # --- repair a broken header ---
 # Drops every byte before the first `%PDF-` marker, if it sits before maximum_offset.
 fixed = fix_pdf(raw_bytes, maximum_offset=500)
-```
-
-### Geometry API [DEPRECATED]
-
-```python
-from bernard_ledit.geometry import Point, Polygon
-
-p = Point(0.5, 0.75)
-print(p.x, p.y)  # 0.5  0.75
-
-poly = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
-print(poly.centroid())  # Point(0.5, 0.5)
-print(len(poly))  # 4
 ```
 
 ---
@@ -416,7 +400,7 @@ just php stubs-check       # fails if the committed PHP stubs are out of date
 | -------- | ---------------------- | -------------------------------------------------- |
 | Python   | `bernard-ledit` (PyPI) | ✅ Active                                          |
 | PHP      | `bindings/php`         | ✅ Active, used by the PHP SDK; PIE release coming |
-| Java     | `bindings/java`        | 🚧 In progress (geometry)                          |
+| Java     | `bindings/java`        | 🚧 In progress                                     |
 | .NET     | `bindings/dotnet`      | 🚧 In progress                                     |
 | Node.js  | `bindings/nodejs`      | 🚧 In progress                                     |
 | Ruby     | `bindings/ruby`        | 🚧 In progress                                     |

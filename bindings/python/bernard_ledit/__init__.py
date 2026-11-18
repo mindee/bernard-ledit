@@ -1,4 +1,4 @@
-"""Bernard l'Édit - PDF, image, and geometry utilities."""
+"""Bernard l'Édit - PDF and image utilities."""
 
 import os as _os
 import sys as _sys
@@ -20,12 +20,10 @@ from ._bernard_ledit import *  # noqa: E402, F401, F403
 
 _native_any: _Any = _native
 common = _native_any.common
-geometry = _native_any.geometry
 pdf = _native_any.pdf
 image = _native_any.image
 _sys.modules[__name__ + ".common"] = common
-_sys.modules[__name__ + ".geometry"] = geometry
 _sys.modules[__name__ + ".pdf"] = pdf
 _sys.modules[__name__ + ".image"] = image
 
-__all__ = ["common", "geometry", "pdf", "image"]
+__all__ = ["common", "pdf", "image"]
