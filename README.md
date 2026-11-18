@@ -157,10 +157,8 @@ PDFIUM_OS=linux PDFIUM_CPU=x64 bash tools/pdfium-static/build.sh
 | -------------------------------------------------------- | ------------------------------------------- |
 | Rust 1.99.0 (pinned in `rust-toolchain.toml`)            | Core + all bindings                         |
 | [just](https://github.com/casey/just)                    | Task runner                                 |
-| A C compiler + cmake + nasm                              | Building static PDFium libraries            |
 | System libheif ≥ 1.17 + libde265, development files     | HEIC decoder in core and bindings           |
-| [GitHub CLI](https://cli.github.com/)                    | Downloading static PDFium libraries         |
-| Docker                                                   | Building static PDFium for Linux            |
+
 
 ### Build
 
