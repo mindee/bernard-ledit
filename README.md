@@ -95,33 +95,17 @@ structure while using conventions appropriate to their language.
 
 ## Native libheif prerequisites
 
-The always-on HEIC decoder dynamically links **system libheif 1.17 or newer with the
-libde265 HEVC decoder**, including for applications that do not decode HEIC. This applies to
-Rust builds and released Python and PHP bindings; native libheif and its plugins are not bundled.
-An HEVC encoder is not required. Build environments need development headers and library discovery;
-deployment environments need the compatible shared library and decoder, including any separately
-packaged plugin, discoverable by the OS loader. Matching CPU architecture, libc and ABI matter.
+Requires **system libheif 1.17+ with the libde265 HEVC decoder**. 
+Rust builds need development headers;
+applications need the compatible shared library and decoder plugin at runtime.
+Neither libheif nor its plugins are bundled in the Python or PHP packages.
+An HEVC encoder is not required.
 
-- Ubuntu 24.04 build: `sudo apt-get install pkg-config libheif-dev libheif-plugin-libde265`.
-  For deployment install the corresponding runtime library and decoder plugin from the same
-  compatible distribution. Older distributions may not offer libheif 1.17; the extension's
-  glibc 2.35 baseline does not make Ubuntu 24.04's libheif usable on glibc 2.35. Such targets
-  need a separately built or backported, ABI-compatible libheif >= 1.17 and libde265; stock
-  Ubuntu 22.04 packages are too old. The CI extension symbol-version check enforces its 2.35
-  baseline, but does not check the glibc requirements of the separately installed libraries.
-- Alpine: install `libheif-dev` for builds and the matching `libheif` runtime; newer Alpine
-  packages may also require `libheif-libde265`. Check the package's decoder configuration.
-- macOS: `brew install libheif`; ensure the shared library and decoder are available at the
-  install names recorded in the extension on the deployment machine.
-- Windows x64 MSVC: install vcpkg's dynamic `libheif[core,libde265]:x64-windows` port, set
-  `VCPKG_ROOT` and `VCPKGRS_DYNAMIC=1` when building, and make its DLLs available to the loader
-  when running. The extension's MSVC runtime and the system libraries must be compatible.
-
-Do not use wheel repair or packaging steps that vendor libheif or its codec libraries. This
-system-dependency policy needs verification for each wheel/PIE target and deployment: a wheel
-tag or successful build alone does not establish portability, loader paths, or plugin availability.
-No Python wheel publishing workflow exists in this repository. See
-[image formats](docs/image-formats.md) for the decoder scope and licensing/patent caveats.
+| Platform | Installation |
+| --- | --- |
+| Ubuntu 24.04 | `sudo apt-get install pkg-config libheif-dev libheif-plugin-libde265`. |
+| macOS | `brew install libheif` |
+| Windows x64 MSVC | Install vcpkg's dynamic `libheif[core,libde265]:x64-windows`, set `VCPKG_ROOT` and `VCPKGRS_DYNAMIC=1` for builds, and make its DLLs available at runtime. |
 
 ---
 
