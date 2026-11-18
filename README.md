@@ -193,23 +193,12 @@ just core test
 just core hack-test        # every feature combination, except the static-linking ones
 ```
 
-> **Note:** Rust tests run single-threaded (`RUST_TEST_THREADS=1` via `.cargo/config.toml`) because pdfium's renderer is
-> not thread-safe.
-
 ### Lint
 
 ```bash
 just core lint             # fmt-check + clippy + cargo-deny + udeps + feature-powerset check
 just core check-all        # everything: fmt + lint + build + test
 ```
-
-### CI
-
-| Workflow                           | What it does                                                                                                              |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `pull-request.yml`, `main-dev.yml` | Entry points: run the unit tests (including `receipt.heic`), binding tests and linters                                    |
-| `build-static-pdfium.yml`          | Builds and publishes any missing static PDFium library, then runs `_php-static-check.yml` against the published libraries |
-| `_php-static-check.yml`            | Builds and tests the PHP extension with static PDFium: PHP 8.1 – 8.5, ZTS and NTS, on every target with a PHP build       |
 
 ---
 
