@@ -21,10 +21,7 @@ crate-type = ["cdylib", "rlib"]
 
 [features]
 default = []
-pdf = []
-image = []
-full = ["pdf", "image"]
-static-link = ["pdf", "pdfium-render/static"]
+static-link = ["pdfium-render/static"]
 static-pdfium = ["static-link", "pdfium-render/libstdc++"]        # Linux (glibc, musl)
 static-pdfium-libcxx = ["static-link", "pdfium-render/libc++"]    # macOS
 static-pdfium-msvc = ["static-link"]   # Windows: MSVC links its C++ runtime itself
