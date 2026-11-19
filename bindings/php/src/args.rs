@@ -13,9 +13,9 @@ use std::fmt::Display;
 pub const MIN_DPI: f64 = 1.0;
 /// Highest DPI pages are rendered at: a page's bitmap grows with the square of its DPI.
 pub const MAX_DPI: f64 = 1200.0;
-/// Lowest scale `PdfPage::renderToBitmap` takes.
+/// Lowest scale `PdfPage::render` takes.
 pub const MIN_SCALE: f64 = 0.01;
-/// Highest scale `PdfPage::renderToBitmap` takes, about `MAX_DPI` at 72 DPI per unit.
+/// Highest scale `PdfPage::render` takes, about `MAX_DPI` at 72 DPI per unit.
 pub const MAX_SCALE: f64 = 16.0;
 
 /// A `\ValueError` with `message`.
@@ -69,8 +69,8 @@ pub fn page_index(name: &str, value: i64) -> PhpResult<u16> {
 ///
 /// # Errors
 /// A `\ValueError` if `value` is out of range.
-pub fn quality(value: i64, min: u8) -> PhpResult<u8> {
-    int("quality", value, min, 100)
+pub fn jpeg_quality(value: i64, min: u8) -> PhpResult<u8> {
+    int("jpeg_quality", value, min, 100)
 }
 
 /// Returns `value` as a `usize` if it isn't negative.

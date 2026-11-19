@@ -107,7 +107,7 @@ mod tests {
 
     fn multipage() -> Document {
         pdfium();
-        Document::from_bytes(test_data_bytes!("file_types/pdf/multipage.pdf").to_vec()).unwrap()
+        Document::decode(test_data_bytes!("file_types/pdf/multipage.pdf")).unwrap()
     }
 
     /// Page `i` of multipage.pdf holds (i + 1)^2 asterisks, so the counts identify the pages.
@@ -234,8 +234,7 @@ mod tests {
     #[test]
     fn empty_pdf_errors_before_on_min_pages_check() {
         pdfium();
-        let blank =
-            Document::from_bytes(test_data_bytes!("file_types/pdf/blank.pdf").to_vec()).unwrap();
+        let blank = Document::decode(test_data_bytes!("file_types/pdf/blank.pdf")).unwrap();
         // on_min_pages is huge: the empty check must still win, as in the old SDK flow.
         assert!(matches!(
             run(&blank, PageOperation::KeepOnly, 1000, &[0]),
@@ -255,7 +254,7 @@ mod tests {
         let doc = multipage();
         let out = run(&doc, PageOperation::KeepOnly, 0, &[3, 4]).unwrap();
         let bytes = out.document.unwrap().to_bytes().unwrap();
-        let reloaded = Document::from_bytes(bytes).unwrap();
+        let reloaded = Document::decode(&bytes).unwrap();
         assert_eq!(star_counts(&reloaded), vec![16, 25]);
     }
 

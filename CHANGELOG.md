@@ -1,5 +1,9 @@
 # Bernard l'Édit Changelog
 
+## Unreleased
+### Changes
+* Remove the no-op Rust features `pdf`, `image`, and `full`; PDF and image functionality remains available unconditionally. Rust consumers should remove these feature flags from their dependency declarations.
+
 ## v0.1.0 - 2026-10-27
 ### Changes
 * :tada: first stable release!

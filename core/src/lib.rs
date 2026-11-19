@@ -1,4 +1,4 @@
-//! PDF, image, and geometry utilities for the Mindee SDK ecosystem.
+//! PDF and image utilities for the Mindee SDK ecosystem.
 
 /// Include bytes from a file under the workspace-level `tests/data/` directory.
 ///
@@ -22,11 +22,9 @@ macro_rules! test_data_bytes {
     };
 }
 
-/// Geometry module.
-pub mod geometry;
+/// Types shared across core modules.
+pub mod common;
 /// Image module.
 pub mod image;
 /// PDF module.
 pub mod pdf;
-/// Utilities module.
-pub mod utils;

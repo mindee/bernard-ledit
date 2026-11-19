@@ -1,68 +1,18 @@
+use crate::common::{OutputFormat, Format, guess_format};
 use crate::image::ImageError;
 use ::image::imageops::FilterType;
 use ::image::{DynamicImage, ImageFormat};
 use image::ImageReader;
+use jpeg_encoder::{ColorType as JpegColorType, Encoder as JpegEncoder};
 use std::io::Cursor;
 
 /// A decoded raster image plus the format it was decoded from (if known).
 pub struct Image {
-    inner: DynamicImage,
-    format: Option<ImageFormat>,
-    source_len: Option<usize>,
-}
-
-/// Thin wrapper for resize filters, so the string->enum parse lives in core.
-pub struct Filter(pub FilterType);
-
-/// A target encode format: any raster [`ImageFormat`], or PDF.
-///
-/// PDF is not a raster format the `image` crate knows about, so it lives here
-/// alongside the raster formats to give [`Image::encode`] a single entry point
-/// for every output the SDK can produce.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum OutputFormat {
-    /// A raster format handled by the `image` crate (PNG, JPEG, WEBP, ...).
-    Image(ImageFormat),
-    /// A single-page PDF embedding the image as a JPEG.
-    Pdf,
-}
-
-impl From<ImageFormat> for OutputFormat {
-    fn from(format: ImageFormat) -> Self {
-        Self::Image(format)
-    }
-}
-
-/// Magic-byte sniff. Backs the public `guess_format`.
-/// # Errors
-/// Returns an error if the image format cannot be determined.
-pub fn guess_format(data: &[u8]) -> Result<ImageFormat, ImageError> {
-    image::guess_format(data).map_err(|_| ImageError::UnknownFormat)
-}
-
-/// Stable uppercase name: JPEG, PNG, GIF, WEBP, TIFF, BMP, ICO, ... .
-/// Centralizes the `ImageFormat`->&str mapping used by both `guess_format`
-/// and `Image::format`.
-#[must_use]
-pub const fn format_name(format: ImageFormat) -> Option<&'static str> {
-    match format {
-        ImageFormat::Avif => Some("AVIF"),
-        ImageFormat::Bmp => Some("BMP"),
-        ImageFormat::Dds => Some("DDS"),
-        ImageFormat::Farbfeld => Some("FARBFELD"),
-        ImageFormat::Gif => Some("GIF"),
-        ImageFormat::Hdr => Some("HDR"),
-        ImageFormat::Ico => Some("ICO"),
-        ImageFormat::Jpeg => Some("JPEG"),
-        ImageFormat::OpenExr => Some("OPENEXR"),
-        ImageFormat::Png => Some("PNG"),
-        ImageFormat::Pnm => Some("PNM"),
-        ImageFormat::Qoi => Some("QOI"),
-        ImageFormat::Tga => Some("TGA"),
-        ImageFormat::Tiff => Some("TIFF"),
-        ImageFormat::WebP => Some("WEBP"),
-        _ => None,
-    }
+    pub(super) inner: DynamicImage,
+    pub(super) format: Option<Format>,
+    /// corresponds to length of encoded image data if format is not `None`.
+    /// or length of raw pixel data if format is `None`.
+    pub(super) source_len: Option<usize>,
 }
 
 /// Parse an uppercase/lowercase format string into an `ImageFormat`.
@@ -91,54 +41,23 @@ pub fn parse_format(name: &str) -> Result<ImageFormat, ImageError> {
     }
 }
 
-/// Parse a format string into an [`OutputFormat`], accepting `"PDF"` in addition
-/// to every raster name understood by [`parse_format`].
-/// # Errors
-/// Returns `ImageError::UnsupportedFormat` on miss.
-pub fn parse_output_format(name: &str) -> Result<OutputFormat, ImageError> {
-    if name.eq_ignore_ascii_case("PDF") {
-        return Ok(OutputFormat::Pdf);
-    }
-    parse_format(name).map(OutputFormat::Image)
-}
-impl std::str::FromStr for Filter {
-    type Err = ImageError;
-
-    /// "lanczos" | "lanczos3" -> Lanczos3, "nearest", "triangle",
-    /// "catmullrom"/"bicubic", "gaussian". Default caller passes "lanczos".
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            v if v.eq_ignore_ascii_case("lanczos") || v.eq_ignore_ascii_case("lanczos3") => {
-                Ok(Self(FilterType::Lanczos3))
-            }
-            v if v.eq_ignore_ascii_case("nearest") => Ok(Self(FilterType::Nearest)),
-            v if v.eq_ignore_ascii_case("triangle") => Ok(Self(FilterType::Triangle)),
-            v if v.eq_ignore_ascii_case("catmullrom") || v.eq_ignore_ascii_case("bicubic") => {
-                Ok(Self(FilterType::CatmullRom))
-            }
-            v if v.eq_ignore_ascii_case("gaussian") => Ok(Self(FilterType::Gaussian)),
-            _ => Err(ImageError::UnknownFilter(format!("Unknown filter: {s}"))),
-        }
-    }
-}
-
 impl Image {
-    /// Creates a new image from raw data.
-    /// # Errors
-    /// Returns an error if the image data is invalid or the format is not supported.
-    pub fn new(data: &[u8]) -> Result<Self, ImageError> {
-        Self::decode(data)
-    }
-
     /// Decode any supported raster and records the sniffed format.
     /// # Errors
     /// Returns an error if the image data is invalid or the format is not supported.
     pub fn decode(data: &[u8]) -> Result<Self, ImageError> {
+        if let Ok(format @ (Format::Heic | Format::Heif)) = guess_format(data) {
+            return Ok(Self {
+                inner: super::heif::decode(data)?,
+                format: Some(format),
+                source_len: Some(data.len()),
+            });
+        }
         let inner = ImageReader::new(Cursor::new(data))
             .with_guessed_format()
             .map_err(|e| ImageError::Decode(e.to_string()))?;
         let source_len = Some(data.len());
-        let format = inner.format();
+        let format = inner.format().map(Format::Image);
         let decoded = inner
             .decode()
             .map_err(|e| ImageError::Decode(e.to_string()))?;
@@ -150,12 +69,14 @@ impl Image {
     }
 
     /// Return bytes as an u8 vec.
-    /// # Errors
-    /// Returns a [`PdfError`] if saving the document fails.
+    /// The bytes can correspond to the original encoded image data.
+    /// or to the raw pixel data of the decoded image if the original format is not available.
     pub fn to_bytes(&self) -> Result<Vec<u8>, ImageError> {
         Ok(self.inner.as_bytes().to_vec())
     }
+}
 
+impl Image {
     /// Creates an `ImageData` from a `DynamicImage`.
     pub(crate) fn from_dynamic(inner: DynamicImage) -> Self {
         let source_len = Some(inner.as_bytes().len());
@@ -174,33 +95,8 @@ impl Image {
 
     /// Format this image was decoded from, if known.
     #[must_use]
-    pub const fn format(&self) -> Option<ImageFormat> {
+    pub const fn format(&self) -> Option<Format> {
         self.format
-    }
-
-    /// PIL-style crop by pixel box.
-    /// # Errors
-    /// Returns `ImageError::InvalidCrop` if the crop is invalid.
-    pub fn crop(&self, left: u32, top: u32, right: u32, bottom: u32) -> Result<Self, ImageError> {
-        let (img_width, img_height) = self.size();
-        if left >= right || top >= bottom || right > img_width || bottom > img_height {
-            return Err(ImageError::InvalidCrop {
-                left,
-                top,
-                right,
-                bottom,
-                width: img_width,
-                height: img_height,
-            });
-        }
-        let crop_width = right - left;
-        let crop_height = bottom - top;
-        let cropped_inner = self.inner.crop_imm(left, top, crop_width, crop_height);
-        Ok(Self {
-            inner: cropped_inner,
-            format: self.format,
-            source_len: self.source_len,
-        })
     }
 
     /// Exact resize to (width, height) with the given filter.
@@ -219,53 +115,87 @@ impl Image {
         })
     }
 
-    /// Encode to `format` at `quality` (quality only affects JPEG).
+    /// Aspect-preserving downscale.
+    ///
+    /// Fits the image within `max_width`/`max_height` while preserving aspect
+    /// ratio (Pillow `thumbnail` semantics). Bounds are clamped to the current
+    /// dimensions so the image is never upscaled. Uses `Lanczos3`.
+    #[must_use]
+    pub fn downscale_to_fit(&self, max_width: Option<u32>, max_height: Option<u32>) -> Self {
+        let (width, height) = self.size();
+        let bound_w = max_width.map_or(width, |w| w.clamp(1, width));
+        let bound_h = max_height.map_or(height, |h| h.clamp(1, height));
+
+        if bound_w == width && bound_h == height {
+            return Self {
+                inner: self.inner.clone(),
+                format: self.format,
+                source_len: self.source_len,
+            };
+        }
+
+        Self {
+            inner: self.inner.resize(bound_w, bound_h, FilterType::Lanczos3),
+            format: self.format,
+            source_len: self.source_len,
+        }
+    }
+
+    /// Encode to `format` at `jpeg_quality` (`jpeg_quality` and `jpeg_optimize` affect JPEG only).
     ///
     /// Accepts any raster [`ImageFormat`] or [`OutputFormat::Pdf`]. Choosing PDF
-    /// produces a single-page document that embeds the image as a JPEG, so no
-    /// separate trip through the `pdf` module is needed.
+    /// produces a single-page document that embeds the image as a JPEG.
+    /// jpeg_quality and jpeg_optimize only affect JPEG encoding and PDF encoding because the image is embedded as a JPEG in the PDF.
     /// # Errors
     /// Returns `ImageError::Encode` if encoding fails or `ImageError::InvalidDimensions`
     /// if the dimensions are invalid.
     pub fn encode(
         &self,
         format: impl Into<OutputFormat>,
-        quality: u8,
-        optimize: bool,
+        jpeg_quality: u8,
+        jpeg_optimize: bool,
     ) -> Result<Vec<u8>, ImageError> {
         match format.into() {
-            OutputFormat::Pdf => self.encode_pdf(quality, optimize),
+            OutputFormat::Pdf => self.encode_pdf(jpeg_quality, jpeg_optimize),
             OutputFormat::Image(image_format) => {
-                self.encode_raster(image_format, quality, optimize)
+                self.encode_raster(image_format, jpeg_quality, jpeg_optimize)
             }
         }
     }
 
-    /// Encode to a raster `format` at `quality` (quality only affects JPEG).
+    /// Encode to a raster `format` at `jpeg_quality` (`jpeg_quality` and `jpeg_optimize` only affect JPEG).
     fn encode_raster(
         &self,
         format: ImageFormat,
-        quality: u8,
-        optimize: bool,
+        jpeg_quality: u8,
+        jpeg_optimize: bool,
     ) -> Result<Vec<u8>, ImageError> {
         if format == ImageFormat::Jpeg {
-            if !(1..=100).contains(&quality) {
+            if !(1..=100).contains(&jpeg_quality) {
                 return Err(ImageError::Encode(format!(
-                    "invalid JPEG quality: {quality} (expected 1..=100)"
+                    "invalid jpeg_quality: {jpeg_quality} (expected 1..=100)"
                 )));
             }
             let rgb_image = self.inner.to_rgb8();
-            let _lock = crate::pdf::NATIVE_LOCK
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            crate::pdf::jpeg::encode_jpeg_mozjpeg(
-                rgb_image.as_raw(),
-                rgb_image.width(),
-                rgb_image.height(),
-                quality,
-                optimize,
-            )
-            .map_err(|e| ImageError::Encode(e.to_string()))
+            let width = u16::try_from(rgb_image.width()).map_err(|_| {
+                ImageError::Encode(format!(
+                    "JPEG width exceeds maximum dimension of {}",
+                    u16::MAX
+                ))
+            })?;
+            let height = u16::try_from(rgb_image.height()).map_err(|_| {
+                ImageError::Encode(format!(
+                    "JPEG height exceeds maximum dimension of {}",
+                    u16::MAX
+                ))
+            })?;
+            let mut jpeg = Vec::new();
+            let mut encoder = JpegEncoder::new(&mut jpeg, jpeg_quality);
+            encoder.set_optimized_huffman_tables(jpeg_optimize);
+            encoder
+                .encode(rgb_image.as_raw(), width, height, JpegColorType::Rgb)
+                .map_err(|e| ImageError::Encode(e.to_string()))?;
+            Ok(jpeg)
         } else {
             let mut cursor = Cursor::new(Vec::new());
             self.inner
@@ -277,137 +207,74 @@ impl Image {
 
     /// Encode as a single-page PDF that embeds the image as a JPEG via
     /// `/Filter /DCTDecode`. The page maps one image pixel to one PDF point.
-    fn encode_pdf(&self, quality: u8, optimize: bool) -> Result<Vec<u8>, ImageError> {
-        let jpeg_bytes = self.encode_raster(ImageFormat::Jpeg, quality, optimize)?;
-        crate::pdf::jpeg::build_jpeg_pdf_auto_size(&jpeg_bytes)
+    fn encode_pdf(&self, jpeg_quality: u8, jpeg_optimize: bool) -> Result<Vec<u8>, ImageError> {
+        let jpeg_bytes = self.encode_raster(ImageFormat::Jpeg, jpeg_quality, jpeg_optimize)?;
+        let document = crate::pdf::document::Document::from_jpeg_autosize(&jpeg_bytes)
+            .map_err(|e| ImageError::Encode(e.to_string()))?;
+        document
+            .to_bytes()
             .map_err(|e| ImageError::Encode(e.to_string()))
     }
 
-    /// Compresses image data gradually until the expected quality is reached.
+    /// Compresses this image to JPEG until the target JPEG quality is reached.
     /// Returns (`jpeg_bytes`, `width`, `height`).
     /// # Errors
     /// Returns an error if the image cannot be decoded, resized, or encoded.
-    pub fn compress(
+    pub fn compress_to_jpeg(
         &self,
         quality: u8,
+        optimize: bool,
         max_width: Option<u32>,
         max_height: Option<u32>,
-        optimize: bool,
-    ) -> Result<Option<(Vec<u8>, u32, u32)>, ImageError> {
-        compress_decoded(
-            self,
-            quality,
-            max_width,
-            max_height,
-            optimize,
-            self.source_len,
-        )
-    }
-
-    /// Force-sets an image format.
-    #[must_use]
-    pub(crate) const fn with_format(mut self, format: ImageFormat) -> Self {
-        self.format = Some(format);
-        self
-    }
-}
-
-/// Encode JPEG (scaled).
-/// # Errors
-/// Returns [`ImageError`] if the image cannot be encoded.
-pub fn encode_jpeg_scaled(
-    img: &Image,
-    quality: u8,
-    max_width: Option<u32>,
-    max_height: Option<u32>,
-    optimize: bool,
-) -> Result<(Vec<u8>, u32, u32), ImageError> {
-    if quality < 5 {
-        return Err(ImageError::ProgressiveQualityTooLow { quality });
-    }
-    let scaled = downscale_to_fit(img, max_width, max_height);
-    let (w, h) = scaled.size();
-    let jpeg = scaled.encode(ImageFormat::Jpeg, quality, optimize)?;
-    Ok((jpeg, w, h))
-}
-
-/// Aspect-preserving downscale.
-///
-/// Fits the image within `max_width`/`max_height` while preserving aspect
-/// ratio (Pillow `thumbnail` semantics). Bounds are clamped to the current
-/// dimensions so the image is never upscaled. Uses `Lanczos3`.
-#[must_use]
-pub fn downscale_to_fit(img: &Image, max_width: Option<u32>, max_height: Option<u32>) -> Image {
-    let (width, height) = img.size();
-    let bound_w = max_width.map_or(width, |w| w.clamp(1, width));
-    let bound_h = max_height.map_or(height, |h| h.clamp(1, height));
-
-    if bound_w == width && bound_h == height {
-        return Image {
-            inner: img.inner.clone(),
-            format: img.format,
-            source_len: img.source_len,
+    ) -> Result<(Vec<u8>, u32, u32), ImageError> {
+        if quality < 5 {
+            return Err(ImageError::ProgressiveQualityTooLow {
+                jpeg_quality: quality,
+            });
+        }
+        let scaled = self.downscale_to_fit(max_width, max_height);
+        let (w, h) = scaled.size();
+        let budget = if (w, h) == self.size() {
+            self.source_len
+        } else {
+            None
         };
-    }
 
-    Image {
-        inner: img.inner.resize(bound_w, bound_h, FilterType::Lanczos3),
-        format: img.format,
-        source_len: img.source_len,
-    }
-}
-
-/// Compresses a decoded image to JPEG format.
-/// # Errors
-/// Returns [`ImageError`] if the image cannot be encoded.
-pub fn compress_decoded(
-    img: &Image,
-    quality: u8,
-    max_width: Option<u32>,
-    max_height: Option<u32>,
-    optimize: bool,
-    budget: Option<usize>,
-) -> Result<Option<(Vec<u8>, u32, u32)>, ImageError> {
-    if quality < 5 {
-        return Err(ImageError::ProgressiveQualityTooLow { quality });
-    }
-    let scaled = downscale_to_fit(img, max_width, max_height);
-    let (w, h) = scaled.size();
-    let budget = if (w, h) == img.size() { budget } else { None };
-
-    let mut q = quality;
-    loop {
-        let jpeg = scaled.encode(ImageFormat::Jpeg, q, optimize)?;
-        if budget.is_none_or(|b| jpeg.len() < b) {
-            return Ok(Some((jpeg, w, h)));
+        let mut q = quality;
+        loop {
+            let jpeg = scaled.encode(ImageFormat::Jpeg, q, optimize)?;
+            if let Some(initial_size) = budget.filter(|&b| jpeg.len() >= b) {
+                if !optimize || q < 10 {
+                    return Err(ImageError::SizeIncreased {
+                        compressed_size: jpeg.len(),
+                        initial_size,
+                    });
+                }
+                q -= 5;
+            } else {
+                return Ok((jpeg, w, h));
+            }
         }
-        if !optimize || q < 10 {
-            return Ok(None);
-        }
-        q -= 5;
     }
-}
-
-/// Compresses an image, returning the compressed bytes and the new dimensions.
-/// # Errors
-/// Return [`ImageError`] if either the decode or compress operation fails
-pub fn compress_image(
-    data: &[u8],
-    quality: u8,
-    mw: Option<u32>,
-    mh: Option<u32>,
-    optimize: bool,
-) -> Result<Option<(Vec<u8>, u32, u32)>, ImageError> {
-    let img = Image::decode(data)?;
-    compress_decoded(&img, quality, mw, mh, optimize, Some(data.len()))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::common::{format_name, parse_output_format};
     use ::image::{ImageFormat, RgbImage};
     use std::io::Cursor;
-    use std::str::FromStr;
+
+    fn compress_to_jpeg(
+        data: &[u8],
+        quality: u8,
+        optimize: bool,
+        mw: Option<u32>,
+        mh: Option<u32>,
+    ) -> Result<(Vec<u8>, u32, u32), ImageError> {
+        let img = Image::decode(data)?;
+        img.compress_to_jpeg(quality, optimize, mw, mh)
+    }
 
     /// Build deterministic raster bytes of a solid-colour image in `format`,
     /// so tests can assert exact dimensions without depending on fixture files.
@@ -424,19 +291,28 @@ mod tests {
     #[test]
     fn guess_format_png() {
         let bytes = synth_bytes(4, 4, ImageFormat::Png);
-        assert_eq!(guess_format(&bytes).unwrap(), ImageFormat::Png);
+        assert_eq!(
+            guess_format(&bytes).unwrap(),
+            Format::Image(ImageFormat::Png)
+        );
     }
 
     #[test]
     fn guess_format_jpeg_from_fixture() {
         let bytes = test_data_bytes!("file_types/receipt.jpg");
-        assert_eq!(guess_format(bytes).unwrap(), ImageFormat::Jpeg);
+        assert_eq!(
+            guess_format(bytes).unwrap(),
+            Format::Image(ImageFormat::Jpeg)
+        );
     }
 
     #[test]
     fn guess_format_tiff_from_fixture() {
         let bytes = test_data_bytes!("file_types/receipt.tiff");
-        assert_eq!(guess_format(bytes).unwrap(), ImageFormat::Tiff);
+        assert_eq!(
+            guess_format(bytes).unwrap(),
+            Format::Image(ImageFormat::Tiff)
+        );
     }
 
     #[test]
@@ -454,10 +330,10 @@ mod tests {
 
     #[test]
     fn format_name_known_formats() {
-        assert_eq!(format_name(ImageFormat::Jpeg), Some("JPEG"));
-        assert_eq!(format_name(ImageFormat::Png), Some("PNG"));
-        assert_eq!(format_name(ImageFormat::WebP), Some("WEBP"));
-        assert_eq!(format_name(ImageFormat::Tiff), Some("TIFF"));
+        assert_eq!(format_name(ImageFormat::Jpeg.into()), Some("JPEG"));
+        assert_eq!(format_name(ImageFormat::Png.into()), Some("PNG"));
+        assert_eq!(format_name(ImageFormat::WebP.into()), Some("WEBP"));
+        assert_eq!(format_name(ImageFormat::Tiff.into()), Some("TIFF"));
     }
 
     #[test]
@@ -477,55 +353,11 @@ mod tests {
     }
 
     #[test]
-    fn filter_lanczos_maps_to_lanczos3() {
-        assert!(matches!(
-            Filter::from_str("lanczos").unwrap().0,
-            FilterType::Lanczos3
-        ));
-        assert!(matches!(
-            Filter::from_str("LANCZOS3").unwrap().0,
-            FilterType::Lanczos3
-        ));
-    }
-
-    #[test]
-    fn filter_all_known_variants() {
-        assert!(matches!(
-            Filter::from_str("nearest").unwrap().0,
-            FilterType::Nearest
-        ));
-        assert!(matches!(
-            Filter::from_str("triangle").unwrap().0,
-            FilterType::Triangle
-        ));
-        assert!(matches!(
-            Filter::from_str("catmullrom").unwrap().0,
-            FilterType::CatmullRom
-        ));
-        assert!(matches!(
-            Filter::from_str("bicubic").unwrap().0,
-            FilterType::CatmullRom
-        ));
-        assert!(matches!(
-            Filter::from_str("gaussian").unwrap().0,
-            FilterType::Gaussian
-        ));
-    }
-
-    #[test]
-    fn filter_unknown_errors() {
-        assert!(matches!(
-            Filter::from_str("sinc"),
-            Err(ImageError::UnknownFilter(_))
-        ));
-    }
-
-    #[test]
     fn decode_png_records_size_and_format() {
         let bytes = synth_bytes(20, 10, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
         assert_eq!(img.size(), (20, 10));
-        assert_eq!(img.format(), Some(ImageFormat::Png));
+        assert_eq!(img.format(), Some(ImageFormat::Png.into()));
     }
 
     #[test]
@@ -534,7 +366,73 @@ mod tests {
         let img = Image::decode(bytes).unwrap();
         let (w, h) = img.size();
         assert!(w > 0 && h > 0);
-        assert_eq!(img.format(), Some(ImageFormat::Jpeg));
+        assert_eq!(img.format(), Some(ImageFormat::Jpeg.into()));
+    }
+
+    #[test]
+    fn decode_heic_to_rgb_and_reencode_as_png() {
+        let bytes = test_data_bytes!("file_types/receipt.heic");
+        let image = Image::decode(bytes).unwrap();
+        assert_eq!(image.size(), (800, 1066));
+        assert_eq!(image.format(), Some(Format::Heic));
+        assert_eq!(image.inner.color(), image::ColorType::Rgb8);
+        assert_eq!(image.source_len, Some(bytes.len()));
+        let resized = image.resize(80, 107, FilterType::Lanczos3).unwrap();
+        assert_eq!(resized.format(), Some(Format::Heic));
+        let png = resized.encode(ImageFormat::Png, 85, true).unwrap();
+        assert_eq!(Image::decode(&png).unwrap().size(), (80, 107));
+    }
+
+    #[test]
+    fn decode_heic_grid_composites_alpha_on_white() {
+        // Synthetic 128x64 lossless HEVC grid, two 64x64 tiles with alpha strips.
+        let bytes = include_bytes!("../../tests/fixtures/alpha-grid.heic");
+        let image = Image::decode(bytes).unwrap();
+        assert_eq!(image.size(), (128, 64));
+        let rgb = image.inner.as_rgb8().unwrap();
+        assert_eq!(rgb.get_pixel(10, 10).0, [255, 255, 255]);
+        assert_eq!(rgb.get_pixel(40, 10).0, [227, 177, 127]);
+        assert_eq!(rgb.get_pixel(90, 10).0, [200, 100, 0]);
+    }
+
+    #[test]
+    fn decode_hevc_with_generic_heif_brand() {
+        let mut bytes = test_data_bytes!("file_types/receipt.heic").to_vec();
+        let ftyp_len = usize::try_from(u32::from_be_bytes(bytes[..4].try_into().unwrap())).unwrap();
+        for brand in bytes[8..ftyp_len].as_chunks_mut::<4>().0 {
+            if brand == b"heic" {
+                brand.copy_from_slice(b"mif1");
+            }
+        }
+        let image = Image::decode(&bytes).unwrap();
+        assert_eq!(image.format(), Some(Format::Heif));
+        assert_eq!(image.size(), (800, 1066));
+        assert_eq!(image.inner.color(), image::ColorType::Rgb8);
+    }
+
+    #[test]
+    fn decode_heic_applies_container_rotation_once() {
+        // Synthetic red/blue 64x32 image with a 90-degree clockwise irot property.
+        let bytes = include_bytes!("../../tests/fixtures/rotated.heic");
+        let image = Image::decode(bytes).unwrap();
+        assert_eq!(image.size(), (32, 64));
+        let rgb = image.inner.as_rgb8().unwrap();
+        assert!(rgb.get_pixel(16, 8).0[0] > 240);
+        assert!(rgb.get_pixel(16, 56).0[2] > 240);
+    }
+
+    #[test]
+    fn decode_truncated_heic_and_unsupported_heif_codec_fail() {
+        let bytes = test_data_bytes!("file_types/receipt.heic");
+        assert!(matches!(
+            Image::decode(&bytes[..40]),
+            Err(ImageError::Decode(_))
+        ));
+        let jpeg_heif = test_data_bytes!("file_types/receipt.jpg.heif");
+        assert!(matches!(
+            Image::decode(jpeg_heif),
+            Err(ImageError::Decode(_))
+        ));
     }
 
     #[test]
@@ -542,52 +440,6 @@ mod tests {
         assert!(matches!(
             Image::decode(&[0xDE, 0xAD, 0xBE, 0xEF]),
             Err(ImageError::Decode(_))
-        ));
-    }
-
-    #[test]
-    fn crop_valid_box() {
-        let bytes = synth_bytes(100, 80, ImageFormat::Png);
-        let img = Image::decode(&bytes).unwrap();
-        let cropped = img.crop(10, 20, 60, 70).unwrap();
-        assert_eq!(cropped.size(), (50, 50));
-    }
-
-    #[test]
-    fn crop_preserves_format() {
-        let bytes = synth_bytes(40, 40, ImageFormat::Png);
-        let img = Image::decode(&bytes).unwrap();
-        let cropped = img.crop(0, 0, 10, 10).unwrap();
-        assert_eq!(cropped.format(), Some(ImageFormat::Png));
-    }
-
-    #[test]
-    fn crop_out_of_bounds_errors() {
-        let bytes = synth_bytes(30, 30, ImageFormat::Png);
-        let img = Image::decode(&bytes).unwrap();
-        assert!(matches!(
-            img.crop(0, 0, 31, 10),
-            Err(ImageError::InvalidCrop { .. })
-        ));
-    }
-
-    #[test]
-    fn crop_inverted_box_errors() {
-        let bytes = synth_bytes(30, 30, ImageFormat::Png);
-        let img = Image::decode(&bytes).unwrap();
-        assert!(matches!(
-            img.crop(20, 5, 10, 25),
-            Err(ImageError::InvalidCrop { .. })
-        ));
-    }
-
-    #[test]
-    fn crop_zero_size_box_errors() {
-        let bytes = synth_bytes(30, 30, ImageFormat::Png);
-        let img = Image::decode(&bytes).unwrap();
-        assert!(matches!(
-            img.crop(5, 5, 5, 20),
-            Err(ImageError::InvalidCrop { .. })
         ));
     }
 
@@ -628,16 +480,7 @@ mod tests {
     }
 
     #[test]
-    fn encode_png_has_magic_bytes() {
-        let bytes = synth_bytes(16, 16, ImageFormat::Jpeg);
-        let img = Image::decode(&bytes).unwrap();
-        let out = img.encode(ImageFormat::Png, 85, false).unwrap();
-        assert_eq!(&out[0..8], b"\x89PNG\r\n\x1a\n");
-    }
-
-    #[test]
-    fn encode_optimize_flag_reduces_jpeg_size() {
-        // Use a large enough image for optimized Huffman to make a measurable difference.
+    fn encode_jpeg_optimize_flag_reduces_jpeg_size() {
         let bytes = synth_bytes(256, 256, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
         let unoptimized = img.encode(ImageFormat::Jpeg, 85, false).unwrap();
@@ -648,6 +491,24 @@ mod tests {
             optimized.len(),
             unoptimized.len(),
         );
+        assert_eq!(Image::decode(&optimized).unwrap().size(), (256, 256));
+    }
+
+    #[test]
+    fn encode_jpeg_rejects_dimensions_over_jpeg_limit() {
+        let image = Image::from_dynamic(DynamicImage::ImageRgb8(RgbImage::new(65_536, 1)));
+        assert!(matches!(
+            image.encode(ImageFormat::Jpeg, 85, true),
+            Err(ImageError::Encode(_))
+        ));
+    }
+
+    #[test]
+    fn encode_png_has_magic_bytes() {
+        let bytes = synth_bytes(16, 16, ImageFormat::Jpeg);
+        let img = Image::decode(&bytes).unwrap();
+        let out = img.encode(ImageFormat::Png, 85, false).unwrap();
+        assert_eq!(&out[0..8], b"\x89PNG\r\n\x1a\n");
     }
 
     #[test]
@@ -657,41 +518,40 @@ mod tests {
         let jpeg = img.encode(ImageFormat::Jpeg, 90, false).unwrap();
         let reloaded = Image::decode(&jpeg).unwrap();
         assert_eq!(reloaded.size(), (24, 12));
-        assert_eq!(reloaded.format(), Some(ImageFormat::Jpeg));
+        assert_eq!(reloaded.format(), Some(ImageFormat::Jpeg.into()));
     }
 
     #[test]
     fn encode_pdf_has_magic_bytes_and_embeds_jpeg() {
+        crate::pdf::pdfium();
         let bytes = synth_bytes(24, 12, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
         let pdf = img.encode(OutputFormat::Pdf, 85, false).unwrap();
-        assert!(pdf.starts_with(b"%PDF-1.4\n"), "PDF header missing");
-        assert!(pdf.ends_with(b"%%EOF\n"), "PDF %%EOF marker missing");
-        assert!(
-            String::from_utf8_lossy(&pdf).contains("/Filter /DCTDecode"),
-            "embedded JPEG (DCTDecode) missing"
-        );
+        assert!(pdf.starts_with(b"%PDF-"), "PDF header missing");
+        let document = crate::pdf::document::Document::decode(&pdf).unwrap();
+        assert_eq!(document.page_count().unwrap(), 1);
+        assert_eq!(document.page(0).unwrap().size(), (24.0, 12.0));
     }
 
     #[test]
     fn encode_pdf_media_box_matches_image_size() {
+        crate::pdf::pdfium();
         let bytes = synth_bytes(40, 25, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
         let pdf = img.encode(OutputFormat::Pdf, 85, false).unwrap();
-        assert!(
-            String::from_utf8_lossy(&pdf).contains("/MediaBox [0 0 40 25]"),
-            "PDF page size should map 1 pixel to 1 point"
-        );
+        let document = crate::pdf::document::Document::decode(&pdf).unwrap();
+        assert_eq!(document.page(0).unwrap().size(), (40.0, 25.0));
     }
 
     #[test]
     fn encode_pdf_via_string_format() {
+        crate::pdf::pdfium();
         let bytes = synth_bytes(16, 16, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
         let format = parse_output_format("pdf").unwrap();
         assert_eq!(format, OutputFormat::Pdf);
         let pdf = img.encode(format, 85, false).unwrap();
-        assert!(pdf.starts_with(b"%PDF-1.4\n"));
+        assert!(pdf.starts_with(b"%PDF-"));
     }
 
     #[test]
@@ -705,28 +565,10 @@ mod tests {
     }
 
     #[test]
-    fn parse_output_format_pdf_case_insensitive() {
-        assert_eq!(parse_output_format("PDF").unwrap(), OutputFormat::Pdf);
-        assert_eq!(parse_output_format("Pdf").unwrap(), OutputFormat::Pdf);
-        assert_eq!(
-            parse_output_format("jpeg").unwrap(),
-            OutputFormat::Image(ImageFormat::Jpeg)
-        );
-    }
-
-    #[test]
-    fn parse_output_format_unknown_errors() {
-        assert!(matches!(
-            parse_output_format("not-a-format"),
-            Err(ImageError::UnsupportedFormat(_))
-        ));
-    }
-
-    #[test]
     fn downscale_never_upscales_when_bounds_larger() {
         let bytes = synth_bytes(50, 50, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
-        let out = downscale_to_fit(&img, Some(500), Some(500));
+        let out = img.downscale_to_fit(Some(500), Some(500));
         assert_eq!(out.size(), (50, 50));
     }
 
@@ -734,7 +576,7 @@ mod tests {
     fn downscale_none_bounds_keeps_size() {
         let bytes = synth_bytes(50, 40, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
-        let out = downscale_to_fit(&img, None, None);
+        let out = img.downscale_to_fit(None, None);
         assert_eq!(out.size(), (50, 40));
     }
 
@@ -742,7 +584,7 @@ mod tests {
     fn downscale_preserves_aspect_ratio() {
         let bytes = synth_bytes(200, 100, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
-        let out = downscale_to_fit(&img, Some(100), Some(100));
+        let out = img.downscale_to_fit(Some(100), Some(100));
         assert_eq!(out.size(), (100, 50));
     }
 
@@ -751,7 +593,7 @@ mod tests {
         let bytes = synth_bytes(200, 100, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
         // scale = 50/200 = 0.25
-        let out = downscale_to_fit(&img, Some(50), None);
+        let out = img.downscale_to_fit(Some(50), None);
         assert_eq!(out.size(), (50, 25));
     }
 
@@ -759,65 +601,43 @@ mod tests {
     fn downscale_floors_dimensions_to_at_least_one() {
         let bytes = synth_bytes(100, 4, ImageFormat::Png);
         let img = Image::decode(&bytes).unwrap();
-        let out = downscale_to_fit(&img, Some(2), None);
+        let out = img.downscale_to_fit(Some(2), None);
         let (_, h) = out.size();
         assert!(h >= 1);
     }
 
     #[test]
-    fn compress_returns_jpeg_and_dimensions() {
+    fn compress_to_jpeg_returns_jpeg_and_dimensions() {
         let bytes = synth_bytes(200, 100, ImageFormat::Png);
-        let (jpeg, w, h) = compress_image(&bytes, 85, Some(100), Some(100), false)
-            .unwrap()
-            .unwrap();
+        let (jpeg, w, h) = compress_to_jpeg(&bytes, 85, false, Some(100), Some(100)).unwrap();
         assert_eq!(&jpeg[0..3], &[0xFF, 0xD8, 0xFF]);
         assert_eq!((w, h), (100, 50));
     }
     #[test]
-    fn compress_does_not_upscale() {
-        let bytes = synth_bytes(30, 30, ImageFormat::Png);
-        let img = Image::decode(&bytes).unwrap();
-        let (_, w, h) = encode_jpeg_scaled(&img, 85, Some(500), Some(500), false).unwrap();
-        assert_eq!((w, h), (30, 30));
-    }
-
-    #[test]
-    fn compress_no_bounds_keeps_dimensions() {
-        let bytes = synth_bytes(64, 48, ImageFormat::Png);
-        let img = Image::decode(&bytes).unwrap();
-        let (_, w, h) = encode_jpeg_scaled(&img, 85, None, None, false).unwrap();
-        assert_eq!((w, h), (64, 48));
-    }
-    #[test]
-    fn compress_returns_none_when_jpeg_would_be_larger() {
+    fn compress_to_jpeg_errors_when_jpeg_is_not_smaller() {
         let bytes = synth_bytes(30, 30, ImageFormat::Png); // tiny flat PNG
-        assert!(
-            compress_image(&bytes, 85, None, None, false)
-                .unwrap()
-                .is_none()
-        );
+        assert!(matches!(
+            compress_to_jpeg(&bytes, 85, false, None, None),
+            Err(ImageError::SizeIncreased { .. })
+        ));
     }
 
     #[test]
-    fn compress_with_bounds_returns_some_even_if_larger() {
+    fn compress_to_jpeg_with_bounds_returns_jpeg_even_if_larger() {
         // a requested downscale is always honored, regardless of byte count
         let bytes = synth_bytes(200, 100, ImageFormat::Png);
-        let (_, w, h) = compress_image(&bytes, 85, Some(100), Some(100), false)
-            .unwrap()
-            .expect("downscale was requested");
+        let (_, w, h) = compress_to_jpeg(&bytes, 85, false, Some(100), Some(100)).unwrap();
         assert_eq!((w, h), (100, 50));
     }
     #[test]
-    fn compress_garbage_errors() {
-        assert!(compress_image(&[0x00, 0x01], 85, None, None, false).is_err());
+    fn compress_to_jpeg_garbage_errors() {
+        assert!(compress_to_jpeg(&[0x00, 0x01], 85, false, None, None).is_err());
     }
 
     #[test]
     fn compress_fixture_jpeg() {
         let bytes = test_data_bytes!("file_types/receipt.jpg");
-        let (jpeg, w, h) = compress_image(bytes, 80, Some(512), Some(512), false)
-            .unwrap()
-            .unwrap();
+        let (jpeg, w, h) = compress_to_jpeg(bytes, 80, false, Some(512), Some(512)).unwrap();
         assert_eq!(&jpeg[0..3], &[0xFF, 0xD8, 0xFF]);
         assert!(w <= 512 && h <= 512);
     }

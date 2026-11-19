@@ -38,7 +38,7 @@ pub fn apply_page_options(
     let on_min_pages = args::int("on_min_pages", on_min_pages, 0, u32::MAX)?;
     let page_indexes = args::ints("page_indexes", &page_indexes, i32::MIN, i32::MAX)?;
     super::ensure_pdfium()?;
-    let doc = Document::from_bytes(data.to_vec()).map_err(|e| map_pdf_err(&e))?;
+    let doc = Document::decode(&data).map_err(|e| map_pdf_err(&e))?;
     let op = operation
         .parse::<PageOperation>()
         .map_err(|e| value_error(e.to_string()))?;

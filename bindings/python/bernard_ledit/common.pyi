@@ -1,0 +1,3 @@
+__all__ = ["format_from_extension"]
+
+def format_from_extension(extension: str) -> str: ...

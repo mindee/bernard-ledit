@@ -1,7 +1,5 @@
 //! PDF module.
 
-/// Bitmap module.
-pub mod bitmap;
 /// PDF Document module.
 pub mod document;
 /// PDF Error module.
@@ -10,10 +8,6 @@ pub mod error;
 pub mod extract;
 /// PDF fixing utility.
 pub mod fix;
-/// Font resolution module.
-pub mod font_resolver;
-/// JPEG embedding module.
-pub mod jpeg;
 /// PDF Page module.
 pub mod page;
 /// Page options to apply to a PDF.
@@ -21,7 +15,6 @@ pub mod page_options;
 /// Text character module.
 pub mod text_char;
 
-pub use bitmap::Bitmap;
 pub use document::Document;
 pub use error::PdfError;
 pub use page::Page;
@@ -32,14 +25,8 @@ use pdfium_render::prelude::*;
 
 static PDFIUM: OnceLock<Pdfium> = OnceLock::new();
 
-/// pdfium and mozjpeg both aren't thread-safe.
+/// Serializes PDFium operations that are not thread-safe.
 pub(crate) static NATIVE_LOCK: Mutex<()> = Mutex::new(());
-
-/// Returns `true` if `PDFium` has been bound.
-#[must_use]
-pub fn is_initialized() -> bool {
-    PDFIUM.get().is_some()
-}
 
 /// Binds `PDFium` from a shared library on disk. Does NOT work for `static-pdfium`.
 /// # Errors

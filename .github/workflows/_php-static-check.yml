@@ -40,6 +40,8 @@ jobs:
         with:
           submodules: recursive
 
+      - uses: ./.github/actions/setup-libheif
+
       - name: Download static PDFium
         env:
           GH_TOKEN: ${{ github.token }}
@@ -77,6 +79,10 @@ jobs:
             echo "::error::The extension links PDFium dynamically"
             exit 1
           fi
+          if ! grep -qi libheif <<< "$deps"; then
+            echo "::error::The extension does not link system libheif dynamically"
+            exit 1
+          fi
 
       # The extension must load on the oldest glibc the static PDFium was built against.
       - name: Check the extension doesn't load PDFium dynamically and runs on glibc 2.35 (Linux)
@@ -87,6 +93,10 @@ jobs:
           echo "$deps"
           if grep -qi pdfium <<< "$deps"; then
             echo "::error::The extension links PDFium dynamically"
+            exit 1
+          fi
+          if ! grep -qi libheif <<< "$deps"; then
+            echo "::error::The extension does not link system libheif dynamically"
             exit 1
           fi
           newest_glibc="$(objdump -T "$ext" | grep -oE 'GLIBC_[0-9]+(\.[0-9]+)*' | sed 's/GLIBC_//' | sort -Vu | tail -n 1)"
@@ -142,7 +152,12 @@ jobs:
             -e RUSTFLAGS="-C target-feature=-crt-static" \
             -e RELEASE_TAG \
             "$IMAGE" sh -euc '
-              apk add --no-cache bash git curl unzip zip build-base cmake nasm clang-dev linux-headers just rustup libstdc++
+              apk add --no-cache bash git curl unzip zip build-base cmake nasm clang-dev linux-headers just rustup libstdc++ libheif-dev python3
+              if apk search -e libheif-libde265 | grep -q .; then
+                apk add --no-cache libheif-libde265
+              fi
+              pkg-config --atleast-version=1.17 libheif
+              python3 .github/actions/setup-libheif/check.py
               rustup-init -y --default-toolchain none --profile minimal
               . "$HOME/.cargo/env"
               curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
@@ -151,6 +166,10 @@ jobs:
               echo "$deps"
               if echo "$deps" | grep -qi pdfium; then
                 echo "The extension links PDFium dynamically" >&2
+                exit 1
+              fi
+              if ! echo "$deps" | grep -qi libheif; then
+                echo "The extension does not link system libheif dynamically" >&2
                 exit 1
               fi
               if [ -n "$RELEASE_TAG" ]; then
@@ -188,6 +207,8 @@ jobs:
       - uses: actions/checkout@v6
         with:
           submodules: recursive
+
+      - uses: ./.github/actions/setup-libheif
 
       - name: Download static PDFium
         env:
@@ -233,6 +254,10 @@ jobs:
           echo "$imports"
           if grep -qi pdfium <<< "$imports"; then
             echo "::error::The extension links PDFium dynamically"
+            exit 1
+          fi
+          if ! grep -qi heif <<< "$imports"; then
+            echo "::error::The extension does not link system libheif dynamically"
             exit 1
           fi
 

@@ -1,7 +1,5 @@
 use pyo3::prelude::*;
 
-/// PDF bitmap.
-pub mod bitmap;
 /// PDF document.
 pub mod document;
 /// PDF errors.
@@ -21,8 +19,6 @@ pub fn register_submodule(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(parent.py(), "pdf")?;
     m.add_class::<document::PyPdfDocument>()?;
     m.add_class::<page::PyPdfPage>()?;
-    m.add_class::<page::PageSize>()?;
-    m.add_class::<bitmap::PyPdfBitmap>()?;
     m.add_class::<text_char::PyTextChar>()?;
     m.add(
         "PdfiumError",
@@ -40,7 +36,7 @@ pub fn register_submodule(parent: &Bound<'_, PyModule>) -> PyResult<()> {
         "PageOptionsError",
         parent.py().get_type::<error::PyPageOptionsError>(),
     )?;
-    m.add_function(wrap_pyfunction!(document::compress, &m)?)?;
+    m.add_function(wrap_pyfunction!(document::compress_to_jpeg, &m)?)?;
     m.add_function(wrap_pyfunction!(extract::extract_from_page_ranges, &m)?)?;
     m.add_function(wrap_pyfunction!(fix::fix_pdf, &m)?)?;
     m.add_function(wrap_pyfunction!(page_options::apply_page_options, &m)?)?;

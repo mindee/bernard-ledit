@@ -50,17 +50,18 @@ def test_extract_keeps_requested_pages_in_order(multipage):
     assert stars(doc[1]) == 1
 
 
-def test_extract_accepts_file_like(multipage):
-    docs = bl_pdf.extract_from_page_ranges(io.BytesIO(multipage), [[0]])
-    assert len(docs) == 1
+def test_extract_rejects_file_like_without_reading(multipage):
+    stream = io.BytesIO(multipage)
+    with pytest.raises(TypeError):
+        bl_pdf.extract_from_page_ranges(stream, [[0]])
+    assert stream.tell() == 0
 
 
 def test_extract_output_roundtrips(multipage):
     (doc,) = bl_pdf.extract_from_page_ranges(multipage, [[0, 1]])
-    buf = io.BytesIO()
-    doc.save(buf)
-    assert buf.getvalue().startswith(b"%PDF-")
-    assert len(bl_pdf.PdfDocument(buf.getvalue())) == 2
+    output = doc.to_bytes()
+    assert output.startswith(b"%PDF-")
+    assert len(bl_pdf.PdfDocument(output)) == 2
 
 
 @pytest.mark.parametrize("fixture", ["receipt.jpg", "receipt.png"])
@@ -114,8 +115,7 @@ def test_extract_from_image_page_size_matches_pixels(test_data_dir):
     data = (test_data_dir / "file_types/receipt.jpg").read_bytes()
     width, height = bl_image.Image(data).size
     (doc,) = bl_pdf.extract_from_page_ranges(data, [[0]])
-    size = doc[0].get_size()
-    assert (size.width, size.height) == (width, height)
+    assert doc.get_page(0).render().size == (width, height)
 
 
 def test_extract_image_with_page_index_1_errors(test_data_dir):

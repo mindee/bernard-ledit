@@ -4,6 +4,7 @@
 
 use ext_php_rs::prelude::*;
 pub mod args;
+pub mod common;
 pub mod exceptions;
 pub mod image;
 pub mod pdf;
@@ -14,6 +15,7 @@ pub mod pdf;
 #[php(startup = "startup")]
 pub fn get_module(module: ModuleBuilder) -> ModuleBuilder {
     let module = module.name("bernard_ledit");
+    let module = common::register(module);
     let module = image::register(module);
     pdf::register(module)
 }

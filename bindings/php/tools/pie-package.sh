@@ -110,7 +110,7 @@ main() {
   staging="$(mktemp -d)"
   trap 'rm -rf "${staging:-}"' EXIT
   mkdir -p "$output_dir"
-  cp "$repo_root/LICENSE" "$repo_root/THIRD_PARTY_NOTICES" "$staging/"
+  cp "$repo_root/LICENSE" "$staging/"
   cp -R "$pdfium_licenses" "$staging/licenses"
 
   case "$os" in

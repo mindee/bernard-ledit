@@ -3,7 +3,7 @@ use super::{
     error::{closed_err, map_pdf_err},
 };
 use crate::args;
-use crate::pdf::{bitmap::PhpPdfBitmap, text_char::PhpTextChar};
+use crate::image::image_data::PhpImage;
 use bernard_ledit::pdf::{Page, PdfError};
 use ext_php_rs::prelude::*;
 
@@ -22,37 +22,6 @@ impl PdfPage {
         self.index
     }
 
-    /// Dimensions in points.
-    /// # Returns
-    /// `array{0: float, 1: float}` `[$width, $height]`.
-    /// # Errors
-    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't load the page.
-    /// - `\Exception` if the document is closed.
-    pub fn get_size(&self) -> PhpResult<Vec<f64>> {
-        self.with_page(|p| {
-            let (w, h) = p.size();
-            Ok(vec![f64::from(w), f64::from(h)])
-        })
-    }
-
-    /// Checks whether the page is empty.
-    /// # Errors
-    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't read the page.
-    /// - `\Exception` if the document is closed.
-    pub fn is_empty(&self) -> PhpResult<bool> {
-        self.with_page(|p| p.is_empty())
-    }
-
-    /// Returns the characters on the page.
-    /// # Returns
-    /// `list<\BernardLedit\Pdf\TextChar>`
-    /// # Errors
-    /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't read the page's characters.
-    /// - `\Exception` if the document is closed.
-    pub fn get_chars(&self) -> PhpResult<Vec<PhpTextChar>> {
-        self.with_page(|p| Ok(p.chars()?.into_iter().map(PhpTextChar::from).collect()))
-    }
-
     /// Returns the text of the page.
     /// # Errors
     /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't read the page's text.
@@ -61,7 +30,7 @@ impl PdfPage {
         self.with_page(|p| p.text())
     }
 
-    /// Renders the page, at 72 DPI per unit of `$scale`.
+    /// Renders the page as an image, at 72 DPI per unit of `$scale`.
     /// # Parameters
     /// - `scale`: `float` A finite number between 0.01 and 16.
     /// # Errors
@@ -73,10 +42,9 @@ impl PdfPage {
         clippy::cast_possible_truncation,
         reason = "the range fits in f32, which core takes"
     )]
-    pub fn render_to_bitmap(&self, scale: f64) -> PhpResult<PhpPdfBitmap> {
+    pub fn render(&self, scale: f64) -> PhpResult<PhpImage> {
         let scale = args::float("scale", scale, args::MIN_SCALE, args::MAX_SCALE)? as f32;
-        self.with_page(|p| p.render_to_bitmap(scale))
-            .map(PhpPdfBitmap::from)
+        self.with_page(|p| p.render(scale)).map(PhpImage::from)
     }
 }
 
