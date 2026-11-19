@@ -9,8 +9,9 @@ Its API is documented in the [IDE / PHPStan stubs](bernard_ledit.stubs.php), reg
 
 **Supported:** PHP 8.1 – 8.5, ZTS and NTS, on Linux (x86_64 and arm64, glibc and musl), macOS
 (arm64 and x86_64) and Windows (x86_64). Released extensions link PDFium statically, so no PDFium
-installation is needed. The Linux glibc builds require glibc 2.35 or newer. System libheif is
-required at runtime; see the [native libheif prerequisites](../../README.md#native-libheif-prerequisites).
+installation is needed. The Linux glibc builds require glibc 2.35 or newer. HEIC decoding requires
+system libheif and either its libde265 or FFmpeg HEVC decoder plugin; see the
+[native libheif prerequisites](../../README.md#native-libheif-prerequisites).
 
 ## Installation
 

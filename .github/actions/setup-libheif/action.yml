@@ -1,5 +1,5 @@
 name: Install system libheif
-description: Install and verify dynamic libheif with the libde265 HEVC decoder
+description: Install and verify dynamic libheif with HEVC decoder plugins
 runs:
   using: composite
   steps:
@@ -8,7 +8,7 @@ runs:
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt-get install -y --no-install-recommends pkg-config libheif-dev libheif-plugin-libde265
+        sudo apt-get install -y --no-install-recommends pkg-config libheif-dev libheif-plugin-libde265 libheif-plugin-ffmpegdec
         pkg-config --atleast-version=1.17 libheif
         python3 .github/actions/setup-libheif/check.py
     - name: Install libheif (macOS)

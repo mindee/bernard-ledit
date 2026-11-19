@@ -1,7 +1,8 @@
 use super::ImageError;
 use ::image::{ColorType, DynamicImage, Limits, RgbImage};
 use libheif_rs::{
-    ColorSpace, CompressionFormat, DecodingOptions, HeifContext, LibHeif, Plane, RgbChroma,
+    ColorSpace, CompressionFormat, DecodingOptions, HeifContext, ImageHandle, LibHeif, Plane,
+    RgbChroma,
 };
 
 fn decode_error(error: impl std::fmt::Display) -> ImageError {
@@ -10,20 +11,39 @@ fn decode_error(error: impl std::fmt::Display) -> ImageError {
 
 pub(super) fn decode(data: &[u8]) -> Result<DynamicImage, ImageError> {
     let lib = LibHeif::new_checked().map_err(decode_error)?;
-    // currently we install only libde265 
-    // but we can add ffmpeg as fallback decoder if needed (increase max_count to 2)
-    let decoders = lib.decoder_descriptors(1, Some(CompressionFormat::Hevc));
-    let descriptor = decoders.first().ok_or_else(|| {
-        decode_error("no HEVC decoder is available; install libheif's libde265 decoder")
-    })?;
+    let decoders = lib.decoder_descriptors(2, Some(CompressionFormat::Hevc));
+    if decoders.is_empty() {
+        return Err(decode_error(
+            "no HEVC decoder is available; install libheif's libde265 or FFmpeg decoder plugin",
+        ));
+    }
     let context = HeifContext::read_from_bytes(data).map_err(decode_error)?;
     let handle = context.primary_image_handle().map_err(decode_error)?;
     check_size(handle.width(), handle.height())?;
 
+    let mut errors = Vec::with_capacity(decoders.len());
+    for decoder in decoders {
+        let name = decoder.name();
+        match decode_with_decoder(&lib, &handle, decoder.id()) {
+            Ok(image) => return Ok(image),
+            Err(error) => errors.push(format!("{name}: {error}")),
+        }
+    }
+    Err(decode_error(format!(
+        "all available HEVC decoders failed: {}",
+        errors.join("; ")
+    )))
+}
+
+fn decode_with_decoder(
+    lib: &LibHeif,
+    handle: &ImageHandle,
+    decoder_id: &str,
+) -> Result<DynamicImage, ImageError> {
     let mut options = DecodingOptions::new()
         .ok_or_else(|| decode_error("could not allocate decoding options"))?;
     options
-        .set_decoder_id(Some(descriptor.id()))
+        .set_decoder_id(Some(decoder_id))
         .map_err(decode_error)?;
     options.set_ignore_transformations(false);
     options.set_convert_hdr_to_8bit(true);
@@ -118,5 +138,20 @@ mod tests {
     #[test]
     fn rejects_oversized_images_before_decoding() {
         assert!(check_size(65_536, 65_536).is_err());
+    }
+
+    #[test]
+    fn decodes_with_each_available_hevc_decoder() {
+        let lib = LibHeif::new_checked().unwrap();
+        let context =
+            HeifContext::read_from_bytes(test_data_bytes!("file_types/receipt.heic")).unwrap();
+        let handle = context.primary_image_handle().unwrap();
+        let decoders = lib.decoder_descriptors(2, Some(CompressionFormat::Hevc));
+        assert!(!decoders.is_empty());
+
+        for decoder in decoders {
+            let image = decode_with_decoder(&lib, &handle, decoder.id()).unwrap();
+            assert_eq!((image.width(), image.height()), (800, 1066));
+        }
     }
 }

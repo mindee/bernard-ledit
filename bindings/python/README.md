@@ -8,8 +8,9 @@ The Python binding exposes Bernard l'Édit's PDF and image APIs through a PyO3 e
 pip install bernard-ledit
 ```
 
-The wheel bundles the compiled Rust extension and PDFium. It requires system libheif and its
-HEVC decoder; see the [native libheif prerequisites](../../README.md#native-libheif-prerequisites).
+The wheel bundles the compiled Rust extension and PDFium. HEIC decoding requires system libheif
+and either its libde265 or FFmpeg HEVC decoder plugin; see the
+[native libheif prerequisites](../../README.md#native-libheif-prerequisites).
 Document and image inputs must be `bytes`, not paths or file-like objects. The calling application
 handles all file and stream I/O, including writing returned bytes.
 

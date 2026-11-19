@@ -95,7 +95,8 @@ structure while using conventions appropriate to their language.
 
 ## Native libheif prerequisites
 
-Requires **system libheif 1.17+ with the libde265 HEVC decoder**. 
+Requires **system libheif 1.17+ with at least one HEVC decoder plugin**: libde265 or
+FFmpeg.
 Rust builds need development headers;
 applications need the compatible shared library and decoder plugin at runtime.
 Neither libheif nor its plugins are bundled in the Python or PHP packages.
@@ -103,7 +104,7 @@ An HEVC encoder is not required.
 
 | Platform | Installation |
 | --- | --- |
-| Ubuntu 24.04 | `sudo apt-get install pkg-config libheif-dev libheif-plugin-libde265`. |
+| Ubuntu 24.04 | `sudo apt-get install pkg-config libheif-dev libheif-plugin-libde265` (you can replace `libheif-plugin-libde265` `with `libheif-plugin-ffmpegdec`). |
 | macOS | `brew install libheif` |
 | Windows x64 MSVC | Install vcpkg's dynamic `libheif[core,libde265]:x64-windows`, set `VCPKG_ROOT` and `VCPKGRS_DYNAMIC=1` for builds, and make its DLLs available at runtime. |
 
@@ -157,7 +158,7 @@ PDFIUM_OS=linux PDFIUM_CPU=x64 bash tools/pdfium-static/build.sh
 | -------------------------------------------------------- | ------------------------------------------- |
 | Rust 1.99.0 (pinned in `rust-toolchain.toml`)            | Core + all bindings                         |
 | [just](https://github.com/casey/just)                    | Task runner                                 |
-| System libheif ≥ 1.17 + libde265, development files     | HEIC decoder in core and bindings           |
+| System libheif ≥ 1.17 + one HEVC decoder plugin (libde265 or FFmpeg), development files | HEIC decoder in core and bindings |
 
 
 ### Build
