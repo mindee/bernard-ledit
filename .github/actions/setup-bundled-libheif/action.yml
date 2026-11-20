@@ -1,0 +1,49 @@
+name: Build pinned codec-free libheif
+description: Build libheif 1.21.1 with the same codec-free settings used in release packages
+runs:
+  using: composite
+  steps:
+    - name: Build libheif (Unix)
+      if: runner.os != 'Windows'
+      shell: bash
+      run: |
+        if [ "${{ runner.os }}" = Linux ]; then
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends binutils patchelf pkg-config
+        fi
+        prefix="$RUNNER_TEMP/bundled-libheif"
+        if [ "${{ runner.os }}" = Linux ]; then
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/repo:ro" -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+            -w /repo -e PREFIX="$prefix" ubuntu:22.04 bash -euc '
+              apt-get update
+              apt-get install -y --no-install-recommends build-essential ca-certificates cmake curl
+              bash tools/build-libheif.sh "$PREFIX"
+            '
+        else
+          brew list cmake >/dev/null 2>&1 || brew install cmake
+          brew list pkgconf >/dev/null 2>&1 || brew install pkgconf
+          bash tools/build-libheif.sh "$prefix"
+        fi
+        echo "LIBHEIF_PREFIX=$prefix" >> "$GITHUB_ENV"
+        echo "PKG_CONFIG_PATH=$prefix/lib/pkgconfig" >> "$GITHUB_ENV"
+        echo "LD_LIBRARY_PATH=$prefix/lib:$RUNNER_TEMP/pdfium/lib" >> "$GITHUB_ENV"
+        echo "DYLD_LIBRARY_PATH=$prefix/lib:$RUNNER_TEMP/pdfium/lib" >> "$GITHUB_ENV"
+
+    - name: Build libheif (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $root = Join-Path $env:RUNNER_TEMP "bundled-vcpkg"
+        New-Item -ItemType Directory -Force $root | Out-Null
+        New-Item -ItemType File -Force (Join-Path $root ".vcpkg-root") | Out-Null
+        & "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install libheif:x64-windows `
+          "--overlay-ports=$env:GITHUB_WORKSPACE/tools/vcpkg" "--x-install-root=$root/installed"
+        if ($LASTEXITCODE -ne 0) { throw "codec-free libheif build failed" }
+        $prefix = Join-Path $root "installed/x64-windows"
+        Copy-Item "$prefix/share/libheif/copyright" "$prefix/libheif-LICENSE"
+        "VCPKG_ROOT=$root" >> $env:GITHUB_ENV
+        "VCPKGRS_DYNAMIC=1" >> $env:GITHUB_ENV
+        "LIBHEIF_PREFIX=$prefix" >> $env:GITHUB_ENV
+        "$prefix/bin" >> $env:GITHUB_PATH
+        "C:/Program Files/LLVM/bin" >> $env:GITHUB_PATH

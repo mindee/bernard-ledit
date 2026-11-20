@@ -7,33 +7,50 @@ The PHP binding exposes Bernard l'Édit's PDF and image APIs through an
 Its API is documented in the [IDE / PHPStan stubs](bernard_ledit.stubs.php), regenerated with
 `just php stubs`.
 
-**Supported:** PHP 8.1 – 8.5, ZTS and NTS, on Linux (x86_64 and arm64, glibc and musl), macOS
-(arm64 and x86_64) and Windows (x86_64). Released extensions link PDFium statically, so no PDFium
-installation is needed. The Linux glibc builds require glibc 2.35 or newer. HEIC decoding requires
-system libheif and either its libde265 or FFmpeg HEVC decoder plugin; see the
-[native libheif prerequisites](../../README.md#native-libheif-prerequisites).
+**Supported:** PHP 8.1 – 8.5, ZTS and NTS, on Linux (x86_64 and arm64, glibc), macOS
+(arm64 and x86_64) and Windows (x86_64). The Linux glibc builds require glibc 2.35 or newer.
+Bundled release archives include the pinned shared PDFium and libheif libraries. HEIC decoding
+requires a separately installed [compatible decoder plugin](../../README.md#native-libheif-prerequisites).
+The macOS archives require macOS 13 or newer.
 
 ## Installation
 
-Installation through [PIE](https://github.com/php/pie) (`pie install mindee/bernard-ledit`) is
-coming with the first PHP release. Until then, build it from source. From the repository root:
+On Linux and macOS, extract the release archive and keep `bernard_ledit.so` together with its
+`native/` directory; point `extension=` in `php.ini` at the extracted extension. PIE currently
+copies only the extension on Unix, so it cannot install these bundled archives automatically.
+On Windows, keep the DLLs together and ensure their directory is on `PATH` when PHP starts.
+Normal loader overrides or previously loaded libraries can still affect resolution.
+
+Until release archives are available, build from source. From the repository root:
 
 ```bash
-# Download static PDFium for your platform (see the targets table linked below)
-bash tools/pdfium-static/download.sh linux-x64-glibc "$PWD/.pdfium-static"
-export PDFIUM_STATIC_LIB_PATH="$PWD/.pdfium-static"
-
-# Build and test the release extension with PDFium linked in
-just php test-static
+# After installing PDFium and setting PDFIUM_DYNAMIC_LIB_PATH:
+just php test-release
 ```
 
-See [PDFium builds and targets](../../README.md#pdfium-dynamic-and-static-builds). The extension
+The extension
 is then in `target/release/` (`libbernard_ledit_php.so`, `.dylib` on macOS, or
 `bernard_ledit_php.dll` on Windows); load it with `extension=/path/to/it` in your `php.ini`.
 
 On Windows, build with Rust nightly (`RUSTUP_TOOLCHAIN=nightly`, required by ext-php-rs) and with
 the MSVC toolset your PHP was built with: 14.29 (v142) for PHP 8.1 – 8.3, 14.44 (v143) for 8.4
-and 8.5, downloading the matching `win-x64-v142` or `win-x64-v143` library.
+and 8.5.
+
+For release packaging, build against the pinned libraries in a fresh Cargo target directory,
+then run:
+
+```bash
+bash bindings/php/tools/pie-package.sh /path/to/extension v0.1.0 /path/to/output \
+  /path/to/libheif /path/to/pdfium
+```
+
+On Linux this also requires `patchelf` and binutils (`readelf` and `objdump`); glibc
+archives reject binaries requiring glibc newer than 2.35. On Windows, pass the vcpkg
+`installed/x64-windows` directory for libheif and put its license at `libheif-LICENSE`
+in that directory; `llvm-readobj` or `dumpbin` must also be on `PATH`. Archive contents
+include the licenses for both bundled libraries;
+libheif source for version 1.21.1 is available from
+[its upstream release](https://github.com/strukturag/libheif/releases/tag/v1.21.1).
 
 Document and image inputs are encoded bytes in PHP strings. The calling application handles
 all file and stream I/O, including writing returned bytes.
@@ -155,10 +172,10 @@ sudo dnf install php-devel clang-devel
 Run these commands from the repository root:
 
 ```bash
-just php build         # debug, dynamic PDFium
-just php build-static  # release, needs PDFIUM_STATIC_LIB_PATH
-just php test          # debug build, dynamic PDFium
-just php test-static   # release build, PDFium linked in
+just php build         # debug build
+just php build-release # release build
+just php test          # debug build
+just php test-release  # release build
 just php smoke         # checks that the extension loads
 just php lint          # clippy on the PHP binding
 just php stubs-check   # fails if the committed stubs are out of date

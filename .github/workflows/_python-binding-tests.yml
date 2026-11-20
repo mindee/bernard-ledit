@@ -47,12 +47,7 @@ jobs:
           submodules: recursive
 
       - uses: ./.github/actions/setup-libheif
-
-      - name: Cache PDFium binary
-        uses: actions/cache@v6
-        with:
-          path: core/.pdfium_cache
-          key: pdfium-v1-${{ runner.os }}-${{ hashFiles('core/build.rs', 'core/Cargo.toml') }}
+      - uses: ./.github/actions/setup-pdfium
 
       - uses: extractions/setup-just@v4
 
@@ -72,6 +67,14 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
 
+      - name: Make native dependencies available to Python (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          python_dir="$(dirname "$(command -v python)")"
+          cp "$RUNNER_TEMP/pdfium/bin/pdfium.dll" "$python_dir/"
+          cp -n "$(cygpath -u "$VCPKG_ROOT")/installed/x64-windows/bin/"*.dll "$python_dir/"
+
       - name: Set up uv
         uses: astral-sh/setup-uv@v6
         with:
@@ -84,3 +87,123 @@ jobs:
 
       - name: Run Python binding tests
         run: just python test
+
+      - name: Verify native dependencies
+        shell: bash
+        run: |
+          extension="$(python -c 'import bernard_ledit._bernard_ledit as m; print(m.__file__)')"
+          case "${{ runner.os }}" in
+            Linux) deps="$(ldd "$extension")" ;;
+            macOS) deps="$(otool -L "$extension")" ;;
+            Windows) deps="$("/c/Program Files/LLVM/bin/llvm-readobj.exe" --coff-imports "$extension")" ;;
+          esac
+          echo "$deps"
+          grep -qi pdfium <<< "$deps" || { echo "PDFium is not dynamically linked" >&2; exit 1; }
+          grep -qi heif <<< "$deps" || { echo "libheif is not dynamically linked" >&2; exit 1; }
+
+      - name: Verify missing PDFium prevents import (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          env -u LD_LIBRARY_PATH python -c $'try:\n import bernard_ledit\nexcept ImportError as e:\n assert "libpdfium" in str(e), str(e)\nelse:\n raise SystemExit("Import succeeded without PDFium")'
+
+      - name: Remove development DLLs from Python's directory
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          python_dir="$(dirname "$(command -v python)")"
+          rm -f "$python_dir/pdfium.dll"
+          for dll in "$(cygpath -u "$VCPKG_ROOT")"/installed/x64-windows/bin/*heif*.dll; do
+            [ -f "$dll" ] || continue
+            rm -f "$python_dir/$(basename "$dll")"
+          done
+
+      - name: Build and verify bundled wheel
+        shell: bash
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/bundled-target
+          MACOSX_DEPLOYMENT_TARGET: "13.0"
+        run: |
+          uv pip install --system "maturin>=1,<2"
+          python -m maturin build --release --manifest-path bindings/python/Cargo.toml --out "$RUNNER_TEMP/wheel-raw"
+          wheels=("$RUNNER_TEMP"/wheel-raw/*.whl)
+          [ "${#wheels[@]}" -eq 1 ] && [ -f "${wheels[0]}" ]
+          python tools/bundle_wheel.py "${wheels[0]}" "$RUNNER_TEMP/wheel-bundled" "$LIBHEIF_PREFIX" "$RUNNER_TEMP/pdfium"
+          python - "$RUNNER_TEMP"/wheel-bundled/*.whl <<'PY'
+          import base64
+          import csv
+          import hashlib
+          import io
+          import sys
+          from zipfile import ZipFile
+          with ZipFile(sys.argv[1]) as wheel:
+              names = wheel.namelist()
+              record = next(name for name in names if name.endswith(".dist-info/RECORD"))
+              rows = list(csv.reader(io.StringIO(wheel.read(record).decode())))
+              assert len(rows) == len(names)
+              assert {row[0] for row in rows} == set(names)
+              for name, digest, size in rows:
+                  if name == record:
+                      assert not digest and not size
+                      continue
+                  content = wheel.read(name)
+                  expected = base64.urlsafe_b64encode(hashlib.sha256(content).digest()).decode().rstrip("=")
+                  assert digest == "sha256=" + expected and int(size) == len(content)
+              assert not any("libde265" in name.lower() or "avcodec" in name.lower() for name in names)
+          PY
+          uv pip install --target "$RUNNER_TEMP/wheel-site" "$RUNNER_TEMP"/wheel-bundled/*.whl
+          unset LD_LIBRARY_PATH DYLD_LIBRARY_PATH
+          export LIBHEIF_PLUGIN_PATH=nonexistent-plugin-directory
+          python - "$RUNNER_TEMP/wheel-site" tests/data/file_types/receipt.heic <<'PY'
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, sys.argv[1])
+          import bernard_ledit._bernard_ledit as extension
+          from bernard_ledit.image import Image
+          from bernard_ledit.pdf import PdfDocument
+
+          native = Path(extension.__file__).parent / "native"
+          if sys.platform == "win32":
+              assert len(list(native.glob("*heif*.dll"))) == 1
+              assert (native / "pdfium.dll").is_file()
+          elif sys.platform == "darwin":
+              assert (native / "libheif.1.dylib").is_file()
+              assert (native / "libpdfium.dylib").is_file()
+          else:
+              assert (native / "libheif.so.1").is_file()
+              assert (native / "libpdfium.so").is_file()
+          assert len(PdfDocument.new()) == 0
+          try:
+              Image(Path(sys.argv[2]).read_bytes())
+          except Exception as error:
+              assert "no HEVC decoder" in str(error), error
+          else:
+              raise AssertionError("HEIC decoded without a plugin")
+          PY
+
+      - name: Verify the bundled wheel with an external decoder
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          unset LD_LIBRARY_PATH DYLD_LIBRARY_PATH
+          export LIBHEIF_PLUGIN_PATH="$HEIF_TEST_PLUGIN_PATH"
+          if [ "${{ runner.os }}" = macOS ]; then
+            export DYLD_PRINT_LIBRARIES=1
+          else
+            export LD_DEBUG=libs
+          fi
+          python - "$RUNNER_TEMP/wheel-site" tests/data/file_types/receipt.heic 2>"$RUNNER_TEMP/loader.log" <<'PY'
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, sys.argv[1])
+          from bernard_ledit.image import Image
+          assert Image(Path(sys.argv[2]).read_bytes()).size == (800, 1066)
+          PY
+          unset LD_DEBUG DYLD_PRINT_LIBRARIES
+          if [ "${{ runner.os }}" = macOS ]; then
+            grep -F "$RUNNER_TEMP/wheel-site/bernard_ledit/native/libheif.1.dylib" "$RUNNER_TEMP/loader.log"
+            [ "$(grep -c 'libheif\.1\.dylib' "$RUNNER_TEMP/loader.log")" -eq 1 ]
+          else
+            grep -F "calling init: $RUNNER_TEMP/wheel-site/bernard_ledit/native/libheif.so.1" "$RUNNER_TEMP/loader.log"
+            [ "$(grep -c 'calling init:.*libheif\.so\.1' "$RUNNER_TEMP/loader.log")" -eq 1 ]
+          fi

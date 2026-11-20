@@ -1,0 +1,29 @@
+name: Setup PDFium
+description: Install the pinned shared PDFium library for build and runtime
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        case "${{ runner.os }}-${{ runner.arch }}" in
+          Linux-X64) target=linux-x64 ;;
+          Linux-ARM64) target=linux-arm64 ;;
+          macOS-X64) target=mac-x64 ;;
+          macOS-ARM64) target=mac-arm64 ;;
+          Windows-X64) target=win-x64 ;;
+          *) echo "Unsupported runner: ${{ runner.os }} ${{ runner.arch }}" >&2; exit 1 ;;
+        esac
+        dir="$RUNNER_TEMP/pdfium"
+        bash tools/download-pdfium.sh "$target" "$dir"
+        if [ "${{ runner.os }}" = Windows ]; then
+          echo "PDFIUM_DYNAMIC_LIB_PATH=$(cygpath -m "$dir/lib")" >> "$GITHUB_ENV"
+          echo "$(cygpath -m "$dir/bin")" >> "$GITHUB_PATH"
+        else
+          echo "PDFIUM_DYNAMIC_LIB_PATH=$dir/lib" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$dir/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+          echo "DYLD_LIBRARY_PATH=$dir/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+          if [ "${{ runner.os }}" = macOS ]; then
+            sudo -A mkdir -p /usr/local/lib
+            sudo -A install -m 755 "$dir/lib/libpdfium.dylib" /usr/local/lib/libpdfium.dylib
+          fi
+        fi

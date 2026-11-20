@@ -30,12 +30,9 @@ jobs:
   build-and-test:
     name: Build and test
     needs: check-version
-    permissions:
-      contents: write
-    uses: ./.github/workflows/build-static-pdfium.yml
+    uses: ./.github/workflows/_php-release-tests.yml
     with:
       release-tag: ${{ github.event.release.tag_name }}
-      build-missing: false
 
   # Runs only once every job has passed, so a release never gets a partial set of assets.
   publish:

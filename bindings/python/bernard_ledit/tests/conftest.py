@@ -1,10 +1,8 @@
 """Pytest bootstrap for local extension-module tests."""
 
-import ctypes
 import importlib
 import importlib.machinery
 import logging
-import os
 import shutil
 import subprocess
 import sys
@@ -58,7 +56,6 @@ def pytest_configure():
         else:
             raise RuntimeError(f"Build succeeded but couldn't find {built_so}")
 
-    _load_pdfium_globally(workspace_root)
     importlib.invalidate_caches()
 
 
@@ -69,22 +66,6 @@ def _can_import_extension() -> bool:
         logger.warning(f"Raised while importing extension: {e}.")
         return False
     return True
-
-
-def _load_pdfium_globally(workspace_root):
-    cache_dir = workspace_root / "core" / ".pdfium_cache"
-    lib_pattern = "**/libpdfium.*" if sys.platform != "win32" else "**/pdfium.dll"
-    libs = list(cache_dir.glob(lib_pattern))
-
-    if libs:
-        lib_path = str(libs[0].resolve())
-        os.environ.setdefault("PDFIUM_PATH", lib_path)
-        try:
-            ctypes.CDLL(lib_path, mode=ctypes.RTLD_GLOBAL)
-        except Exception as e:
-            logger.warning(f"Failed to pre-load PDFium: {e}")
-    else:
-        logger.warning(f"PDFium library not found in {cache_dir}")
 
 
 def _run_maturin_develop(project_root: Path) -> bool:

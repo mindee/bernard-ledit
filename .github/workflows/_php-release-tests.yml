@@ -1,0 +1,223 @@
+name: PHP release binding tests
+
+# With a release tag, each job packages its tested extension as a PIE asset.
+on:
+  workflow_call:
+    inputs:
+      release-tag:
+        description: "Release tag to package the tested extensions for; empty to only test"
+        type: string
+        default: ""
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  RELEASE_TAG: ${{ inputs.release-tag }}
+
+jobs:
+  php-binding-tests:
+    name: Test PHP release binding (${{ matrix.platform.pdfium_target }}, PHP ${{ matrix.php }} ${{ matrix.thread_safety }})
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { runner: ubuntu-latest,    pdfium_target: linux-x64-glibc,   extension: libbernard_ledit_php.so }
+          - { runner: ubuntu-24.04-arm, pdfium_target: linux-arm64-glibc, extension: libbernard_ledit_php.so }
+          - { runner: macos-latest,     pdfium_target: mac-arm64,         extension: libbernard_ledit_php.dylib }
+          - { runner: macos-15-intel,   pdfium_target: mac-x64,           extension: libbernard_ledit_php.dylib }
+        php: [ "8.1", "8.2", "8.3", "8.4", "8.5" ]
+        thread_safety: [ "zts", "nts" ]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - uses: ./.github/actions/setup-libheif
+      - uses: ./.github/actions/setup-pdfium
+
+      - uses: extractions/setup-just@v4
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@1.99.0
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: php-dynamic-${{ matrix.platform.pdfium_target }}-php${{ matrix.php }}-${{ matrix.thread_safety }}
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: composer:v2
+        env:
+          phpts: ${{ matrix.thread_safety }}
+
+      - name: Build and test
+        run: just php test-release
+
+      - name: Check shared dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          deps="$(otool -L target/release/libbernard_ledit_php.dylib)"
+          echo "$deps"
+          if ! grep -qi pdfium <<< "$deps"; then
+            echo "::error::The extension does not link PDFium dynamically"
+            exit 1
+          fi
+          if ! grep -qi libheif <<< "$deps"; then
+            echo "::error::The extension does not link pinned libheif dynamically"
+            exit 1
+          fi
+
+      - name: Check shared dependencies and glibc baseline (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          ext=target/release/libbernard_ledit_php.so
+          deps="$(ldd "$ext")"
+          echo "$deps"
+          if ! grep -qi pdfium <<< "$deps"; then
+            echo "::error::The extension does not link PDFium dynamically"
+            exit 1
+          fi
+          if ! grep -qi libheif <<< "$deps"; then
+            echo "::error::The extension does not link pinned libheif dynamically"
+            exit 1
+          fi
+          newest_glibc="$(objdump -T "$ext" | grep -oE 'GLIBC_[0-9]+(\.[0-9]+)*' | sed 's/GLIBC_//' | sort -Vu | tail -n 1)"
+          echo "Newest glibc symbol version required: $newest_glibc"
+          if [ "$(printf '%s\n' "$newest_glibc" 2.35 | sort -V | tail -n 1)" != 2.35 ]; then
+            echo "::error::The extension requires glibc $newest_glibc, newer than 2.35"
+            exit 1
+          fi
+
+      - name: Rebuild against pinned libheif
+        if: env.RELEASE_TAG != ''
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/bundled-target
+          MACOSX_DEPLOYMENT_TARGET: "13.0"
+        run: cargo build -p bernard-ledit-php --release
+
+      - name: Package for PIE
+        if: env.RELEASE_TAG != ''
+        run: bash bindings/php/tools/pie-package.sh "$RUNNER_TEMP/bundled-target/release/${{ matrix.platform.extension }}" "$RELEASE_TAG" dist "$LIBHEIF_PREFIX" "$RUNNER_TEMP/pdfium"
+
+      - name: Verify the packaged extension
+        if: env.RELEASE_TAG != ''
+        run: bash bindings/php/tools/check-package.sh dist/*.zip "$HEIF_TEST_PLUGIN_PATH"
+
+      - name: Keep the PIE asset for the release
+        if: env.RELEASE_TAG != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: pie-${{ matrix.platform.pdfium_target }}-php${{ matrix.php }}-${{ matrix.thread_safety }}
+          path: dist/
+          if-no-files-found: error
+
+  php-binding-tests-windows:
+    name: Test PHP release binding (${{ matrix.pdfium_target }}, PHP ${{ matrix.php }} ${{ matrix.thread_safety }})
+    runs-on: windows-latest
+    env:
+      # ext-php-rs needs nightly on Windows (vectorcall ABI); this overrides rust-toolchain.toml.
+      RUSTUP_TOOLCHAIN: nightly
+    strategy:
+      fail-fast: false
+      matrix:
+        php: [ "8.1", "8.2", "8.3", "8.4", "8.5" ]
+        thread_safety: [ "zts", "nts" ]
+        # The extension must link with the MSVC toolset its PHP version was built with.
+        include:
+          - { php: "8.1", msvc: "14.29", pdfium_target: win-x64-v142 }
+          - { php: "8.2", msvc: "14.29", pdfium_target: win-x64-v142 }
+          - { php: "8.3", msvc: "14.29", pdfium_target: win-x64-v142 }
+          - { php: "8.4", msvc: "14.44", pdfium_target: win-x64-v143 }
+          - { php: "8.5", msvc: "14.44", pdfium_target: win-x64-v143 }
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - uses: ./.github/actions/setup-libheif
+      - uses: ./.github/actions/setup-pdfium
+
+      - uses: extractions/setup-just@v4
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: php-dynamic-${{ matrix.pdfium_target }}-php${{ matrix.php }}-${{ matrix.thread_safety }}
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: composer:v2
+        env:
+          phpts: ${{ matrix.thread_safety }}
+
+      - name: Pin the MSVC toolset of the PHP build
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+          toolset: ${{ matrix.msvc }}
+
+      # Git Bash puts its GNU link.exe ahead of MSVC's on PATH, where Rust looks up the linker.
+      - name: Remove Git's GNU link.exe
+        run: rm -f "/c/Program Files/Git/usr/bin/link.exe"
+
+      - name: Build and test
+        run: just php test-release
+
+      - name: Check shared dependencies
+        run: |
+          imports="$("/c/Program Files/LLVM/bin/llvm-readobj.exe" --coff-imports target/release/bernard_ledit_php.dll | grep -i '^ *Name:' || true)"
+          echo "$imports"
+          if ! grep -qi pdfium <<< "$imports"; then
+            echo "::error::The extension does not link PDFium dynamically"
+            exit 1
+          fi
+          if ! grep -qi heif <<< "$imports"; then
+            echo "::error::The extension does not link pinned libheif dynamically"
+            exit 1
+          fi
+
+      - name: Rebuild against pinned libheif
+        if: env.RELEASE_TAG != ''
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/bundled-target
+        run: cargo build -p bernard-ledit-php --release
+
+      - name: Package for PIE
+        if: env.RELEASE_TAG != ''
+        run: bash bindings/php/tools/pie-package.sh "$RUNNER_TEMP/bundled-target/release/bernard_ledit_php.dll" "$RELEASE_TAG" dist "$LIBHEIF_PREFIX" "$RUNNER_TEMP/pdfium"
+
+      - name: Verify the packaged extension
+        if: env.RELEASE_TAG != ''
+        shell: pwsh
+        run: |
+          $stage = Join-Path $env:RUNNER_TEMP "verify-package"
+          Expand-Archive -Path (Get-ChildItem dist/*.zip).FullName -DestinationPath $stage
+          $extension = (Get-ChildItem "$stage/php_bernard_ledit*.dll").FullName
+          $env:PATH = "$stage;$env:PATH"
+          $env:LIBHEIF_PLUGIN_PATH = Join-Path $stage "no-plugins"
+          $env:HEIC_FIXTURE = Join-Path $env:GITHUB_WORKSPACE "tests/data/file_types/receipt.heic"
+          php -n -d "extension=$extension" -r 'if (!extension_loaded("bernard_ledit") || BernardLedit\Pdf\PdfDocument::create()->getPageCount() !== 0) { exit(1); } try { new BernardLedit\Image\Image(file_get_contents(getenv("HEIC_FIXTURE"))); } catch (Throwable $e) { if (strpos($e->getMessage(), "no HEVC decoder") !== false) { exit(0); } throw $e; } exit(1);'
+          if ($LASTEXITCODE -ne 0) { throw "packaged extension verification failed" }
+
+      - name: Keep the PIE asset for the release
+        if: env.RELEASE_TAG != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: pie-${{ matrix.pdfium_target }}-php${{ matrix.php }}-${{ matrix.thread_safety }}
+          path: dist/
+          if-no-files-found: error

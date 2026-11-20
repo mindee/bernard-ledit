@@ -76,15 +76,12 @@ jobs:
           fi
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
-  # Builds any missing static PDFium library, then tests the PHP extension against all of them.
-  # On a version commit, it also packages each tested extension for PIE, as a workflow artifact.
-  static-pdfium:
-    uses: ./.github/workflows/build-static-pdfium.yml
+  # On a version commit, also packages each tested extension for PIE.
+  php-release:
+    uses: ./.github/workflows/_php-release-tests.yml
     needs: [ pre-commit, version ]
     with:
       release-tag: ${{ needs.version.outputs.tag }}
-    permissions:
-      contents: write
 
   # Only runs for a version commit, once everything above has passed, PIE packaging included.
   tag:
@@ -95,7 +92,7 @@ jobs:
       - php-binding-tests
       - java-binding-tests
       - hack-test-release
-      - static-pdfium
+      - php-release
     permissions:
       contents: write
 
@@ -106,7 +103,7 @@ jobs:
     permissions:
       contents: write
 
-  # Uploads the PIE archives static-pdfium packaged, then publishes the release. If this fails, the
+  # Uploads the PIE archives php-release packaged, then publishes the release. If this fails, the
   # release stays a draft: re-run the failed jobs.
   publish-release:
     name: Upload the PIE archives and publish the release

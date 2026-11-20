@@ -8,9 +8,12 @@ The Python binding exposes Bernard l'Édit's PDF and image APIs through a PyO3 e
 pip install bernard-ledit
 ```
 
-The wheel bundles the compiled Rust extension and PDFium. HEIC decoding requires system libheif
-and either its libde265 or FFmpeg HEVC decoder plugin; see the
-[native libheif prerequisites](../../README.md#native-libheif-prerequisites).
+Bundled wheels contain the pinned shared PDFium and libheif libraries under their original names.
+HEIC decoding additionally requires a separately installed
+[compatible HEVC decoder plugin](../../README.md#native-libheif-prerequisites).
+Linux wheels are platform-specific rather than manylinux or musllinux wheels; macOS wheels
+require macOS 13 or later. Loader overrides and libraries already loaded by the process can
+still affect library resolution.
 Document and image inputs must be `bytes`, not paths or file-like objects. The calling application
 handles all file and stream I/O, including writing returned bytes.
 
@@ -152,6 +155,29 @@ just python test
 just python lint-check   # ruff and mypy
 just python format
 ```
+
+### Building a bundled wheel
+
+Build the pinned libheif and PDFium libraries as described in the
+[native prerequisites](../../README.md#native-libheif-prerequisites). From the repository root,
+build against them in a fresh Cargo target directory, then add them to the wheel:
+
+```bash
+export PKG_CONFIG_PATH=/path/to/libheif/lib/pkgconfig
+export PDFIUM_DYNAMIC_LIB_PATH=/path/to/pdfium/lib
+export CARGO_TARGET_DIR=/path/to/new-cargo-target
+export MACOSX_DEPLOYMENT_TARGET=13.0 # macOS only
+maturin build --release --manifest-path bindings/python/Cargo.toml --out /path/to/raw-wheels
+python tools/bundle_wheel.py /path/to/raw-wheels/NAME.whl /path/to/output \
+  /path/to/libheif /path/to/pdfium
+```
+
+On Linux, `patchelf` and `readelf` are required. On Windows, build codec-free libheif with
+the [vcpkg overlay](../../tools/vcpkg/libheif), set `VCPKG_ROOT` and `VCPKGRS_DYNAMIC=1`,
+and pass the `installed/x64-windows` directory as the libheif prefix. The helper also
+requires the libheif license at `libheif-LICENSE` in that prefix, and `llvm-readobj` or
+`dumpbin` on `PATH`. A plain `maturin build` or a source install does not bundle native
+libraries.
 
 ## Thread safety
 

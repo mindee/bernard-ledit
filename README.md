@@ -17,7 +17,7 @@
 - [Overview](#overview)
 - [Bindings](#bindings)
 - [Native libheif prerequisites](#native-libheif-prerequisites)
-- [PDFium: dynamic and static builds](#pdfium-dynamic-and-static-builds)
+- [Native PDFium prerequisite](#native-pdfium-prerequisite)
 - [Development](#development)
   - [Prerequisites](#prerequisites)
   - [Build](#build)
@@ -44,7 +44,7 @@
 bernard-ledit/
 ├── core/                   # Rust library (bernard-ledit crate)
 │   ├── pdfium-release      # Pinned PDFium release (pdfium-binaries tag)
-│   ├── build.rs            # Fetches the dynamic PDFium for development builds
+│   ├── build.rs            # Links the system PDFium shared library
 │   └── src/
 │       ├── image/          # Image decoding, encoding, compression, polygon crops
 │       ├── pdf/            # PDF manipulation via PDFium
@@ -57,7 +57,7 @@ bernard-ledit/
 │   ├── nodejs/
 │   └── ruby/
 ├── tools/
-│   └── pdfium-static/      # Builds and downloads static PDFium libraries
+│   └── download-pdfium.sh  # Downloads shared PDFium for development and CI
 └── .github/workflows/      # CI, see below
 ```
 
@@ -95,58 +95,79 @@ structure while using conventions appropriate to their language.
 
 ## Native libheif prerequisites
 
-Requires **system libheif 1.17+ with at least one HEVC decoder plugin**: libde265 or
-FFmpeg.
-Rust builds need development headers;
-applications need the compatible shared library and decoder plugin at runtime.
-Neither libheif nor its plugins are bundled in the Python or PHP packages.
-An HEVC encoder is not required.
+Python wheels, PHP release archives, and development builds use the same pinned shared
+libheif **1.21.1**. The library is built without codecs. HEIC decoding requires a separately
+installed libde265 or FFmpeg decoder plugin compatible with libheif 1.21.1; plugins built
+for older libheif versions may not work. Set `LIBHEIF_PLUGIN_PATH` to the plugin directory
+before starting the application.
 
-| Platform | Installation |
+For local development on Linux or macOS, install CMake, a C++ compiler, and pkg-config.
+Install libde265's development files too if you need HEIC decoding in tests.
+
+| Platform | Build dependencies |
 | --- | --- |
-| Ubuntu 24.04 | `sudo apt-get install pkg-config libheif-dev libheif-plugin-libde265` (you can replace `libheif-plugin-libde265` `with `libheif-plugin-ffmpegdec`). |
-| macOS | `brew install libheif` |
-| Windows x64 MSVC | Install vcpkg's dynamic `libheif[core,libde265]:x64-windows`, set `VCPKG_ROOT` and `VCPKGRS_DYNAMIC=1` for builds, and make its DLLs available at runtime. |
+| Ubuntu | `sudo apt-get install build-essential cmake pkg-config` (add `libde265-dev` for the test plugin) |
+| macOS | `brew install cmake pkgconf` (add `libde265` for the test plugin) |
+
+Build the pinned shared library:
+
+```bash
+libheif_prefix="$HOME/.cache/bernard-ledit/libheif-1.21.1"
+bash tools/build-libheif.sh "$libheif_prefix"
+export LIBHEIF_PREFIX="$libheif_prefix"
+export PKG_CONFIG_PATH="$libheif_prefix/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+case "$(uname -s)" in
+  Darwin) export DYLD_LIBRARY_PATH="$libheif_prefix/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ;;
+  *) export LD_LIBRARY_PATH="$libheif_prefix/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ;;
+esac
+```
+
+For HEIC decoding in local tests, build a matching plugin separately:
+
+```bash
+plugin_prefix="$HOME/.cache/bernard-ledit/heif-test-plugin-1.21.1"
+bash tools/build-libheif.sh "$plugin_prefix" --test-plugin
+export LIBHEIF_PLUGIN_PATH="$plugin_prefix/plugins"
+```
+
+On Windows x64 MSVC, install the pinned port and plugin with
+`vcpkg install "libheif[libde265]:x64-windows" --overlay-ports=tools/vcpkg`, then set
+`VCPKG_ROOT`, `VCPKGRS_DYNAMIC=1`, `LIBHEIF_PREFIX` to
+`<vcpkg-root>/installed/x64-windows`, and `LIBHEIF_PLUGIN_PATH` to
+`<vcpkg-root>/installed/x64-windows/plugins/libheif`. Make
+`<vcpkg-root>/installed/x64-windows/bin` available on `PATH`.
+
+The plugin and its libde265 dependency are not included in release packages. libheif's
+source is available from the
+[1.21.1 upstream release](https://github.com/strukturag/libheif/releases/tag/v1.21.1).
 
 ---
 
-## PDFium: dynamic and static builds
+## Native PDFium prerequisite
 
-PDFium comes from [bblanchon/pdfium-binaries](https://github.com/bblanchon/pdfium-binaries), at the release pinned in [
-`core/pdfium-release`](core/pdfium-release). Builds use it in one of two ways:
+Bundled Python wheels and PHP release archives contain the shared PDFium build matching
+[`core/pdfium-release`](core/pdfium-release). Development builds and other bindings need
+the matching [pdfium-binaries](https://github.com/bblanchon/pdfium-binaries) shared build
+installed separately for the OS, architecture and libc. It must be visible to the system
+loader when the extension loads, even without PDF operations.
 
-|                   | Dynamic (default)                                                                                                       | Static                                                                                                                                        |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Used for**      | Development and tests                                                                                                   | Released packages                                                                                                                             |
-| **How**           | `core/build.rs` downloads the shared library into `core/.pdfium_cache`; the binding loads it at runtime (`PDFIUM_PATH`) | PDFium is linked into the binding at build time: `PDFIUM_STATIC_LIB_PATH` points to the library, and a static feature selects the C++ runtime |
-| **Cargo feature** | none                                                                                                                    | `static-pdfium` (Linux, libstdc++), `static-pdfium-libcxx` (macOS, libc++), `static-pdfium-msvc` (Windows)                                    |
-
-Static libraries are prebuilt by [`build-static-pdfium.yml`](.github/workflows/build-static-pdfium.yml) and published,
-each with a `.sha256` checksum, to the `pdfium-static-<release>` GitHub release of this repository (e.g.
-`pdfium-static-chromium_8076`). Each target's archive is published with its corresponding license bundle.
-
-| Target              | For                                        |
-| ------------------- | ------------------------------------------ |
-| `linux-x64-glibc`   | Linux x86_64, glibc 2.35+                  |
-| `linux-arm64-glibc` | Linux arm64, glibc 2.35+                   |
-| `linux-x64-musl`    | Alpine x86_64                              |
-| `linux-arm64-musl`  | Alpine arm64                               |
-| `mac-arm64`         | macOS, Apple Silicon                       |
-| `mac-x64`           | macOS, Intel                               |
-| `win-x64-v142`      | Windows x86_64, MSVC 14.29 (PHP 8.1 – 8.3) |
-| `win-x64-v143`      | Windows x86_64, MSVC 14.44 (PHP 8.4, 8.5)  |
-| `win-arm64-v143`    | Windows arm64, MSVC 14.44                  |
+For development, download the pinned release and point the linker at its library directory:
 
 ```bash
-# Download a published library (needs an authenticated `gh`)
-bash tools/pdfium-static/download.sh <target> <directory>
-
-# Or build one yourself (Linux: needs Docker; Windows: also set MSVC_TOOLSET, e.g. 14.44)
-PDFIUM_OS=linux PDFIUM_CPU=x64 bash tools/pdfium-static/build.sh
+# Example for Apple Silicon; use linux-x64, linux-arm64, linux-musl-x64,
+# linux-musl-arm64, mac-x64, or win-x64 for the other supported targets.
+bash tools/download-pdfium.sh mac-arm64 /path/to/pdfium
+export PDFIUM_DYNAMIC_LIB_PATH=/path/to/pdfium/lib
 ```
 
-`build.sh` documents its other settings (musl, work and output directories) in its header. The target list lives in [
-`tools/pdfium-static/targets.json`](tools/pdfium-static/targets.json).
+On Linux, install `libpdfium.so` in a loader search directory or configure `LD_LIBRARY_PATH`
+before starting the application. On macOS, install `libpdfium.dylib` in `/usr/local/lib` or
+`/opt/homebrew/lib`; the download script sets its install name to `@rpath/libpdfium.dylib`.
+On Windows, the build needs `lib/pdfium.lib` (the script copies the provided import library to
+that name); the application must find `bin/pdfium.dll` at runtime. Python on Windows may require
+placing the DLL beside `python.exe` or using `os.add_dll_directory()` before importing the package.
+The loader's search rules and ABI must match the installed binary. The old `PDFIUM_PATH` and PHP
+`bernard_ledit.pdfium_path` settings are no longer used.
 
 ---
 
@@ -158,7 +179,8 @@ PDFIUM_OS=linux PDFIUM_CPU=x64 bash tools/pdfium-static/build.sh
 | -------------------------------------------------------- | ------------------------------------------- |
 | Rust 1.99.0 (pinned in `rust-toolchain.toml`)            | Core + all bindings                         |
 | [just](https://github.com/casey/just)                    | Task runner                                 |
-| System libheif ≥ 1.17 + one HEVC decoder plugin (libde265 or FFmpeg), development files | HEIC decoder in core and bindings |
+| Pinned libheif 1.21.1 development build; matching plugin for HEIC tests | HEIC support in core and bindings |
+| System shared PDFium and `PDFIUM_DYNAMIC_LIB_PATH` | PDF operations in core and bindings |
 
 
 ### Build
@@ -173,7 +195,7 @@ just core build
 ```bash
 # Rust core
 just core test
-just core hack-test        # every feature combination, except the static-linking ones
+just core hack-test        # every feature combination
 ```
 
 ### Lint

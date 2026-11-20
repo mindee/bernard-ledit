@@ -1,45 +1,55 @@
-name: Install system libheif
-description: Install and verify dynamic libheif with HEVC decoder plugins
+name: Install pinned libheif
+description: Build the pinned shared libheif and a matching external HEVC test plugin
 runs:
   using: composite
   steps:
-    - name: Install libheif (Linux)
-      if: runner.os == 'Linux'
-      shell: bash
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y --no-install-recommends pkg-config libheif-dev libheif-plugin-libde265 libheif-plugin-ffmpegdec
-        pkg-config --atleast-version=1.17 libheif
-        python3 .github/actions/setup-libheif/check.py
-    - name: Install libheif (macOS)
-      if: runner.os == 'macOS'
-      shell: bash
-      run: |
-        brew list libheif >/dev/null 2>&1 || brew install libheif
-        brew list pkgconf >/dev/null 2>&1 || brew install pkgconf
-        echo "PKG_CONFIG_PATH=$(brew --prefix libheif)/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" >> "$GITHUB_ENV"
-        export PKG_CONFIG_PATH="$(brew --prefix libheif)/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
-        pkg-config --atleast-version=1.17 libheif
-        python3 .github/actions/setup-libheif/check.py "$(brew --prefix libheif)/lib/libheif.dylib"
-    - name: Install libheif (Windows)
+    - name: Build pinned libheif (Unix)
+      if: runner.os != 'Windows'
+      uses: ./.github/actions/setup-bundled-libheif
+
+    - name: Install pinned libheif and HEVC plugin (Windows)
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
-        $root = $env:VCPKG_INSTALLATION_ROOT
-        if (-not $root) { throw "VCPKG_INSTALLATION_ROOT is not set" }
-        & "$root/vcpkg.exe" install "libheif[core,libde265]:x64-windows" --recurse
-        if ($LASTEXITCODE -ne 0) { throw "vcpkg install failed" }
-        $bin = Join-Path $root "installed/x64-windows/bin"
-        $env:PATH = "$bin;$env:PATH"
-        $plugins = Join-Path $root "installed/x64-windows/plugins/libheif"
-        if (Test-Path $plugins) {
-          $env:LIBHEIF_PLUGIN_PATHS = $plugins
-          "LIBHEIF_PLUGIN_PATHS=$plugins" >> $env:GITHUB_ENV
+        if (-not $env:VCPKG_INSTALLATION_ROOT) { throw "VCPKG_INSTALLATION_ROOT is not set" }
+        $root = Join-Path $env:RUNNER_TEMP "bundled-vcpkg"
+        New-Item -ItemType Directory -Force $root | Out-Null
+        New-Item -ItemType File -Force (Join-Path $root ".vcpkg-root") | Out-Null
+        & "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install "libheif[libde265]:x64-windows" `
+          "--overlay-ports=$env:GITHUB_WORKSPACE/tools/vcpkg" "--x-install-root=$root/installed"
+        if ($LASTEXITCODE -ne 0) { throw "pinned libheif and plugin build failed" }
+        $prefix = Join-Path $root "installed/x64-windows"
+        Copy-Item "$prefix/share/libheif/copyright" "$prefix/libheif-LICENSE"
+        $plugins = Join-Path $prefix "plugins/libheif"
+        if (-not (Test-Path $plugins) -or -not (Get-ChildItem $plugins -File)) {
+          throw "vcpkg did not install the libde265 plugin"
         }
-        $dll = @(Get-ChildItem "$bin/*heif*.dll")
-        if ($dll.Count -ne 1) { throw "Expected one libheif DLL in $bin" }
-        python .github/actions/setup-libheif/check.py $dll[0].FullName
-        if ($LASTEXITCODE -ne 0) { throw "libheif verification failed" }
         "VCPKG_ROOT=$root" >> $env:GITHUB_ENV
         "VCPKGRS_DYNAMIC=1" >> $env:GITHUB_ENV
-        $bin >> $env:GITHUB_PATH
+        "LIBHEIF_PREFIX=$prefix" >> $env:GITHUB_ENV
+        "LIBHEIF_PLUGIN_PATH=$plugins" >> $env:GITHUB_ENV
+        "HEIF_TEST_PLUGIN_PATH=$plugins" >> $env:GITHUB_ENV
+        "$prefix/bin" >> $env:GITHUB_PATH
+        "C:/Program Files/LLVM/bin" >> $env:GITHUB_PATH
+
+    - name: Build compatible HEVC test plugin (Unix)
+      if: runner.os != 'Windows'
+      uses: ./.github/actions/setup-heif-test-plugin
+
+    - name: Verify pinned libheif (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: python3 .github/actions/setup-libheif/check.py "$LIBHEIF_PREFIX/lib/libheif.so.1"
+
+    - name: Verify pinned libheif (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      run: python3 .github/actions/setup-libheif/check.py "$LIBHEIF_PREFIX/lib/libheif.1.dylib"
+
+    - name: Verify pinned libheif (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $dll = Join-Path $env:LIBHEIF_PREFIX "bin/libheif.dll"
+        python .github/actions/setup-libheif/check.py $dll
+        if ($LASTEXITCODE -ne 0) { throw "libheif verification failed" }

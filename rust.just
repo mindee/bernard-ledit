@@ -20,7 +20,7 @@ format-check:
 
 # Cleans Rust
 clean:
-    cargo clean && rm -rf ./core/.pdfium_cache
+    cargo clean
 
 # Checks for dependencies (requires nightly for cargo-udeps; installs it automatically if missing)
 check-deps:
@@ -30,17 +30,13 @@ check-deps:
 hack-check:
     cargo hack check -p bernard-ledit --feature-powerset --no-dev-deps
 
-# Features that link PDFium statically: linking them needs a prebuilt static library
-# (PDFIUM_STATIC_LIB_PATH), which build-static-pdfium.yml's tests provide.
-static_features := "static-link,static-pdfium,static-pdfium-libcxx,static-pdfium-msvc"
-
-# Tests all feature combinations using nextest, except the static-linking ones.
+# Tests all feature combinations using nextest.
 hack-test:
-    cargo hack nextest run -p bernard-ledit --feature-powerset --exclude-features {{static_features}}
+    cargo hack nextest run -p bernard-ledit --feature-powerset
 
-# Tests all feature combinations in release mode, except the static-linking ones.
+# Tests all feature combinations in release mode.
 hack-test-release:
-    cargo hack nextest run -p bernard-ledit --release --feature-powerset --exclude-features {{static_features}}
+    cargo hack nextest run -p bernard-ledit --release --feature-powerset
 
 # Test the core Rust library
 test:

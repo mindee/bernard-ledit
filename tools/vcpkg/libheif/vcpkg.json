@@ -1,0 +1,19 @@
+{
+  "name": "libheif",
+  "version": "1.21.1",
+  "description": "Codec-free shared libheif",
+  "homepage": "https://github.com/strukturag/libheif",
+  "license": "LGPL-3.0-only",
+  "features": {
+    "libde265": {
+      "description": "Build an external HEVC decoder plugin for development tests",
+      "dependencies": [
+        "libde265"
+      ]
+    }
+  },
+  "dependencies": [
+    { "name": "vcpkg-cmake", "host": true },
+    { "name": "vcpkg-cmake-config", "host": true }
+  ]
+}

@@ -1,22 +1,18 @@
 """Bernard l'Édit - PDF and image utilities."""
 
-import os as _os
 import sys as _sys
 from pathlib import Path as _Path
 from typing import Any as _Any
 
-_pkg_dir = _Path(__file__).parent
-_lib_name = (
-    "pdfium.dll"
-    if _os.name == "nt"
-    else ("libpdfium.dylib" if _sys.platform == "darwin" else "libpdfium.so")
-)
-_bundled = _pkg_dir / _lib_name
-if _bundled.exists():
-    _os.environ.setdefault("PDFIUM_PATH", str(_bundled))
+if _sys.platform == "win32":
+    import os as _os
 
-from . import _bernard_ledit as _native  # noqa: E402
-from ._bernard_ledit import *  # noqa: E402, F401, F403
+    _native_dir = _Path(__file__).parent / "native"
+    if _native_dir.is_dir():
+        _native_dll_directory = _os.add_dll_directory(str(_native_dir))
+
+from . import _bernard_ledit as _native
+from ._bernard_ledit import *  # noqa: F401, F403
 
 _native_any: _Any = _native
 common = _native_any.common

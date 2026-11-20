@@ -31,6 +31,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - uses: ./.github/actions/setup-libheif
+      - uses: ./.github/actions/setup-pdfium
       - uses: extractions/setup-just@v4
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
@@ -40,13 +41,6 @@ jobs:
         uses: dtolnay/rust-toolchain@1.99.0
         with:
           components: clippy
-      - name: Cache PDFium binary
-        uses: actions/cache@v6
-        with:
-          path: core/.pdfium_cache
-          key: pdfium-${{ runner.os }}-${{ hashFiles('core/build.rs') }}
-          restore-keys: |
-            pdfium-${{ runner.os }}-
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
       - name: Run Clippy
@@ -61,6 +55,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - uses: ./.github/actions/setup-libheif
+      - uses: ./.github/actions/setup-pdfium
       - uses: extractions/setup-just@v4
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
@@ -68,13 +63,6 @@ jobs:
           php-version: "8.4"
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@1.99.0
-      - name: Cache PDFium binary
-        uses: actions/cache@v6
-        with:
-          path: core/.pdfium_cache
-          key: pdfium-${{ runner.os }}-${{ hashFiles('core/build.rs') }}
-          restore-keys: |
-            pdfium-${{ runner.os }}-
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
       - name: Install cargo-hack
@@ -93,16 +81,10 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - uses: ./.github/actions/setup-libheif
+      - uses: ./.github/actions/setup-pdfium
       - uses: extractions/setup-just@v4
       - name: Set up nightly Rust toolchain
         uses: dtolnay/rust-toolchain@nightly
-      - name: Cache PDFium binary
-        uses: actions/cache@v6
-        with:
-          path: core/.pdfium_cache
-          key: pdfium-${{ runner.os }}-${{ hashFiles('core/build.rs') }}
-          restore-keys: |
-            pdfium-${{ runner.os }}-
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
       - name: Install cargo tools
@@ -122,6 +104,7 @@ jobs:
         with:
           submodules: recursive
       - uses: ./.github/actions/setup-libheif
+      - uses: ./.github/actions/setup-pdfium
       - uses: extractions/setup-just@v4
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@1.99.0
@@ -135,13 +118,6 @@ jobs:
           echo "VIRTUAL_ENV=$RUNNER_TEMP/venv" >> "$GITHUB_ENV"
           echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
           "$RUNNER_TEMP/venv/bin/pip" install "maturin>=1.0,<2.0"
-      - name: Cache PDFium binary
-        uses: actions/cache@v6
-        with:
-          path: core/.pdfium_cache
-          key: pdfium-${{ runner.os }}-${{ hashFiles('core/build.rs') }}
-          restore-keys: |
-            pdfium-${{ runner.os }}-
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
       - name: Build the Python extension
@@ -161,6 +137,7 @@ jobs:
         with:
           submodules: recursive
       - uses: ./.github/actions/setup-libheif
+      - uses: ./.github/actions/setup-pdfium
       - uses: extractions/setup-just@v4
       - name: Install libclang
         run: |
@@ -172,13 +149,6 @@ jobs:
           php-version: "8.4"
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@1.99.0
-      - name: Cache PDFium binary
-        uses: actions/cache@v6
-        with:
-          path: core/.pdfium_cache
-          key: pdfium-${{ runner.os }}-${{ hashFiles('core/build.rs') }}
-          restore-keys: |
-            pdfium-${{ runner.os }}-
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
       - name: Check the stubs match the extension

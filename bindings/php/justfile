@@ -4,20 +4,6 @@ ext_name := if os() == "macos" { "libbernard_ledit_php.dylib" } else if os() == 
 ext_debug := "../../target/debug/" + ext_name
 ext_release := "../../target/release/" + ext_name
 
-static_feature := if os() == "macos" { "static-pdfium-libcxx" } else if os() == "windows" { "static-pdfium-msvc" } else { "static-pdfium" }
-
-# Where core's build downloads the dynamic PDFium that debug builds load.
-pdfium_release := replace(`tr -d '[:space:]' < ../../core/pdfium-release`, "/", "_")
-pdfium_target := if os() == "macos" {
-    if arch() == "aarch64" { "mac-arm64" } else { "mac-x64" }
-} else if os() == "windows" {
-    "win-x64"
-} else {
-    if arch() == "aarch64" { "linux-arm64" } else { "linux-x64" }
-}
-pdfium_dir := "../../core/.pdfium_cache/" + pdfium_release + "/" + pdfium_target
-pdfium_lib := if os() == "macos" { "libpdfium.dylib" } else if os() == "windows" { "pdfium.dll" } else { "libpdfium.so" }
-
 # Lists the recipes.
 [private]
 default:
@@ -30,13 +16,6 @@ build:
 # Builds the extension in release mode, against the dynamic PDFium.
 build-release:
     cargo build -p bernard-ledit-php --release
-
-# PDFIUM_STATIC_LIB_PATH is the directory of libpdfium.a (pdfium.lib on Windows), as saved by
-# tools/pdfium-static/download.sh, or built by tools/pdfium-static/build.sh.
-
-# Builds the extension in release mode with PDFium linked in; needs PDFIUM_STATIC_LIB_PATH.
-build-static:
-    cargo build -p bernard-ledit-php --release --features {{static_feature}}
 
 # Runs PHP with the debug build, e.g. `just php run tests/smoke.php`; see run-code for inline code.
 run *ARGS: build (php-with "debug" ARGS)
@@ -58,8 +37,8 @@ reflect: build
 # Runs the binding's PHPUnit suite against the debug build, e.g. `just php test --testdox`.
 test *ARGS: composer-deps build (php-with "debug" "vendor/bin/phpunit " + ARGS)
 
-# Runs the PHPUnit suite against the static build with no PDFium to load: proves it's linked in.
-test-static: composer-deps build-static (php-with "static" "vendor/bin/phpunit")
+# Runs the PHPUnit suite against the release build.
+test-release: composer-deps build-release (php-with "release" "vendor/bin/phpunit")
 
 # Regenerates the IDE and PHPStan stub file from the debug build.
 stubs: build
@@ -100,24 +79,20 @@ clean:
     rm -rf vendor/
 
 # Runs PHP without php.ini, with the test suite's extensions and one build of this extension:
-# `debug` loads the dynamic PDFium, `static` has none to load. ARGS is pasted into the command line
-# as shell code, so callers quote what needs quoting.
+# ARGS is pasted into the command line as shell code, so callers quote what needs quoting.
 [private]
 php-with MODE *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     case "{{MODE}}" in
         debug)
-            PDFIUM_PATH="$(just pdfium-path)"
-            export PDFIUM_PATH
             ext="{{ext_debug}}"
             ;;
-        static)
-            unset PDFIUM_PATH
+        release)
             ext="{{ext_release}}"
             ;;
         *)
-            echo "unknown mode '{{MODE}}' (expected debug or static)" >&2
+            echo "unknown mode '{{MODE}}' (expected debug or release)" >&2
             exit 1
             ;;
     esac
@@ -131,22 +106,6 @@ php-with MODE *ARGS:
         fi
     done
     php "${php_args[@]}" -d "extension=$ext" {{ARGS}}
-
-# Prints the path of the dynamic PDFium, downloading it through core's build if it's missing.
-[private]
-pdfium-path:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    find_pdfium() {
-        find "{{pdfium_dir}}" -name "{{pdfium_lib}}" 2>/dev/null | head -n 1 || true
-    }
-    lib="$(find_pdfium)"
-    if [ -z "$lib" ]; then
-        just -f ../../justfile core build >&2
-        lib="$(find_pdfium)"
-    fi
-    [ -n "$lib" ] || { echo "{{pdfium_lib}} not found in {{pdfium_dir}}" >&2; exit 1; }
-    realpath "$lib"
 
 # Installs the test suite's Composer dependencies on first use.
 [private]

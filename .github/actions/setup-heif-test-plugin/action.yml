@@ -1,0 +1,26 @@
+name: Build a test HEVC plugin
+description: Build a compatible external libde265 plugin without packaging it
+runs:
+  using: composite
+  steps:
+    - name: Install build dependencies (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends build-essential cmake libde265-dev
+
+    - name: Install build dependencies (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        brew list cmake >/dev/null 2>&1 || brew install cmake
+        brew list libde265 >/dev/null 2>&1 || brew install libde265
+
+    - shell: bash
+      if: runner.os != 'Windows'
+      run: |
+        bash tools/build-libheif.sh "$RUNNER_TEMP/heif-test-plugin" --test-plugin
+        plugin_path="$RUNNER_TEMP/heif-test-plugin/plugins"
+        echo "HEIF_TEST_PLUGIN_PATH=$plugin_path" >> "$GITHUB_ENV"
+        echo "LIBHEIF_PLUGIN_PATH=$plugin_path" >> "$GITHUB_ENV"

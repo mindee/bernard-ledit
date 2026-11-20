@@ -47,13 +47,7 @@ jobs:
           submodules: recursive
 
       - uses: ./.github/actions/setup-libheif
-
-      - name: Cache PDFium binary
-        uses: actions/cache@v6
-        with:
-          path: core/.pdfium_cache
-          # Keyed on the release itself, with no fallback: an older release must never be restored.
-          key: pdfium-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('core/pdfium-release') }}
+      - uses: ./.github/actions/setup-pdfium
 
       - uses: extractions/setup-just@v4
 
@@ -112,4 +106,4 @@ jobs:
         run: just php build
 
       - name: Unit test
-        run: just php test # TODO: change this with test-static when binaries are available somewhere accessible.
+        run: just php test

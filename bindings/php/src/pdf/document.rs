@@ -24,7 +24,6 @@ impl PhpPdfDocument {
     ///   can read.
     #[allow(clippy::needless_pass_by_value)]
     pub fn __construct(data: BinarySlice<u8>) -> PhpResult<Self> {
-        super::ensure_pdfium()?;
         let doc = Document::decode(&data).map_err(|e| map_pdf_err(&e))?;
         Ok(Self::wrap(doc))
     }
@@ -34,7 +33,6 @@ impl PhpPdfDocument {
     /// - `\BernardLedit\Pdf\PdfiumException` if `PDFium` can't be loaded, or can't create a
     ///   document.
     pub fn create() -> PhpResult<Self> {
-        super::ensure_pdfium()?;
         Document::new().map(Self::wrap).map_err(|e| map_pdf_err(&e))
     }
 
@@ -195,7 +193,6 @@ pub fn compress_to_jpeg(
 ) -> PhpResult<Binary<u8>> {
     let quality = args::int("quality", quality, 5, 100)?;
     let dpi = args::dpi(dpi.unwrap_or(150.0))?;
-    super::ensure_pdfium()?;
     let doc = Document::decode(&data).map_err(|e| map_pdf_err(&e))?;
     let Some(out) = doc
         .compress_to_jpeg(quality, optimize.unwrap_or(true), dpi)
@@ -236,7 +233,6 @@ pub fn extract_from_page_ranges(
         .enumerate()
         .map(|(i, group)| args::ints(&format!("page_indexes[{i}]"), group, 0, u16::MAX))
         .collect::<PhpResult<Vec<_>>>()?;
-    super::ensure_pdfium()?;
     bernard_ledit::pdf::extract::extract_from_page_ranges(&data, &page_indexes)
         .map(|docs| docs.into_iter().map(PhpPdfDocument::wrap).collect())
         .map_err(|e| format_pdf_extract_err(&e))

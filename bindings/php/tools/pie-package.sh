@@ -3,12 +3,12 @@
 # this script. The PHP version, thread safety, architecture, OS, libc and, on Windows, compiler are
 # read from that PHP the way PIE reads them, so the asset name matches what PIE looks for.
 #
-# Usage: pie-package.sh <extension> <tag> <output-dir> <pdfium-licenses>
+# Usage: pie-package.sh <extension> <tag> <output-dir> <libheif-prefix> <pdfium-prefix>
 #   extension        the built library: libbernard_ledit_php.so, .dylib, or bernard_ledit_php.dll
 #   tag              the release tag, exactly as written: PIE names assets after it
 #   output-dir       where to write the archive
-#   pdfium-licenses  the licenses/ folder download.sh saved with the static PDFium it linked;
-#                    the archive ships it, as redistributing PDFium requires
+#   libheif-prefix   installation of codec-free libheif 1.21.1
+#   pdfium-prefix    installation of the pinned PDFium release
 set -euo pipefail
 
 readonly EXTENSION_NAME="bernard_ledit"
@@ -75,6 +75,15 @@ windows_compiler() {
   printf '%s\n' "$compiler" | tr '[:upper:]' '[:lower:]'
 }
 
+check_glibc_baseline() {
+  local binary="$1" symbols newest
+  symbols="$(objdump -T "$binary")" || die "could not inspect $binary"
+  newest="$(printf '%s\n' "$symbols" | grep -oE 'GLIBC_[0-9]+(\.[0-9]+)*' | sed 's/GLIBC_//' | sort -Vu | tail -n 1 || true)"
+  [ -n "$newest" ] || die "could not determine the glibc requirement of $binary"
+  [ "$(printf '%s\n' "$newest" 2.35 | sort -V | tail -n 1)" = 2.35 ] ||
+    die "$binary requires glibc $newest, newer than 2.35"
+}
+
 # Zips the contents of a directory, keeping its subdirectories, into the archive named first.
 create_zip() {
   local archive="$1" dir="$2"
@@ -88,19 +97,15 @@ create_zip() {
 }
 
 main() {
-  [ $# -eq 4 ] || die "usage: $0 <extension> <tag> <output-dir> <pdfium-licenses>"
-  local extension="$1" tag="$2" output_dir="$3" pdfium_licenses="$4"
-  local repo_root php_version thread_safety arch os base debug
+  [ $# -eq 5 ] || die "usage: $0 <extension> <tag> <output-dir> <libheif-prefix> <pdfium-prefix>"
+  local extension="$1" tag="$2" output_dir="$3" heif="$4" pdfium="$5"
+  local repo_root php_version thread_safety arch os base debug bundled_extension python
 
   [ -f "$extension" ] || die "no such file: $extension"
-  [ -f "$pdfium_licenses/pdfium.txt" ] || die "no PDFium licenses in $pdfium_licenses"
   [[ "$tag" =~ ^[A-Za-z0-9._+-]+$ ]] || die "unexpected characters in tag '$tag'"
   debug="$(php_eval 'var_export(PHP_DEBUG);')"
   [ "$debug" = 0 ] || [ "$debug" = false ] ||
     die "PHP_DEBUG is '$debug': PIE expects -debug assets for a debug build of PHP"
-  check_extension_name "$extension"
-  check_extension_version "$extension" "$tag"
-
   repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)"
   php_version="$(php_eval 'echo PHP_MAJOR_VERSION, ".", PHP_MINOR_VERSION;')"
   thread_safety="$(php_eval 'echo PHP_ZTS ? "zts" : "nts";')"
@@ -111,13 +116,13 @@ main() {
   trap 'rm -rf "${staging:-}"' EXIT
   mkdir -p "$output_dir"
   cp "$repo_root/LICENSE" "$staging/"
-  cp -R "$pdfium_licenses" "$staging/licenses"
 
   case "$os" in
     Windows)
       base="php_$EXTENSION_NAME-$tag-$php_version-${thread_safety#z}-$(windows_compiler)-$arch"
       base="$(printf '%s' "$base" | tr '[:upper:]' '[:lower:]')"
       cp "$extension" "$staging/$base.dll"
+      bundled_extension="$staging/$base.dll"
       if [ -f "${extension%.*}.pdb" ]; then
         cp "${extension%.*}.pdb" "$staging/$base.pdb"
       fi
@@ -130,11 +135,35 @@ main() {
       base="php_$EXTENSION_NAME-${tag}_php$php_version-$arch-$os-$libc-$thread_safety"
       base="$(printf '%s' "$base" | tr '[:upper:]' '[:lower:]')"
       cp "$extension" "$staging/$EXTENSION_NAME.so"
+      bundled_extension="$staging/$EXTENSION_NAME.so"
       ;;
     *)
       die "unsupported OS family '$os'"
       ;;
   esac
+
+  if [ "$os" = Linux ] && [ "$libc" = musl ]; then
+    die "musl/Alpine PHP release packages are unsupported; use a glibc-based distribution"
+  fi
+
+  if [ "$os" = Windows ]; then
+    python=python
+  else
+    python=python3
+  fi
+  "$python" "$repo_root/tools/bundle_native.py" "$bundled_extension" "$heif" "$pdfium" --windows-flat
+  if [ "$os" = Linux ] && [ "$libc" = glibc ]; then
+    check_glibc_baseline "$bundled_extension"
+    check_glibc_baseline "$staging/native/libheif.so.1"
+    check_glibc_baseline "$staging/native/libpdfium.so"
+  fi
+  if [ "$os" = Windows ]; then
+    export PATH="$staging:$PATH"
+  else
+    unset LD_LIBRARY_PATH DYLD_LIBRARY_PATH
+  fi
+  check_extension_name "$bundled_extension"
+  check_extension_version "$bundled_extension" "$tag"
 
   rm -f "$output_dir/$base.zip"
   create_zip "$(cd "$output_dir" && pwd)/$base.zip" "$staging"
