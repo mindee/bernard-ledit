@@ -24,7 +24,17 @@ pub struct TextChar {
 impl TryFrom<PdfPageTextChar<'_>> for TextChar {
     type Error = PdfError;
     fn try_from(char: PdfPageTextChar<'_>) -> Result<Self, Self::Error> {
-        let char_bounds = char.loose_bounds()?;
+        Self::from_pdf_char(&char, false)
+    }
+}
+
+impl TextChar {
+    pub(crate) fn from_pdf_char(char: &PdfPageTextChar<'_>, tight: bool) -> Result<Self, PdfError> {
+        let char_bounds = if tight {
+            char.tight_bounds()?
+        } else {
+            char.loose_bounds()?
+        };
         Ok(Self {
             char: char
                 .unicode_char()
