@@ -20,14 +20,13 @@ coming with the first PHP release. Until then, build it from source. From the re
 
 ```bash
 # Download static PDFium for your platform (see the targets table linked below)
-bash tools/pdfium-static/download.sh linux-x64-glibc "$PWD/.pdfium-static"
-export PDFIUM_STATIC_LIB_PATH="$PWD/.pdfium-static"
+bash tools/pdfium-static/download.sh linux-x64-glibc
 
 # Build and test the release extension with PDFium linked in
 just php test-static
 ```
 
-See [PDFium builds and targets](../../README.md#pdfium-dynamic-and-static-builds). The extension
+See [PDFium builds and targets](../../README.md#pdfium-builds). The extension
 is then in `target/release/` (`libbernard_ledit_php.so`, `.dylib` on macOS, or
 `bernard_ledit_php.dll` on Windows); load it with `extension=/path/to/it` in your `php.ini`.
 
@@ -155,9 +154,9 @@ sudo dnf install php-devel clang-devel
 Run these commands from the repository root:
 
 ```bash
-just php build         # debug, dynamic PDFium
-just php build-static  # release, needs PDFIUM_STATIC_LIB_PATH
-just php test          # debug build, dynamic PDFium
+just php build         # debug, static PDFium
+just php build-release # release
+just php test          # debug build, static PDFium
 just php test-static   # release build, PDFium linked in
 just php smoke         # checks that the extension loads
 just php lint          # clippy on the PHP binding

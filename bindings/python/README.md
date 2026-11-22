@@ -142,14 +142,12 @@ fixed = fix_pdf(raw_bytes, maximum_offset=500)
 Python 3.9+ and an active virtualenv are required, in addition to the
 [shared development prerequisites](../../README.md#prerequisites).
 Download the static PDFium archive for your platform as described in
-[PDFium builds and targets](../../README.md#pdfium-dynamic-and-static-builds), and set
-`PDFIUM_STATIC_LIB_PATH` to its directory. From the repository root:
+[PDFium builds and targets](../../README.md#pdfium-builds). From the repository root:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install "maturin>=1.0,<2.0"
-export PDFIUM_STATIC_LIB_PATH="$PWD/.pdfium-static"
 just python build        # statically links PDFium and installs the extension
 just python wheel        # builds a distributable static wheel
 just python test         # builds the extension before running tests

@@ -4,22 +4,17 @@ ext_name := if os() == "macos" { "libbernard_ledit_php.dylib" } else if os() == 
 ext_debug := "../../target/debug/" + ext_name
 ext_release := "../../target/release/" + ext_name
 
-static_feature := if os() == "macos" { "static-pdfium-libcxx" } else if os() == "windows" { "static-pdfium-msvc" } else { "static-pdfium" }
-
 [private]
 default:
     @just --list
 
-# Builds the extension in debug mode, against the dynamic PDFium.
+# Builds the extension in debug mode.
 build:
-    PDFIUM_DYNAMIC_LIB_PATH="$(just -f ../../justfile core pdfium-path)" cargo build -p bernard-ledit-php
+    cargo build -p bernard-ledit-php
 
-# PDFIUM_STATIC_LIB_PATH is the directory of libpdfium.a (pdfium.lib on Windows), as saved by
-# tools/pdfium-static/download.sh, or built by tools/pdfium-static/build.sh.
-
-# Builds the extension in release mode with PDFium linked in; needs PDFIUM_STATIC_LIB_PATH.
-build-static:
-    cargo build -p bernard-ledit-php --release --features {{static_feature}}
+# Builds the extension in release mode.
+build-release:
+    cargo build -p bernard-ledit-php --release
 
 # Runs PHP with the debug build, e.g. `just php run tests/smoke.php`; see run-code for inline code.
 run *ARGS: build (php-with "debug" ARGS)
@@ -38,8 +33,8 @@ reflect: build
 
 test *ARGS: composer-deps build (php-with "debug" "vendor/bin/phpunit " + ARGS)
 
-# Runs the PHPUnit suite against the static build with no PDFium to load: proves it's linked in.
-test-static: composer-deps build-static (php-with "static" "vendor/bin/phpunit")
+# Runs the PHPUnit suite against the release build.
+test-static: composer-deps build-release (php-with "static" "vendor/bin/phpunit")
 
 # Regenerates the IDE and PHPStan stub file from the debug build.
 stubs: build
@@ -75,25 +70,14 @@ ci: format-check lint build test
 clean:
     rm -rf vendor/
 
-# Runs PHP without php.ini, with the test suite's extensions and one build of this extension:
-# `debug` loads the dynamic PDFium, `static` has none to load. ARGS is pasted into the command line
-# as shell code, so callers quote what needs quoting.
+# Runs PHP without php.ini. ARGS is pasted into the command line as shell code.
 [private]
 php-with MODE *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     case "{{MODE}}" in
-        debug)
-            PDFIUM_LIB_DIR="$(just -f ../../justfile core pdfium-path)"
-            export LD_LIBRARY_PATH="$PDFIUM_LIB_DIR:${LD_LIBRARY_PATH:-}"
-            export DYLD_LIBRARY_PATH="$PDFIUM_LIB_DIR:${DYLD_LIBRARY_PATH:-}"
-            export PATH="$PDFIUM_LIB_DIR:$PATH"
-            ext="{{ext_debug}}"
-            ;;
-        static)
-            unset PDFIUM_DYNAMIC_LIB_PATH
-            ext="{{ext_release}}"
-            ;;
+        debug) ext="{{ext_debug}}" ;;
+        static) ext="{{ext_release}}" ;;
         *)
             echo "unknown mode '{{MODE}}' (expected debug or static)" >&2
             exit 1
@@ -109,10 +93,6 @@ php-with MODE *ARGS:
         fi
     done
     php "${php_args[@]}" -d "extension=$ext" {{ARGS}}
-
-[private]
-pdfium-path:
-    just -f ../../justfile core pdfium-path
 
 [private]
 composer-deps:

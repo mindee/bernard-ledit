@@ -4,9 +4,9 @@
 # their published SHA-256, saves the library under the name the linker looks for (libpdfium.a, or
 # pdfium.lib for Windows targets) and the licenses as <directory>/licenses/.
 #
-# Usage: download.sh <target> <directory>
+# Usage: download.sh <target> [directory]
 #   target     a release asset target, e.g. linux-x64-glibc, mac-arm64, win-x64-v143
-#   directory  where to save them; pass it to the build as PDFIUM_STATIC_LIB_PATH
+#   directory  where to save them; defaults to the workspace's .pdfium-static
 #
 # Run it from inside the repository, with an authenticated `gh` (GH_TOKEN in CI).
 set -euo pipefail
@@ -35,11 +35,12 @@ verify() {
 }
 
 main() {
-  [ $# -eq 2 ] || die "usage: $0 <target> <directory>"
-  local target="$1" dir="$2"
+  [ $# -ge 1 ] && [ $# -le 2 ] || die "usage: $0 <target> [directory]"
+  local target="$1" dir
   local repo_root release asset linked_name licenses
 
   repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
+  dir="${2:-$repo_root/.pdfium-static}"
   release="pdfium-static-$(tr -d '[:space:]' < "$repo_root/core/pdfium-release")"
   release="${release//\//_}"
   case "$target" in

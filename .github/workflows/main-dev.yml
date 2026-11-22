@@ -21,7 +21,7 @@ jobs:
 
   pre-commit:
     uses: ./.github/workflows/_pre-commit.yml
-    needs: workflow-lint
+    needs: [ workflow-lint, static-pdfium ]
 
   unit-tests:
     uses: ./.github/workflows/_unit-tests.yml
@@ -80,7 +80,7 @@ jobs:
   # On a version commit, it also packages each tested extension for PIE, as a workflow artifact.
   static-pdfium:
     uses: ./.github/workflows/build-static-pdfium.yml
-    needs: [ pre-commit, version ]
+    needs: [ workflow-lint, version ]
     with:
       release-tag: ${{ needs.version.outputs.tag }}
     permissions:

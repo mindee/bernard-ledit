@@ -42,7 +42,7 @@ check-all:
     # Runs the checks CI runs and the binding test suites, cheapest first, and stops at the first
     # failure. Nothing gets formatted or fixed, but a failing PHP stubs check leaves the regenerated
     # stubs in place. The Python checks need an active virtualenv with maturin; the PHP stubs are
-    # checked on Linux only, and the static PHP build only when PDFIUM_STATIC_LIB_PATH is set.
+    # checked on Linux only. All builds require the static PDFium archive.
     set -uo pipefail
     trap 'printf "\nInterrupted.\n" >&2; exit 130' INT
     if [ -t 1 ]; then
@@ -87,7 +87,6 @@ check-all:
     run_check just core clippy
     run_check just core check-deps
     run_check just core hack-check
-    # Every feature combination but the static ones, the default features included.
     run_check just core hack-test
 
     run_check just python build
@@ -103,11 +102,7 @@ check-all:
         skip_check "just php stubs-check" "the stub generator runs on Linux only; CI checks it"
     fi
     run_check just php test
-    if [ -n "${PDFIUM_STATIC_LIB_PATH:-}" ]; then
-        run_check just php test-static
-    else
-        skip_check "just php test-static" "set PDFIUM_STATIC_LIB_PATH (see tools/pdfium-static/download.sh)"
-    fi
+    run_check just php test-static
 
     print_summary
     printf '\n%sAll checks passed.%s\n' "$green" "$reset"

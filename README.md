@@ -17,7 +17,7 @@
 - [Overview](#overview)
 - [Bindings](#bindings)
 - [Native libheif prerequisites](#native-libheif-prerequisites)
-- [PDFium: dynamic and static builds](#pdfium-dynamic-and-static-builds)
+- [PDFium builds](#pdfium-builds)
 - [Development](#development)
   - [Prerequisites](#prerequisites)
   - [Build](#build)
@@ -109,20 +109,11 @@ An HEVC encoder is not required.
 
 ---
 
-## PDFium: dynamic and static builds
+## PDFium builds
 
-PDFium comes from [bblanchon/pdfium-binaries](https://github.com/bblanchon/pdfium-binaries), at the release pinned in [
-`core/pdfium-release`](core/pdfium-release). Builds use it in one of two ways:
-
-|                   | Dynamic (default)                                                                                                             | Static                                                                                                                       |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| **Used for**      | Development and tests                                                                                                         | Released packages                                                                                                            |
-| **How**           | `just core pdfium-path` downloads the shared library; the native linker links it using `PDFIUM_DYNAMIC_LIB_PATH`              | The native linker links the archive from `PDFIUM_STATIC_LIB_PATH`                                                            |
-| **Cargo feature** | none                                                                                                                          | `static-pdfium` (Linux, libstdc++), `static-pdfium-libcxx` (macOS, libc++), `static-pdfium-msvc` (Windows)                   |
-
-For dynamic builds, the shared library must also be on the operating system's standard library
-search path when the application runs. 
-`just` prepares that path for the repository's build and test tasks. 
+All core and binding builds link PDFium statically. Cargo looks for the target's `libpdfium.a`
+(or `pdfium.lib` on Windows) in `.pdfium-static/` at the repository root. The pinned PDFium version
+is in [`core/pdfium-release`](core/pdfium-release).
 
 Static libraries are prebuilt by [`build-static-pdfium.yml`](.github/workflows/build-static-pdfium.yml) and published,
 each with a `.sha256` checksum, to the `pdfium-static-<release>` GitHub release of this repository (e.g.
@@ -142,14 +133,16 @@ each with a `.sha256` checksum, to the `pdfium-static-<release>` GitHub release 
 
 ```bash
 # Download a published library (needs an authenticated `gh`)
-bash tools/pdfium-static/download.sh <target> <directory>
+bash tools/pdfium-static/download.sh <target>
 
 # Or build one yourself (Linux: needs Docker; Windows: also set MSVC_TOOLSET, e.g. 14.44)
-PDFIUM_OS=linux PDFIUM_CPU=x64 bash tools/pdfium-static/build.sh
+PDFIUM_OS=linux PDFIUM_CPU=x64 OUT_DIR="$PWD/.pdfium-static" bash tools/pdfium-static/build.sh
 ```
 
 `build.sh` documents its other settings (musl, work and output directories) in its header. The target list lives in [
 `tools/pdfium-static/targets.json`](tools/pdfium-static/targets.json).
+To use a different archive directory, set `PDFIUM_STATIC_LIB_PATH` before building. When replacing
+the archive in the same directory, run `cargo clean -p pdfium-render` so Cargo rebuilds it.
 
 ---
 
@@ -176,7 +169,7 @@ just core build
 ```bash
 # Rust core
 just core test
-just core hack-test        # every feature combination, except the static-linking ones
+just core hack-test        # every feature combination
 ```
 
 ### Lint

@@ -1,44 +1,20 @@
 set shell := ["bash", "-c"]
 
-static_feature := if os() == "macos" {
-    "static-pdfium-libcxx"
-} else if os() == "windows" {
-    "static-pdfium-msvc"
-} else {
-    "static-pdfium"
-}
-static_library := if os() == "windows" { "pdfium.lib" } else { "libpdfium.a" }
-
 # List the default tasks
 [private]
 default:
     @just --list
 
-# Check that the platform's static PDFium archive is available.
-[private]
-require-static-pdfium:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if [ -z "${PDFIUM_STATIC_LIB_PATH:-}" ]; then
-        echo "Set PDFIUM_STATIC_LIB_PATH to a directory containing {{static_library}}." >&2
-        echo "See the Python binding installation instructions for downloading PDFium." >&2
-        exit 1
-    fi
-    if [ ! -f "$PDFIUM_STATIC_LIB_PATH/{{static_library}}" ]; then
-        echo "PDFium static archive not found: $PDFIUM_STATIC_LIB_PATH/{{static_library}}" >&2
-        exit 1
-    fi
-
 # Builds Python bindings
-build: require-static-pdfium
+build:
     @command -v maturin > /dev/null || { echo "maturin not found. Install it with: pip install 'maturin>=1.0,<2.0'" >&2; exit 1; }
     @echo "Cleaning up stale C-extensions..."
     rm -f bernard_ledit/_bernard_ledit*.so
-    maturin develop --features {{static_feature}} --extras test,lint
+    maturin develop --extras test,lint
 
 # Builds a release wheel with PDFium statically linked.
-wheel: require-static-pdfium
-    maturin build --release --features {{static_feature}}
+wheel:
+    maturin build --release
 
 # Test Python bindings
 test: build

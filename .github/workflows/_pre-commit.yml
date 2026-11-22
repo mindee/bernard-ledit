@@ -40,13 +40,7 @@ jobs:
         uses: dtolnay/rust-toolchain@1.99.0
         with:
           components: clippy
-      - name: Cache PDFium binary
-        uses: actions/cache@v6
-        with:
-          path: core/.pdfium_cache
-          key: pdfium-${{ runner.os }}-${{ hashFiles('core/pdfium-release', 'rust.just') }}
-          restore-keys: |
-            pdfium-${{ runner.os }}-
+      - uses: ./.github/actions/setup-pdfium
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
       - name: Run Clippy
@@ -68,13 +62,7 @@ jobs:
           php-version: "8.4"
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@1.99.0
-      - name: Cache PDFium binary
-        uses: actions/cache@v6
-        with:
-          path: core/.pdfium_cache
-          key: pdfium-${{ runner.os }}-${{ hashFiles('core/pdfium-release', 'rust.just') }}
-          restore-keys: |
-            pdfium-${{ runner.os }}-
+      - uses: ./.github/actions/setup-pdfium
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
       - name: Install cargo-hack
@@ -96,13 +84,7 @@ jobs:
       - uses: extractions/setup-just@v4
       - name: Set up nightly Rust toolchain
         uses: dtolnay/rust-toolchain@nightly
-      - name: Cache PDFium binary
-        uses: actions/cache@v6
-        with:
-          path: core/.pdfium_cache
-          key: pdfium-${{ runner.os }}-${{ hashFiles('core/pdfium-release', 'rust.just') }}
-          restore-keys: |
-            pdfium-${{ runner.os }}-
+      - uses: ./.github/actions/setup-pdfium
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
       - name: Install cargo tools
@@ -135,19 +117,7 @@ jobs:
           echo "VIRTUAL_ENV=$RUNNER_TEMP/venv" >> "$GITHUB_ENV"
           echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
           "$RUNNER_TEMP/venv/bin/pip" install "maturin>=1.0,<2.0"
-      - name: Cache static PDFium
-        uses: actions/cache@v6
-        with:
-          path: .pdfium-static
-          key: pdfium-static-linux-x64-glibc-${{ hashFiles('core/pdfium-release') }}
-      - name: Download static PDFium
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if [ ! -f .pdfium-static/libpdfium.a ]; then
-            bash tools/pdfium-static/download.sh linux-x64-glibc "$PWD/.pdfium-static"
-          fi
-          echo "PDFIUM_STATIC_LIB_PATH=$PWD/.pdfium-static" >> "$GITHUB_ENV"
+      - uses: ./.github/actions/setup-pdfium
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
       - name: Build the Python extension
@@ -178,13 +148,7 @@ jobs:
           php-version: "8.4"
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@1.99.0
-      - name: Cache PDFium binary
-        uses: actions/cache@v6
-        with:
-          path: core/.pdfium_cache
-          key: pdfium-${{ runner.os }}-${{ hashFiles('core/pdfium-release', 'rust.just') }}
-          restore-keys: |
-            pdfium-${{ runner.os }}-
+      - uses: ./.github/actions/setup-pdfium
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
       - name: Check the stubs match the extension

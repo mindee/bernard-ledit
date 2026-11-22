@@ -1,0 +1,55 @@
+name: Set up static PDFium
+description: Cache and download the static PDFium archive for the runner
+inputs:
+  target:
+    description: Override the archive target, for example to select an MSVC toolset
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: Select PDFium target
+      id: target
+      shell: bash
+      env:
+        PDFIUM_TARGET: ${{ inputs.target }}
+      run: |
+        if [ -n "$PDFIUM_TARGET" ]; then
+          target="$PDFIUM_TARGET"
+        else
+          case "$RUNNER_OS/$RUNNER_ARCH" in
+            Linux/X64) target=linux-x64-glibc ;;
+            Linux/ARM64) target=linux-arm64-glibc ;;
+            macOS/ARM64) target=mac-arm64 ;;
+            macOS/X64) target=mac-x64 ;;
+            Windows/X64) target=win-x64-v143 ;;
+            Windows/ARM64) target=win-arm64-v143 ;;
+            *) echo "Unsupported PDFium runner: $RUNNER_OS/$RUNNER_ARCH" >&2; exit 1 ;;
+          esac
+        fi
+        echo "target=$target" >> "$GITHUB_OUTPUT"
+
+    - name: Cache static PDFium
+      uses: actions/cache@v6
+      with:
+        path: .pdfium-static
+        key: pdfium-static-v2-${{ steps.target.outputs.target }}-${{ hashFiles('core/pdfium-release') }}
+
+    - name: Download static PDFium
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        PDFIUM_TARGET: ${{ steps.target.outputs.target }}
+      run: |
+        release="$(tr -d '[:space:]' < core/pdfium-release)"
+        release="${release//\//_}"
+        directory="$GITHUB_WORKSPACE/.pdfium-static/$release/$PDFIUM_TARGET"
+        if [[ "$PDFIUM_TARGET" == win-* ]]; then
+          archive=pdfium.lib
+        else
+          archive=libpdfium.a
+        fi
+        if [ ! -f "$directory/$archive" ]; then
+          bash tools/pdfium-static/download.sh "$PDFIUM_TARGET" "$directory"
+        fi
+        echo "PDFIUM_STATIC_LIB_PATH=$directory" >> "$GITHUB_ENV"

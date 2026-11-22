@@ -48,12 +48,9 @@ jobs:
 
       - uses: ./.github/actions/setup-libheif
 
-      - name: Cache PDFium binary
-        uses: actions/cache@v6
+      - uses: ./.github/actions/setup-pdfium
         with:
-          path: core/.pdfium_cache
-          # Keyed on the release itself, with no fallback: an older release must never be restored.
-          key: pdfium-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('core/pdfium-release') }}
+          target: ${{ runner.os == 'Windows' && (contains(fromJSON('["8.1", "8.2", "8.3"]'), matrix.php) && 'win-x64-v142' || 'win-x64-v143') || '' }}
 
       - uses: extractions/setup-just@v4
 
@@ -112,4 +109,4 @@ jobs:
         run: just php build
 
       - name: Unit test
-        run: just php test # TODO: change this with test-static when binaries are available somewhere accessible.
+        run: just php test

@@ -20,11 +20,5 @@ pyo3 = { version = "0.29", features = ["extension-module", "abi3-py39"] }
 [build-dependencies]
 pyo3-build-config = "0.29"
 
-[features]
-static-link = ["bernard-ledit/static-link"]
-static-pdfium = ["bernard-ledit/static-pdfium"]
-static-pdfium-libcxx = ["bernard-ledit/static-pdfium-libcxx"]
-static-pdfium-msvc = ["bernard-ledit/static-pdfium-msvc"]
-
 [lints]
 workspace = true

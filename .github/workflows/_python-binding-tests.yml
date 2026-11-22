@@ -48,39 +48,7 @@ jobs:
 
       - uses: ./.github/actions/setup-libheif
 
-      - name: Select static PDFium target
-        id: pdfium
-        shell: bash
-        run: |
-          case "$RUNNER_OS" in
-            Linux) target=linux-x64-glibc ;;
-            macOS)
-              case "$(uname -m)" in
-                arm64) target=mac-arm64 ;;
-                x86_64) target=mac-x64 ;;
-                *) echo "Unsupported macOS architecture: $(uname -m)" >&2; exit 1 ;;
-              esac
-              ;;
-            Windows) target=win-x64-v143 ;;
-            *) echo "Unsupported runner OS: $RUNNER_OS" >&2; exit 1 ;;
-          esac
-          echo "target=$target" >> "$GITHUB_OUTPUT"
-
-      - name: Cache static PDFium
-        uses: actions/cache@v6
-        with:
-          path: .pdfium-static
-          key: pdfium-static-${{ steps.pdfium.outputs.target }}-${{ hashFiles('core/pdfium-release') }}
-
-      - name: Download static PDFium
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if [ ! -f .pdfium-static/libpdfium.a ] && [ ! -f .pdfium-static/pdfium.lib ]; then
-            bash tools/pdfium-static/download.sh "${{ steps.pdfium.outputs.target }}" "$PWD/.pdfium-static"
-          fi
-          echo "PDFIUM_STATIC_LIB_PATH=$PWD/.pdfium-static" >> "$GITHUB_ENV"
+      - uses: ./.github/actions/setup-pdfium
 
       - uses: extractions/setup-just@v4
       - name: Set up Rust toolchain

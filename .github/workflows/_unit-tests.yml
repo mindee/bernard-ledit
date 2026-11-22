@@ -25,13 +25,7 @@ jobs:
 
       - uses: ./.github/actions/setup-libheif
 
-      - name: Cache PDFium binary
-        uses: actions/cache@v6
-        with:
-          path: core/.pdfium_cache
-          key: pdfium-${{ runner.os }}-${{ hashFiles('core/pdfium-release', 'rust.just') }}
-          restore-keys: |
-            pdfium-${{ runner.os }}-
+      - uses: ./.github/actions/setup-pdfium
 
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@1.99.0

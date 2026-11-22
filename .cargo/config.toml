@@ -1,3 +1,6 @@
+[env]
+PDFIUM_STATIC_LIB_PATH = { value = ".pdfium-static", relative = true }
+
 [target.'cfg(all(target_os = "windows", target_env = "msvc"))']
 # A static PDFium leaves its Windows API imports to the final link. Unused import libraries cost
 # nothing.

@@ -33,8 +33,6 @@ pub fn initialize() -> Result<(), PdfError> {
     if PDFIUM.get().is_some() {
         return Ok(());
     }
-    // bind_to_statically_linked_library has a misleading name.
-    // It actually binds to the PDFium library linked into the application, whether static or dynamic.
     let bindings = Pdfium::bind_to_statically_linked_library()?;
     let _ = PDFIUM.set(Pdfium::new(bindings));
     Ok(())
