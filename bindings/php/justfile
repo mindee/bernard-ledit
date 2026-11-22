@@ -6,30 +6,13 @@ ext_release := "../../target/release/" + ext_name
 
 static_feature := if os() == "macos" { "static-pdfium-libcxx" } else if os() == "windows" { "static-pdfium-msvc" } else { "static-pdfium" }
 
-# Where core's build downloads the dynamic PDFium that debug builds load.
-pdfium_release := replace(`tr -d '[:space:]' < ../../core/pdfium-release`, "/", "_")
-pdfium_target := if os() == "macos" {
-    if arch() == "aarch64" { "mac-arm64" } else { "mac-x64" }
-} else if os() == "windows" {
-    "win-x64"
-} else {
-    if arch() == "aarch64" { "linux-arm64" } else { "linux-x64" }
-}
-pdfium_dir := "../../core/.pdfium_cache/" + pdfium_release + "/" + pdfium_target
-pdfium_lib := if os() == "macos" { "libpdfium.dylib" } else if os() == "windows" { "pdfium.dll" } else { "libpdfium.so" }
-
-# Lists the recipes.
 [private]
 default:
     @just --list
 
 # Builds the extension in debug mode, against the dynamic PDFium.
 build:
-    cargo build -p bernard-ledit-php
-
-# Builds the extension in release mode, against the dynamic PDFium.
-build-release:
-    cargo build -p bernard-ledit-php --release
+    PDFIUM_DYNAMIC_LIB_PATH="$(just -f ../../justfile core pdfium-path)" cargo build -p bernard-ledit-php
 
 # PDFIUM_STATIC_LIB_PATH is the directory of libpdfium.a (pdfium.lib on Windows), as saved by
 # tools/pdfium-static/download.sh, or built by tools/pdfium-static/build.sh.
@@ -44,18 +27,15 @@ run *ARGS: build (php-with "debug" ARGS)
 # Runs PHP code with the debug build, e.g. `just php run-code 'print_r(get_loaded_extensions());'`.
 run-code CODE: build (php-with "debug" "-r " + quote(CODE))
 
-# Checks that the debug build loads.
 smoke: build
     just php-with debug -m | grep -iE '^bernard[-_]ledit'
 
-# Prints the classes and functions the debug build registers.
 reflect: build
     #!/usr/bin/env bash
     set -euo pipefail
     module="$(just php-with debug -m | grep -iE '^bernard[-_]ledit' | head -n 1)"
     just php-with debug --re "$module"
 
-# Runs the binding's PHPUnit suite against the debug build, e.g. `just php test --testdox`.
 test *ARGS: composer-deps build (php-with "debug" "vendor/bin/phpunit " + ARGS)
 
 # Runs the PHPUnit suite against the static build with no PDFium to load: proves it's linked in.
@@ -80,19 +60,15 @@ phpstan: stubs
         echo "phpstan isn't installed (composer require --dev phpstan/phpstan); skipping." >&2
     fi
 
-# Runs clippy on the binding crate.
 lint:
     cargo clippy -p bernard-ledit-php --all-targets --all-features -- -D warnings
 
-# Formats the binding crate.
 format:
     cargo fmt -p bernard-ledit-php
 
-# Checks the binding crate's formatting.
 format-check:
     cargo fmt -p bernard-ledit-php --check
 
-# Runs the checks CI runs: formatting, lint, build and tests.
 ci: format-check lint build test
 
 # Removes the Composer dependencies; the root `just clean` removes the shared cargo target.
@@ -108,12 +84,14 @@ php-with MODE *ARGS:
     set -euo pipefail
     case "{{MODE}}" in
         debug)
-            PDFIUM_PATH="$(just pdfium-path)"
-            export PDFIUM_PATH
+            PDFIUM_LIB_DIR="$(just -f ../../justfile core pdfium-path)"
+            export LD_LIBRARY_PATH="$PDFIUM_LIB_DIR:${LD_LIBRARY_PATH:-}"
+            export DYLD_LIBRARY_PATH="$PDFIUM_LIB_DIR:${DYLD_LIBRARY_PATH:-}"
+            export PATH="$PDFIUM_LIB_DIR:$PATH"
             ext="{{ext_debug}}"
             ;;
         static)
-            unset PDFIUM_PATH
+            unset PDFIUM_DYNAMIC_LIB_PATH
             ext="{{ext_release}}"
             ;;
         *)
@@ -132,23 +110,10 @@ php-with MODE *ARGS:
     done
     php "${php_args[@]}" -d "extension=$ext" {{ARGS}}
 
-# Prints the path of the dynamic PDFium, downloading it through core's build if it's missing.
 [private]
 pdfium-path:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    find_pdfium() {
-        find "{{pdfium_dir}}" -name "{{pdfium_lib}}" 2>/dev/null | head -n 1 || true
-    }
-    lib="$(find_pdfium)"
-    if [ -z "$lib" ]; then
-        just -f ../../justfile core build >&2
-        lib="$(find_pdfium)"
-    fi
-    [ -n "$lib" ] || { echo "{{pdfium_lib}} not found in {{pdfium_dir}}" >&2; exit 1; }
-    realpath "$lib"
+    just -f ../../justfile core pdfium-path
 
-# Installs the test suite's Composer dependencies on first use.
 [private]
 composer-deps:
     [ -d vendor ] || composer install

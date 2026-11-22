@@ -44,7 +44,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: core/.pdfium_cache
-          key: pdfium-${{ runner.os }}-${{ hashFiles('core/build.rs') }}
+          key: pdfium-${{ runner.os }}-${{ hashFiles('core/pdfium-release', 'rust.just') }}
           restore-keys: |
             pdfium-${{ runner.os }}-
       - name: Cache Rust dependencies
@@ -72,7 +72,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: core/.pdfium_cache
-          key: pdfium-${{ runner.os }}-${{ hashFiles('core/build.rs') }}
+          key: pdfium-${{ runner.os }}-${{ hashFiles('core/pdfium-release', 'rust.just') }}
           restore-keys: |
             pdfium-${{ runner.os }}-
       - name: Cache Rust dependencies
@@ -100,7 +100,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: core/.pdfium_cache
-          key: pdfium-${{ runner.os }}-${{ hashFiles('core/build.rs') }}
+          key: pdfium-${{ runner.os }}-${{ hashFiles('core/pdfium-release', 'rust.just') }}
           restore-keys: |
             pdfium-${{ runner.os }}-
       - name: Cache Rust dependencies
@@ -112,8 +112,8 @@ jobs:
       - name: Check licenses and advisories
         run: just core check-deps
 
-  # `just python build` runs `maturin develop`, which installs the extension with its test and
-  # lint extras (ruff, mypy) into the active virtualenv: the one this job puts first on PATH.
+  # `just python build` runs `maturin develop`, statically linking PDFium and installing the
+  # extension with its test and lint extras (ruff, mypy) into the active virtualenv.
   python:
     name: Check the Python binding
     runs-on: ubuntu-latest
@@ -135,13 +135,19 @@ jobs:
           echo "VIRTUAL_ENV=$RUNNER_TEMP/venv" >> "$GITHUB_ENV"
           echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
           "$RUNNER_TEMP/venv/bin/pip" install "maturin>=1.0,<2.0"
-      - name: Cache PDFium binary
+      - name: Cache static PDFium
         uses: actions/cache@v6
         with:
-          path: core/.pdfium_cache
-          key: pdfium-${{ runner.os }}-${{ hashFiles('core/build.rs') }}
-          restore-keys: |
-            pdfium-${{ runner.os }}-
+          path: .pdfium-static
+          key: pdfium-static-linux-x64-glibc-${{ hashFiles('core/pdfium-release') }}
+      - name: Download static PDFium
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ ! -f .pdfium-static/libpdfium.a ]; then
+            bash tools/pdfium-static/download.sh linux-x64-glibc "$PWD/.pdfium-static"
+          fi
+          echo "PDFIUM_STATIC_LIB_PATH=$PWD/.pdfium-static" >> "$GITHUB_ENV"
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
       - name: Build the Python extension
@@ -176,7 +182,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: core/.pdfium_cache
-          key: pdfium-${{ runner.os }}-${{ hashFiles('core/build.rs') }}
+          key: pdfium-${{ runner.os }}-${{ hashFiles('core/pdfium-release', 'rust.just') }}
           restore-keys: |
             pdfium-${{ runner.os }}-
       - name: Cache Rust dependencies

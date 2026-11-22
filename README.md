@@ -44,7 +44,6 @@
 bernard-ledit/
 ├── core/                   # Rust library (bernard-ledit crate)
 │   ├── pdfium-release      # Pinned PDFium release (pdfium-binaries tag)
-│   ├── build.rs            # Fetches the dynamic PDFium for development builds
 │   └── src/
 │       ├── image/          # Image decoding, encoding, compression, polygon crops
 │       ├── pdf/            # PDF manipulation via PDFium
@@ -115,11 +114,15 @@ An HEVC encoder is not required.
 PDFium comes from [bblanchon/pdfium-binaries](https://github.com/bblanchon/pdfium-binaries), at the release pinned in [
 `core/pdfium-release`](core/pdfium-release). Builds use it in one of two ways:
 
-|                   | Dynamic (default)                                                                                                       | Static                                                                                                                                        |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Used for**      | Development and tests                                                                                                   | Released packages                                                                                                                             |
-| **How**           | `core/build.rs` downloads the shared library into `core/.pdfium_cache`; the binding loads it at runtime (`PDFIUM_PATH`) | PDFium is linked into the binding at build time: `PDFIUM_STATIC_LIB_PATH` points to the library, and a static feature selects the C++ runtime |
-| **Cargo feature** | none                                                                                                                    | `static-pdfium` (Linux, libstdc++), `static-pdfium-libcxx` (macOS, libc++), `static-pdfium-msvc` (Windows)                                    |
+|                   | Dynamic (default)                                                                                                             | Static                                                                                                                       |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **Used for**      | Development and tests                                                                                                         | Released packages                                                                                                            |
+| **How**           | `just core pdfium-path` downloads the shared library; the native linker links it using `PDFIUM_DYNAMIC_LIB_PATH`              | The native linker links the archive from `PDFIUM_STATIC_LIB_PATH`                                                            |
+| **Cargo feature** | none                                                                                                                          | `static-pdfium` (Linux, libstdc++), `static-pdfium-libcxx` (macOS, libc++), `static-pdfium-msvc` (Windows)                   |
+
+For dynamic builds, the shared library must also be on the operating system's standard library
+search path when the application runs. 
+`just` prepares that path for the repository's build and test tasks. 
 
 Static libraries are prebuilt by [`build-static-pdfium.yml`](.github/workflows/build-static-pdfium.yml) and published,
 each with a `.sha256` checksum, to the `pdfium-static-<release>` GitHub release of this repository (e.g.

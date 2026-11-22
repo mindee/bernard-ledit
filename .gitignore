@@ -50,3 +50,4 @@ $RECYCLE.BIN/
 local_test
 
 # Build
+.pdfium-static/

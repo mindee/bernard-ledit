@@ -28,47 +28,22 @@ static PDFIUM: OnceLock<Pdfium> = OnceLock::new();
 /// Serializes PDFium operations that are not thread-safe.
 pub(crate) static NATIVE_LOCK: Mutex<()> = Mutex::new(());
 
-/// Binds `PDFium` from a shared library on disk. Does NOT work for `static-pdfium`.
-/// # Errors
-/// * `PdfiumError` If `PDFium` library binding fails.
-#[cfg(not(feature = "static-link"))]
-pub fn initialize(library_path: &str) -> Result<(), PdfError> {
+/// Initializes `PDFium` linked into the application.
+pub fn initialize() -> Result<(), PdfError> {
     if PDFIUM.get().is_some() {
         return Ok(());
     }
-    let bindings = Pdfium::bind_to_library(library_path)?;
-    let _ = PDFIUM.set(Pdfium::new(bindings));
-    Ok(())
-}
-
-#[cfg(not(feature = "static-link"))]
-pub(crate) fn pdfium() -> &'static Pdfium {
-    PDFIUM.get_or_init(|| {
-        let path = std::env::var("PDFIUM_PATH").unwrap_or_else(|_| env!("PDFIUM_PATH").to_string());
-        let bindings = Pdfium::bind_to_library(path.clone())
-            .unwrap_or_else(|err| panic!("failed to bind PDFium at '{path}': {err}"));
-        Pdfium::new(bindings)
-    })
-}
-
-#[cfg(feature = "static-link")]
-pub(crate) fn pdfium() -> &'static Pdfium {
-    PDFIUM.get_or_init(|| {
-        let bindings = Pdfium::bind_to_statically_linked_library()
-            .unwrap_or_else(|err| panic!("failed to bind static PDFium: {err}"));
-        Pdfium::new(bindings)
-    })
-}
-
-/// Binds the statically linked `PDFium`. Only exists with `static-pdfium`.
-/// # Errors
-/// * `PdfiumError` if binding fails.
-#[cfg(feature = "static-link")]
-pub fn initialize_static() -> Result<(), PdfError> {
-    if PDFIUM.get().is_some() {
-        return Ok(());
-    }
+    // bind_to_statically_linked_library has a misleading name.
+    // It actually binds to the PDFium library linked into the application, whether static or dynamic.
     let bindings = Pdfium::bind_to_statically_linked_library()?;
     let _ = PDFIUM.set(Pdfium::new(bindings));
     Ok(())
+}
+
+pub(crate) fn pdfium() -> &'static Pdfium {
+    PDFIUM.get_or_init(|| {
+        let bindings = Pdfium::bind_to_statically_linked_library()
+            .unwrap_or_else(|err| panic!("failed to bind linked PDFium: {err}"));
+        Pdfium::new(bindings)
+    })
 }

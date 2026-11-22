@@ -22,7 +22,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: core/.pdfium_cache
-          key: pdfium-${{ runner.os }}-${{ hashFiles('core/build.rs') }}
+          key: pdfium-${{ runner.os }}-${{ hashFiles('core/pdfium-release', 'rust.just') }}
           restore-keys: |
             pdfium-${{ runner.os }}-
 

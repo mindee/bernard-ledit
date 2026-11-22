@@ -1,23 +1,4 @@
-# For Intel Macs
-[target.x86_64-apple-darwin]
-rustflags = [
-    "-C", "link-arg=-undefined",
-    "-C", "link-arg=dynamic_lookup",
-]
-
-# For Apple Silicon (M1/M2/M3) Macs
-[target.aarch64-apple-darwin]
-rustflags = [
-    "-C", "link-arg=-undefined",
-    "-C", "link-arg=dynamic_lookup",
-]
-
 [target.'cfg(all(target_os = "windows", target_env = "msvc"))']
-# A static PDFium leaves its Windows API imports to the final link, including pdfium-render's
-# own DLL link, which core/build.rs can't reach. Unused import libraries cost nothing.
+# A static PDFium leaves its Windows API imports to the final link. Unused import libraries cost
+# nothing.
 rustflags = ["-l", "dylib=gdi32", "-l", "dylib=user32", "-l", "dylib=advapi32"]
-
-# pdfium's renderer is not thread-safe; run all tests sequentially to avoid
-# heap corruption (SIGABRT) when multiple tests exercise pdfium concurrently.
-[env]
-RUST_TEST_THREADS = "1"

@@ -29,16 +29,13 @@ static-pdfium-msvc = ["static-link"]   # Windows: MSVC links its C++ runtime its
 [dependencies]
 serde = { version = "1.0.228", features = ["derive"] }
 thiserror = "2.0.18"
-pdfium-render = "0.9.4"
+# static here means linking is not done at runtime. This means linking is dynamic or static.
+#  linking is handled during link time.
+pdfium-render = { version = "0.9.4", features = ["static"] }
 image = "0.25.9"
 jpeg-encoder = "0.7.1"
 # setting features to 1_17 to support older versions of libheif
 libheif-rs = { version = "3.0", default-features = false, features = ["v1_17"] }
-
-[build-dependencies]
-tar = "0.4.45"
-flate2 = "1.1.9"
-ureq = "3.3.0"
 
 [dev-dependencies]
 test-case = { version = "3.3" }

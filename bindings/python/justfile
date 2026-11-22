@@ -1,50 +1,51 @@
 set shell := ["bash", "-c"]
 
+static_feature := if os() == "macos" {
+    "static-pdfium-libcxx"
+} else if os() == "windows" {
+    "static-pdfium-msvc"
+} else {
+    "static-pdfium"
+}
+static_library := if os() == "windows" { "pdfium.lib" } else { "libpdfium.a" }
+
 # List the default tasks
 [private]
 default:
     @just --list
 
+# Check that the platform's static PDFium archive is available.
+[private]
+require-static-pdfium:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -z "${PDFIUM_STATIC_LIB_PATH:-}" ]; then
+        echo "Set PDFIUM_STATIC_LIB_PATH to a directory containing {{static_library}}." >&2
+        echo "See the Python binding installation instructions for downloading PDFium." >&2
+        exit 1
+    fi
+    if [ ! -f "$PDFIUM_STATIC_LIB_PATH/{{static_library}}" ]; then
+        echo "PDFium static archive not found: $PDFIUM_STATIC_LIB_PATH/{{static_library}}" >&2
+        exit 1
+    fi
+
 # Builds Python bindings
-build:
-    @command -v maturin > /dev/null || { echo "maturin not found. From the repo root, in your virtualenv: pip install -e 'bindings/python[dev]'" >&2; exit 1; }
+build: require-static-pdfium
+    @command -v maturin > /dev/null || { echo "maturin not found. Install it with: pip install 'maturin>=1.0,<2.0'" >&2; exit 1; }
     @echo "Cleaning up stale C-extensions..."
     rm -f bernard_ledit/_bernard_ledit*.so
-    # core's build script copies PDFium into the package; if that copy is gone, make it run again.
-    [ -n "$(ls bernard_ledit/libpdfium.* bernard_ledit/pdfium.dll 2>/dev/null)" ] || touch ../../core/build.rs
-    maturin develop --extras test,lint
+    maturin develop --features {{static_feature}} --extras test,lint
+
+# Builds a release wheel with PDFium statically linked.
+wheel: require-static-pdfium
+    maturin build --release --features {{static_feature}}
 
 # Test Python bindings
-test:
+test: build
     #!/usr/bin/env bash
-    mkdir -p ../../core/.pdfium_cache
-    PDFIUM_FILE=$(find ../../core/.pdfium_cache -name "libpdfium.*" -o -name "pdfium.dll" | head -n 1)
-    if [ -z "$PDFIUM_FILE" ]; then
-    echo "PDFium binary not found. Attempting to build core..."
-    just core build
-    PDFIUM_FILE=$(find ../../core/.pdfium_cache -name "libpdfium.*" -o -name "pdfium.dll" | head -n 1)
-    fi
-    if [ -z "$PDFIUM_FILE" ]; then
-    echo "PDFium binary not found. Attempting to build core..."
-    just -f ../../justfile core build
-    PDFIUM_FILE=$(find ../../core/.pdfium_cache -name "libpdfium.*" -o -name "pdfium.dll" | head -n 1)
-    fi
-    PDFIUM_LIB_PATH=$(realpath $(dirname "$PDFIUM_FILE"))
-    echo "Using PDFium from: $PDFIUM_LIB_PATH"
-    export LD_LIBRARY_PATH="$PDFIUM_LIB_PATH:$LD_LIBRARY_PATH"
-    export DYLD_LIBRARY_PATH="$PDFIUM_LIB_PATH:$DYLD_LIBRARY_PATH"
-    export PATH="$PDFIUM_LIB_PATH:$PATH"
-    if command -v python3 >/dev/null 2>&1; then
-    PYTHON_BIN=python3
-    else
-    PYTHON_BIN=python
-    fi
-    if "$PYTHON_BIN" -m pytest --help 2>/dev/null | grep -q -- "-n "; then
-    "$PYTHON_BIN" -m pytest -vvv -n auto
-    else
-    echo "pytest-xdist not installed for $PYTHON_BIN, running tests without parallel workers."
-    "$PYTHON_BIN" -m pytest -vvv
-    fi
+    set -euo pipefail
+    python -m pytest -vvv -n auto
+
 
 # Lints with ruff, then reformats files in place; CI runs lint-check instead
 lint:
@@ -71,4 +72,4 @@ clean:
 
 # Checks that the stubs match the built extension
 stubs-check:
-    python -m mypy.stubtest bernard_ledit --allowlist stubtest-allowlist.txt {{ if os() == "linux" { "--allowlist stubtest-allowlist-linux.txt" } else { "" } }}
+    python -m mypy.stubtest bernard_ledit --allowlist stubtest-allowlist.txt

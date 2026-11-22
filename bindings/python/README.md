@@ -8,8 +8,8 @@ The Python binding exposes Bernard l'Édit's PDF and image APIs through a PyO3 e
 pip install bernard-ledit
 ```
 
-The wheel bundles the compiled Rust extension and PDFium. HEIC decoding requires system libheif
-and either its libde265 or FFmpeg HEVC decoder plugin; see the
+The wheel bundles the compiled Rust extension with PDFium statically linked. HEIC decoding requires
+system libheif and either its libde265 or FFmpeg HEVC decoder plugin; see the
 [native libheif prerequisites](../../README.md#native-libheif-prerequisites).
 Document and image inputs must be `bytes`, not paths or file-like objects. The calling application
 handles all file and stream I/O, including writing returned bytes.
@@ -141,22 +141,22 @@ fixed = fix_pdf(raw_bytes, maximum_offset=500)
 
 Python 3.9+ and an active virtualenv are required, in addition to the
 [shared development prerequisites](../../README.md#prerequisites).
-From the repository root:
+Download the static PDFium archive for your platform as described in
+[PDFium builds and targets](../../README.md#pdfium-dynamic-and-static-builds), and set
+`PDFIUM_STATIC_LIB_PATH` to its directory. From the repository root:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e "bindings/python[dev]"
-just python build        # installs the extension into the active virtualenv
-just python test
+pip install "maturin>=1.0,<2.0"
+export PDFIUM_STATIC_LIB_PATH="$PWD/.pdfium-static"
+just python build        # statically links PDFium and installs the extension
+just python wheel        # builds a distributable static wheel
+just python test         # builds the extension before running tests
 just python lint-check   # ruff and mypy
 just python format
 ```
 
 ## Thread safety
 
-PDFium rendering calls are serialized by a process-wide mutex. The Python GIL additionally protects
-single-threaded callers.
-
-**Safe:** single-threaded Python, Python `threading` (GIL held in Rust), separate `multiprocessing` workers.  
-**Avoid:** `os.fork()` after a `PdfDocument` has been opened in the parent process.
+PDFium rendering calls are serialized by a process-wide mutex.
