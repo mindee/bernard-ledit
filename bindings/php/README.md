@@ -159,7 +159,7 @@ just php build-release # release
 just php test          # debug build, static PDFium
 just php test-static   # release build, PDFium linked in
 just php smoke         # checks that the extension loads
-just php lint          # clippy on the PHP binding
+just php format-check  # formatting and static-analysis checks
 just php stubs-check   # fails if the committed stubs are out of date
 ```
 

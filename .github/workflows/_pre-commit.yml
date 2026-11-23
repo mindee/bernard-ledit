@@ -3,126 +3,66 @@ name: Remote pre-commit
 on:
   workflow_call:
 
-env:
-  CARGO_INCREMENTAL: 0
+permissions:
+  contents: read
 
 jobs:
-  format:
-    name: Check formatting
+  check-all:
+    name: Run all checks
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: extractions/setup-just@v4
-      - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@1.99.0
-        with:
-          components: rustfmt
-      - name: Check formatting
-        run: just core format-check
+    env:
+      CARGO_INCREMENTAL: 0
 
-  clippy:
-    name: Run Clippy
-    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
-          fetch-depth: 0
           submodules: recursive
+
+      - uses: ./.github/actions/setup-pdfium
       - uses: ./.github/actions/setup-libheif
       - uses: ./.github/actions/setup-clang
       - uses: extractions/setup-just@v4
-      - name: Set up PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: "8.4"
-      - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@1.99.0
-        with:
-          components: clippy
-      - uses: ./.github/actions/setup-pdfium
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
-      - name: Run Clippy
-        run: just core clippy
 
-  hack:
-    name: Check feature matrix
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          submodules: recursive
-      - uses: ./.github/actions/setup-libheif
-      - uses: extractions/setup-just@v4
-      - name: Set up PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: "8.4"
-      - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@1.99.0
-      - uses: ./.github/actions/setup-pdfium
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
-      - name: Check Rust core
-        run: just core check
-
-  # Temporarily disabled: cargo-udeps fails compiling the PHP binding with CI's Clang 21 headers.
-  # Restore this dependency-check job after the clang/ext-php-rs build issue is resolved.
-
-  # `just python build` runs `maturin develop`, statically linking PDFium and installing the
-  # extension with its test and lint extras (ruff, mypy) into the active virtualenv.
-  python:
-    name: Check the Python binding
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: recursive
-      - uses: ./.github/actions/setup-libheif
-      - uses: extractions/setup-just@v4
-      - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@1.99.0
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: "3.11"
+
       - name: Create a virtualenv with maturin
         run: |
           python -m venv "$RUNNER_TEMP/venv"
           echo "VIRTUAL_ENV=$RUNNER_TEMP/venv" >> "$GITHUB_ENV"
           echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
           "$RUNNER_TEMP/venv/bin/pip" install "maturin>=1.0,<2.0"
-      - uses: ./.github/actions/setup-pdfium
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
-      - name: Build the Python extension
-        run: just python build
-      - name: Check the Python formatting, lint and types
-        run: just python lint-check
-      - name: Check the stubs match the extension
-        run: just python stubs-check
 
-  # `just php stubs-check` builds the extension, regenerates the stubs from it, and fails if they
-  # differ from the committed bernard_ledit.stubs.php.
-  php:
-    name: Check the PHP binding
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: recursive
-      - uses: ./.github/actions/setup-libheif
-      - uses: extractions/setup-just@v4
-      - uses: ./.github/actions/setup-clang
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.4"
-      - name: Set up Rust toolchain
+          php-version: "8.2"
+          tools: composer:v2
+
+      - name: Set up Rust
         uses: dtolnay/rust-toolchain@1.99.0
-      - uses: ./.github/actions/setup-pdfium
+        with:
+          components: clippy,rustfmt
+
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
-      - name: Check the stubs match the extension
-        run: just php stubs-check
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
+      - name: Download actionlint
+        id: get_actionlint
+        run: bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+        shell: bash
+
+      - name: Add actionlint to PATH
+        env:
+          ACTIONLINT: ${{ steps.get_actionlint.outputs.executable }}
+        run: dirname "$ACTIONLINT" >> "$GITHUB_PATH"
+
+      - name: Run all checks
+        run: just check-all

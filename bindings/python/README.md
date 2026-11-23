@@ -155,8 +155,8 @@ pip install "maturin>=1.0,<2.0"
 just python build        # statically links PDFium and installs the extension
 just python wheel        # builds a distributable static wheel
 just python test         # builds the extension before running tests
-just python lint-check   # ruff and mypy
-just python format
+just python format       # apply Ruff formatting and autofixes
+just python format-check # check Ruff formatting, diagnostics, and types
 ```
 
 ## Thread safety

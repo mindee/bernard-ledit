@@ -1,51 +1,38 @@
 set shell := ["bash", "-c"]
 
-# List the default tasks
 [private]
 default:
     @just --list
 
-# Builds Python bindings
 build:
     @command -v maturin > /dev/null || { echo "maturin not found. Install it with: pip install 'maturin>=1.0,<2.0'" >&2; exit 1; }
     @echo "Cleaning up stale C-extensions..."
     rm -f bernard_ledit/_bernard_ledit*.so
     maturin develop --extras test,lint
 
-# Builds a release wheel with PDFium statically linked.
 wheel:
     maturin build --release
 
-# Test Python bindings
 test: build
     #!/usr/bin/env bash
     set -euo pipefail
     python -m pytest -vvv -n auto
 
 
-# Lints with ruff, then reformats files in place; CI runs lint-check instead
-lint:
-    ruff check .
-    ruff format
-
-# Checks lint, formatting and types without changing any file: what CI runs
-lint-check:
-    ruff check .
-    ruff format --check .
-    mypy .
-
-# Fix linting/formatting issues
 format:
     ruff format .
     ruff check --fix .
 
-# Clean up build artifacts
+format-check:
+    ruff format --check .
+    ruff check .
+    mypy .
+
 clean:
     rm -rf target/
     rm -rf *.egg-info/
     find . -type d -name "__pycache__" -exec rm -rf {} +
     rm -rf ./**/*.abi3.so
 
-# Checks that the stubs match the built extension
 stubs-check:
     python -m mypy.stubtest bernard_ledit --allowlist stubtest-allowlist.txt

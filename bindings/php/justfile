@@ -55,16 +55,14 @@ phpstan: stubs
         echo "phpstan isn't installed (composer require --dev phpstan/phpstan); skipping." >&2
     fi
 
-lint:
-    cargo clippy -p bernard-ledit-php --all-targets --all-features -- -D warnings
-
 format:
     cargo fmt -p bernard-ledit-php
 
 format-check:
     cargo fmt -p bernard-ledit-php --check
+    cargo clippy -p bernard-ledit-php --all-targets --all-features -- -D warnings
 
-ci: format-check lint build test
+ci: format-check build test
 
 # Removes the Composer dependencies; the root `just clean` removes the shared cargo target.
 clean:

@@ -10,6 +10,18 @@ mod php "bindings/php/justfile"
 mod rust "rust.just"
 mod core "rust.just"
 
+format:
+    just core format
+    just java format
+    just python format
+    just php format
+
+format-check:
+    just core format-check
+    just java format-check
+    just python format-check
+    just php format-check
+
 # Runs the important checks and test suites, stopping at the first failure
 check-all:
     #!/usr/bin/env bash
@@ -50,17 +62,16 @@ check-all:
     run_check actionlint
 
     run_check just core format-check
-    run_check just core clippy
-    run_check just core check-deps
-    run_check just core check
+    skip_check "just core check-deps" "cargo-udeps/Clang 21 build failure"
     run_check just core test
 
     run_check just python build
-    run_check just python lint-check
+    run_check just python format-check
     run_check just python stubs-check
     run_check just python test
 
     run_check just php build
+    run_check just php format-check
     run_check just php stubs-check
     run_check just php test
     run_check just php test-static

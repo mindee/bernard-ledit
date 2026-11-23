@@ -10,7 +10,7 @@ Install Rust via [rustup](https://rustup.rs). The exact toolchain version and co
 
 ### just
 
-All build, test, and lint commands are run via [just](https://github.com/casey/just):
+All build, test, formatting, and static-analysis commands are run via [just](https://github.com/casey/just):
 
 ```bash
 cargo install just
@@ -46,11 +46,11 @@ just build
 ## Testing
 
 ```bash
-# Rust core
-just test
+# Rust core tests
+just core test
 
-# Full Rust check (all feature combinations, lint, tests)
-just check
+# Run the consolidated Rust, Python, and PHP checks
+just check-all
 ```
 
 > **Note:** Rust tests run single-threaded (`RUST_TEST_THREADS=1` via `.cargo/config.toml`).
@@ -59,28 +59,27 @@ just check
 
 ---
 
-## Linting and formatting
+## Formatting and static checks
 
 ```bash
-# Rust: fmt check + clippy + cargo-deny + cargo-udeps + cargo check
-just lint
+# Check formatting and static analysis
+just format-check
 
-# Auto-fix formatting
-just format         # Rust
+# Apply formatting/fixes across all bindings
+just format
 ```
 
 ---
 
 ## Git hooks
 
-Git hooks are managed via [`cargo-husky`](https://github.com/rhysd/cargo-husky). They are installed automatically the first time you run:
+The repository includes a pre-commit hook in `.cargo-husky/hooks`, but Git does not enable it automatically. To enable it for this checkout:
 
 ```bash
-just test
+git config core.hooksPath .cargo-husky/hooks
 ```
 
-After that, `cargo fmt` is checked on commits where code files are edited and the full lint + test suite runs on push
-operations where code files were edited.
+The hook runs checks for the relevant language when files are staged for commit.
 
 ---
 
@@ -88,7 +87,7 @@ operations where code files were edited.
 
 1. Create a branch from `dev` (not `main` — see below).
 2. Make your changes with tests where applicable.
-3. Ensure `just lint` and `just test` pass (and `just python lint-check` + `just python test` for Python changes).
+3. Ensure `just check-all` passes. Use `just format-check` for formatting and static-analysis checks across all bindings.
 4. Add a `CHANGELOG.md` entry.
 5. If a dependency requires attribution, include it in the release or package metadata.
 6. Open a pull request against **`dev`** using the provided template.

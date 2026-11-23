@@ -22,7 +22,7 @@
   - [Prerequisites](#prerequisites)
   - [Build](#build)
   - [Test](#test)
-  - [Lint](#lint)
+  - [Format and static checks](#format-and-static-checks)
   - [CI](#ci)
 - [Thread safety](#thread-safety)
 - [License](#license)
@@ -172,11 +172,12 @@ just core test
 just core test-release     # release mode
 ```
 
-### Lint
+### Format and static checks
 
 ```bash
-just core lint             # fmt-check + clippy + cargo-deny + udeps + cargo check
-just core check-all        # everything: fmt + lint + build + debug/release tests
+just format                # apply formatting/fixes across all bindings
+just format-check          # check formatting and static analysis across all bindings
+just core check-deps       # cargo-deny + udeps
 ```
 
 ---
