@@ -1,6 +1,5 @@
 set shell := ["bash", "-c"]
 
-# List the default tasks
 [private]
 default:
     @just --list
@@ -14,7 +13,6 @@ mod core "rust.just"
 # Runs the important checks and test suites, stopping at the first failure
 check-all:
     #!/usr/bin/env bash
-    # Runs the checks CI runs and the binding test suites, cheapest first, and stop at 1st failure
     set -uo pipefail
     trap 'printf "\nInterrupted.\n" >&2; exit 130' INT
     if [ -t 1 ]; then
@@ -49,11 +47,7 @@ check-all:
         results+=("${yellow}SKIP${reset}  $1: $2")
     }
 
-    if command -v actionlint > /dev/null; then
-        run_check actionlint
-    else
-        skip_check actionlint "not installed"
-    fi
+    run_check actionlint
 
     run_check just core format-check
     run_check just core clippy
