@@ -48,6 +48,9 @@ jobs:
 
       - uses: ./.github/actions/setup-libheif
 
+      - uses: ./.github/actions/setup-clang
+        if: runner.os == 'Linux'
+
       - uses: ./.github/actions/setup-pdfium
         with:
           target: ${{ runner.os == 'Windows' && (contains(fromJSON('["8.1", "8.2", "8.3"]'), matrix.php) && 'win-x64-v142' || 'win-x64-v143') || '' }}
@@ -59,12 +62,10 @@ jobs:
         if: runner.os != 'Windows'
         uses: dtolnay/rust-toolchain@1.99.0
 
-      # Runs only on Windows runners
+      # ext-php-rs needs nightly on Windows for the vectorcall ABI.
       - name: Setup Rust
         if: runner.os == 'Windows'
         uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: rustfmt, clippy
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
@@ -110,3 +111,8 @@ jobs:
 
       - name: Unit test
         run: just php test
+
+      - name: Test PHP extension over HTTP
+        if: runner.os == 'Linux' && matrix.php == '8.1' && matrix.thread_safety == 'nts'
+        shell: bash
+        run: bash bindings/php/tools/test-server.sh

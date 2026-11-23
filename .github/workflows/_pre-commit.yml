@@ -23,14 +23,13 @@ jobs:
   clippy:
     name: Run Clippy
     runs-on: ubuntu-latest
-    env:
-      LIBCLANG_PATH: /usr/lib/llvm-18/lib
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
       - uses: ./.github/actions/setup-libheif
+      - uses: ./.github/actions/setup-clang
       - uses: extractions/setup-just@v4
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
@@ -138,10 +137,7 @@ jobs:
           submodules: recursive
       - uses: ./.github/actions/setup-libheif
       - uses: extractions/setup-just@v4
-      - name: Install libclang
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libclang-dev
+      - uses: ./.github/actions/setup-clang
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
