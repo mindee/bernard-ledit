@@ -49,7 +49,7 @@ fn decode_with_decoder(
     options.set_convert_hdr_to_8bit(true);
     options.set_strict_decoding(true);
     let decoded = lib
-        .decode(&handle, ColorSpace::Rgb(RgbChroma::Rgba), Some(options))
+        .decode(handle, ColorSpace::Rgb(RgbChroma::Rgba), Some(options))
         .map_err(decode_error)?;
     let plane = decoded
         .planes()

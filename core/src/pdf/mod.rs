@@ -25,10 +25,12 @@ use pdfium_render::prelude::*;
 
 static PDFIUM: OnceLock<Pdfium> = OnceLock::new();
 
-/// Serializes PDFium operations that are not thread-safe.
+/// Serializes `PDFium` operations that are not thread-safe.
 pub(crate) static NATIVE_LOCK: Mutex<()> = Mutex::new(());
 
 /// Initializes `PDFium` linked into the application.
+/// # Errors
+/// Returns [`PdfError`] if the `PDFium` library cannot be linked.
 pub fn initialize() -> Result<(), PdfError> {
     if PDFIUM.get().is_some() {
         return Ok(());

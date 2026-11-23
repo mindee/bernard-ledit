@@ -49,6 +49,7 @@ impl PyImage {
     }
 
     /// Crops the bounding box of normalized polygon points from this image.
+    #[allow(clippy::needless_pass_by_value)]
     fn crop_polygon(&self, polygon: Vec<(f32, f32)>) -> PyResult<Self> {
         self.inner
             .crop_polygon(&polygon)

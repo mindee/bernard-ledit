@@ -1,4 +1,4 @@
-use crate::common::{OutputFormat, Format, guess_format};
+use crate::common::{Format, OutputFormat, guess_format};
 use crate::image::ImageError;
 use ::image::imageops::FilterType;
 use ::image::{DynamicImage, ImageFormat};
@@ -71,6 +71,8 @@ impl Image {
     /// Return bytes as an u8 vec.
     /// The bytes can correspond to the original encoded image data.
     /// or to the raw pixel data of the decoded image if the original format is not available.
+    /// # Errors
+    /// This operation currently never returns an error.
     pub fn to_bytes(&self) -> Result<Vec<u8>, ImageError> {
         Ok(self.inner.as_bytes().to_vec())
     }
@@ -145,7 +147,8 @@ impl Image {
     ///
     /// Accepts any raster [`ImageFormat`] or [`OutputFormat::Pdf`]. Choosing PDF
     /// produces a single-page document that embeds the image as a JPEG.
-    /// jpeg_quality and jpeg_optimize only affect JPEG encoding and PDF encoding because the image is embedded as a JPEG in the PDF.
+    /// `jpeg_quality` and `jpeg_optimize` only affect JPEG encoding and PDF encoding
+    /// because the image is embedded as a JPEG in the PDF.
     /// # Errors
     /// Returns `ImageError::Encode` if encoding fails or `ImageError::InvalidDimensions`
     /// if the dimensions are invalid.

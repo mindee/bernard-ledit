@@ -1,4 +1,4 @@
-//! Requires a static PDFium archive for every build.
+//! Requires a static `PDFium` archive for every build.
 use std::{env, path::Path};
 
 fn main() {

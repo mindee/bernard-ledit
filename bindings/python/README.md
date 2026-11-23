@@ -108,7 +108,11 @@ buf.write(out.to_bytes())
 
 ```python
 from bernard_ledit.pdf import (
-    PdfDocument, compress_to_jpeg, extract_from_page_ranges, fix_pdf, apply_page_options,
+    PdfDocument,
+    compress_to_jpeg,
+    extract_from_page_ranges,
+    fix_pdf,
+    apply_page_options,
 )
 
 # --- compress to JPEG ---

@@ -145,6 +145,7 @@ impl Document {
         Ok(characters)
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     fn from_jpeg_with_page_size(
         jpeg_bytes: &[u8],
         page_size: Option<(f64, f64)>,
@@ -159,10 +160,8 @@ impl Document {
         if image_size.0 == 0 || image_size.1 == 0 {
             return Err(PdfBuilderError::Image(JpegError::InvalidJpeg));
         }
-        let (width, height) = match page_size {
-            Some(size) => size,
-            None => (f64::from(image_size.0), f64::from(image_size.1)),
-        };
+        let (width, height) =
+            page_size.unwrap_or_else(|| (f64::from(image_size.0), f64::from(image_size.1)));
 
         {
             let mut page = inner
@@ -183,23 +182,23 @@ impl Document {
         Ok(Self { inner })
     }
 
-    /// Build a single-page PDF from a JPEG-encoded image using PDFium.
+    /// Build a single-page PDF from a JPEG-encoded image using `PDFium`.
     ///
     /// `width` and `height` are the PDF page dimensions in points.
     ///
-    /// PDFium embeds the original JPEG stream without decoding and re-encoding it.
+    /// `PDFium` embeds the original JPEG stream without decoding and re-encoding it.
     ///
     /// # Errors
-    /// Returns a [`PdfBuilderError`] if PDFium cannot load the JPEG or create the page.
+    /// Returns a [`PdfBuilderError`] if `PDFium` cannot load the JPEG or create the page.
     pub fn from_jpeg(jpeg_bytes: &[u8], width: f64, height: f64) -> Result<Self, PdfBuilderError> {
         Self::from_jpeg_with_page_size(jpeg_bytes, Some((width, height)))
     }
 
-    /// Build a single-page PDF from a JPEG-encoded image using PDFium.
+    /// Build a single-page PDF from a JPEG-encoded image using `PDFium`.
     ///
     /// The page dimensions are set to the JPEG's intrinsic pixel dimensions in points.
     /// # Errors
-    /// Returns a [`PdfBuilderError`] if PDFium cannot load the JPEG or create the page.
+    /// Returns a [`PdfBuilderError`] if `PDFium` cannot load the JPEG or create the page.
     pub fn from_jpeg_autosize(jpeg_bytes: &[u8]) -> Result<Self, PdfBuilderError> {
         Self::from_jpeg_with_page_size(jpeg_bytes, None)
     }
@@ -310,6 +309,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::cast_precision_loss)]
     fn test_from_jpeg_autosize_uses_image_dimensions() {
         pdfium();
         let jpeg = test_data_bytes!("file_types/receipt.jpg");

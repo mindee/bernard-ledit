@@ -97,7 +97,7 @@ impl PhpImage {
             .collect();
         self.inner
             .crop_polygon(&polygon)
-            .map(PhpImage::from_core)
+            .map(Self::from_core)
             .map_err(|e| format_image_extract_err(&e))
     }
 
