@@ -86,8 +86,8 @@ check-all:
     run_check just core format-check
     run_check just core clippy
     run_check just core check-deps
-    run_check just core hack-check
-    run_check just core hack-test
+    run_check just core check
+    run_check just core test
 
     run_check just python build
     run_check just python lint-check

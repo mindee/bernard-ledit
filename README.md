@@ -169,14 +169,14 @@ just core build
 ```bash
 # Rust core
 just core test
-just core hack-test        # every feature combination
+just core test-release     # release mode
 ```
 
 ### Lint
 
 ```bash
-just core lint             # fmt-check + clippy + cargo-deny + udeps + feature-powerset check
-just core check-all        # everything: fmt + lint + build + test
+just core lint             # fmt-check + clippy + cargo-deny + udeps + cargo check
+just core check-all        # everything: fmt + lint + build + debug/release tests
 ```
 
 ---

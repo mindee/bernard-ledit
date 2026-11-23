@@ -45,8 +45,8 @@ jobs:
     with:
       java-versions: '["11", "17", "21"]'
 
-  hack-test-release:
-    uses: ./.github/workflows/_hack-test-release.yml
+  test-release:
+    uses: ./.github/workflows/_test-release.yml
     needs: unit-tests
 
   # The tag a version commit (":bookmark: Version X.Y.Z") gets: v + the workspace version in
@@ -94,7 +94,7 @@ jobs:
       - python-binding-tests
       - php-binding-tests
       - java-binding-tests
-      - hack-test-release
+      - test-release
       - static-pdfium
     permissions:
       contents: write

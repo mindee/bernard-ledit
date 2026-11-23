@@ -64,12 +64,8 @@ jobs:
       - uses: ./.github/actions/setup-pdfium
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
-      - name: Install cargo-hack
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-hack
-      - name: Check feature matrix
-        run: just core hack-check
+      - name: Check Rust core
+        run: just core check
 
   deps:
     name: Check dependencies

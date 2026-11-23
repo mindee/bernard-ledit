@@ -24,7 +24,7 @@ Install the required cargo tools using [cargo-binstall](https://github.com/cargo
 
 ```bash
 cargo install cargo-binstall
-cargo binstall cargo-deny cargo-nextest cargo-hack
+cargo binstall cargo-deny cargo-nextest
 ```
 
 ### Binding-specific dependencies
@@ -62,7 +62,7 @@ just check
 ## Linting and formatting
 
 ```bash
-# Rust: fmt check + clippy + cargo-deny + cargo-udeps + hack-check
+# Rust: fmt check + clippy + cargo-deny + cargo-udeps + cargo check
 just lint
 
 # Auto-fix formatting
