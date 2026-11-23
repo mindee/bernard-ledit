@@ -3,6 +3,16 @@
 
 // Stubs for bernard_ledit
 
+namespace BernardLedit\Common {
+    /**
+     * Returns the canonical encoding name for a file extension.
+     *
+     * @param string $extension
+     * @return string
+     */
+    function formatFromExtension(string $extension): string {}
+}
+
 namespace BernardLedit\Image {
     class Image {
         /**
@@ -87,7 +97,7 @@ namespace BernardLedit\Image {
         public function resize(int $width, int $height): \BernardLedit\Image\Image {}
 
         /**
-         * Returns the image bytes.
+         * Returns the image bytes as a PHP string.
          *
          * @return string
          * @throws \BernardLedit\Image\ImageException if the image bytes can't be retrieved.
@@ -96,13 +106,13 @@ namespace BernardLedit\Image {
     }
 
     /**
-     * Compresses an image as a JPEG, scaled down to fit `$max_width` and `$max_height`.
+     * Compresses an image to JPEG, scaled down to fit `$max_width` and `$max_height`.
      *
      * @param string $data
      * @param int<5, 100> $quality
+     * @param bool|null $optimize
      * @param int<1, 4294967295>|null $max_width
      * @param int<1, 4294967295>|null $max_height
-     * @param bool|null $optimize
      * @return array{0: string, 1: int, 2: int} `[$bytes, $width, $height]`.
      * @throws \ValueError if `$quality`, `$max_width` or `$max_height` is out of range.
      * @throws \BernardLedit\Image\ImageException if `$data` isn't an identifiable image, can't be decoded or encoded, or the output isn't smaller.
@@ -137,15 +147,6 @@ namespace BernardLedit\Pdf {
          * @throws \BernardLedit\Pdf\PdfiumException if `PDFium` can't be loaded, or `$data` isn't a PDF it can read.
          */
         public function __construct(string $data) {}
-
-        /**
-         * Returns the PDF bytes (PHP writes files itself and keeps I/O out of Rust).
-         *
-         * @return string
-         * @throws \BernardLedit\Pdf\PdfiumException if `PDFium` can't save the document.
-         * @throws \Exception if the document is closed.
-         */
-        public function toBytes(): string {}
 
         /**
          * Close the document. Closing it again does nothing.
@@ -236,6 +237,15 @@ namespace BernardLedit\Pdf {
          */
         public function importPages(\BernardLedit\Pdf\PdfDocument $src, array $indexes): void {}
 
+        /**
+         * Returns the PDF bytes (PHP writes files itself and keeps I/O out of Rust).
+         *
+         * @return string
+         * @throws \BernardLedit\Pdf\PdfiumException if `PDFium` can't save the document.
+         * @throws \Exception if the document is closed.
+         */
+        public function toBytes(): string {}
+
     }
 
     class PdfPage {
@@ -316,7 +326,8 @@ namespace BernardLedit\Pdf {
     function applyPageOptions(string $data, string $operation, int $on_min_pages, array $page_indexes): array {}
 
     /**
-     * Compresses PDF bytes. Returns the input unchanged if it can't be made smaller.
+     * Compresses PDF bytes by re-encoding scanned pages as JPEG. Returns the input unchanged if it
+     * can't be made smaller.
      *
      * @param string $data
      * @param int<5, 100> $quality

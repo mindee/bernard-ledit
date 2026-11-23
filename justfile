@@ -5,44 +5,16 @@ set shell := ["bash", "-c"]
 default:
     @just --list
 
-# Java binding commands
 mod java "bindings/java/justfile"
-# Python binding commands
 mod python "bindings/python/justfile"
-# PHP binding commands
 mod php "bindings/php/justfile"
-# Rust core commands
 mod rust "rust.just"
-# Rust core commands
 mod core "rust.just"
-
-# Shortcut to lint Rust code.
-lint:
-    @just core lint
-
-# Shortcut to run Rust tests
-test:
-    @just core test
-
-# Shortcut to run Rust build
-build:
-    @just core build
-
-# Shortcut to run Rust format
-format:
-    @just core format
-
-# Shortcut to run Rust check-all
-check:
-    @just core check-all
 
 # Runs the important checks and test suites, stopping at the first failure
 check-all:
     #!/usr/bin/env bash
-    # Runs the checks CI runs and the binding test suites, cheapest first, and stops at the first
-    # failure. Nothing gets formatted or fixed, but a failing PHP stubs check leaves the regenerated
-    # stubs in place. The Python checks need an active virtualenv with maturin; the PHP stubs are
-    # checked on Linux only. All builds require the static PDFium archive.
+    # Runs the checks CI runs and the binding test suites, cheapest first, and stop at 1st failure
     set -uo pipefail
     trap 'printf "\nInterrupted.\n" >&2; exit 130' INT
     if [ -t 1 ]; then
@@ -95,24 +67,15 @@ check-all:
     run_check just python test
 
     run_check just php build
-    # The stub generator only runs on Linux (see bindings/php/tools/stubs/generate.sh); CI checks the stubs there.
-    if [ "$(uname -s)" = Linux ]; then
-        run_check just php stubs-check
-    else
-        skip_check "just php stubs-check" "the stub generator runs on Linux only; CI checks it"
-    fi
+    run_check just php stubs-check
     run_check just php test
     run_check just php test-static
 
     print_summary
     printf '\n%sAll checks passed.%s\n' "$green" "$reset"
 
-# Shortcut to run Rust clean
 clean:
     @just core clean
-
-# Cleans up all un-necessary files
-clean-all: clean
     @just java clean
     @just python clean
     @just php clean

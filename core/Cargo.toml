@@ -20,7 +20,6 @@ development = ["cargo-husky"]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-serde = { version = "1.0.228", features = ["derive"] }
 thiserror = "2.0.18"
 pdfium-render = { version = "0.9.4", features = ["static"] }
 image = "0.25.9"

@@ -13,10 +13,6 @@ publish = false
 name = "bernard_ledit_java"
 crate-type = ["cdylib"]
 
-[dependencies]
-bernard-ledit = { path = "../../core" }
-jni = "0.22.4"
-
 [lints]
 workspace = true
 
