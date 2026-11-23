@@ -245,7 +245,6 @@ namespace BernardLedit\Pdf {
          * @throws \Exception if the document is closed.
          */
         public function toBytes(): string {}
-
     }
 
     class PdfPage {
