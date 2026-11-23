@@ -127,7 +127,7 @@ each with a `.sha256` checksum, to the `pdfium-static-<release>` GitHub release 
 | `linux-arm64-musl`  | Alpine arm64                               |
 | `mac-arm64`         | macOS, Apple Silicon                       |
 | `mac-x64`           | macOS, Intel                               |
-| `win-x64-v142`      | Windows x86_64, MSVC 14.29 (PHP 8.1 – 8.3) |
+| `win-x64-v142`      | Windows x86_64, MSVC 14.29 (PHP 8.2 – 8.3) |
 | `win-x64-v143`      | Windows x86_64, MSVC 14.44 (PHP 8.4, 8.5)  |
 | `win-arm64-v143`    | Windows arm64, MSVC 14.44                  |
 

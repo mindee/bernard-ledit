@@ -14,9 +14,8 @@ on:
         description: "Select a PHP version to test (or all)"
         type: choice
         required: true
-        default: "8.1"
+        default: "8.2"
         options:
-          - "8.1"
           - "8.2"
           - "8.3"
           - "8.4"
@@ -38,7 +37,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
-        php: ${{ fromJSON(github.event_name == 'workflow_dispatch' && (inputs.php_version == 'All' && '["8.1", "8.2", "8.3", "8.4", "8.5"]' || format('["{0}"]', inputs.php_version)) || inputs['php-versions']) }}
+        php: ${{ fromJSON(github.event_name == 'workflow_dispatch' && (inputs.php_version == 'All' && '["8.2", "8.3", "8.4", "8.5"]' || format('["{0}"]', inputs.php_version)) || inputs['php-versions']) }}
         thread_safety: [ "zts", "nts" ]
 
     steps:
@@ -53,7 +52,7 @@ jobs:
 
       - uses: ./.github/actions/setup-pdfium
         with:
-          target: ${{ runner.os == 'Windows' && (contains(fromJSON('["8.1", "8.2", "8.3"]'), matrix.php) && 'win-x64-v142' || 'win-x64-v143') || '' }}
+          target: ${{ runner.os == 'Windows' && (contains(fromJSON('["8.2", "8.3"]'), matrix.php) && 'win-x64-v142' || 'win-x64-v143') || '' }}
 
       - uses: extractions/setup-just@v4
 
@@ -100,7 +99,7 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
-          toolset: ${{ contains(fromJSON('["8.1", "8.2", "8.3"]'), matrix.php) && '14.29' || '14.44' }}
+          toolset: ${{ contains(fromJSON('["8.2", "8.3"]'), matrix.php) && '14.29' || '14.44' }}
 
       - name: Remove MSYS GNU link.exe (Windows)
         if: runner.os == 'Windows'
@@ -113,6 +112,6 @@ jobs:
         run: just php test
 
       - name: Test PHP extension over HTTP
-        if: runner.os == 'Linux' && matrix.php == '8.1' && matrix.thread_safety == 'nts'
+        if: runner.os == 'Linux' && matrix.php == '8.2' && matrix.thread_safety == 'nts'
         shell: bash
         run: bash bindings/php/tools/test-server.sh

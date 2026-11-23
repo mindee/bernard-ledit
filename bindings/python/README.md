@@ -143,7 +143,7 @@ fixed = fix_pdf(raw_bytes, maximum_offset=500)
 
 ## Development
 
-Python 3.9+ and an active virtualenv are required, in addition to the
+Python 3.11+ and an active virtualenv are required, in addition to the
 [shared development prerequisites](../../README.md#prerequisites).
 Download the static PDFium archive for your platform as described in
 [PDFium builds and targets](../../README.md#pdfium-builds). From the repository root:

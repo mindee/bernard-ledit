@@ -7,7 +7,7 @@ The PHP binding exposes Bernard l'Édit's PDF and image APIs through an
 Its API is documented in the [IDE / PHPStan stubs](bernard_ledit.stubs.php), regenerated with
 `just php stubs`.
 
-**Supported:** PHP 8.1 – 8.5, ZTS and NTS, on Linux (x86_64 and arm64, glibc and musl), macOS
+**Supported:** PHP 8.2 – 8.5, ZTS and NTS, on Linux (x86_64 and arm64, glibc and musl), macOS
 (arm64 and x86_64) and Windows (x86_64). Released extensions link PDFium statically, so no PDFium
 installation is needed. The Linux glibc builds require glibc 2.35 or newer. HEIC decoding requires
 system libheif and either its libde265 or FFmpeg HEVC decoder plugin; see the
@@ -31,7 +31,7 @@ is then in `target/release/` (`libbernard_ledit_php.so`, `.dylib` on macOS, or
 `bernard_ledit_php.dll` on Windows); load it with `extension=/path/to/it` in your `php.ini`.
 
 On Windows, build with Rust nightly (`RUSTUP_TOOLCHAIN=nightly`, required by ext-php-rs) and with
-the MSVC toolset your PHP was built with: 14.29 (v142) for PHP 8.1 – 8.3, 14.44 (v143) for 8.4
+the MSVC toolset your PHP was built with: 14.29 (v142) for PHP 8.2 – 8.3, 14.44 (v143) for 8.4
 and 8.5, downloading the matching `win-x64-v142` or `win-x64-v143` library.
 
 Document and image inputs are encoded bytes in PHP strings. The calling application handles
@@ -140,7 +140,7 @@ $doc->close();
 
 ## Development
 
-PHP 8.1+ with development headers (`php-config`), Composer and libclang are required, in addition to
+PHP 8.2+ with development headers (`php-config`), Composer and libclang are required, in addition to
 the [shared development prerequisites](../../README.md#prerequisites). For example:
 
 ```bash
