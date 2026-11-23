@@ -20,6 +20,7 @@ jobs:
 
       - uses: ./.github/actions/setup-pdfium
       - uses: ./.github/actions/setup-libheif
+      # Building the PHP binding runs bindgen, which requires Clang and libclang.
       - uses: ./.github/actions/setup-clang
       - uses: extractions/setup-just@v4
 

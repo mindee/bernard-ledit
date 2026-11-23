@@ -45,6 +45,15 @@ jobs:
         with:
           submodules: recursive
 
+      # MSVC setup changes VCPKG_ROOT because it brings its own vcpkg tree; 
+      # run it first so setup-libheif can select MSVC's installed vcpkg tree.
+      - name: Pin MSVC toolset to match PHP build (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+          toolset: ${{ contains(fromJSON('["8.2", "8.3"]'), matrix.php) && '14.29' || '14.44' }}
+
       - uses: ./.github/actions/setup-libheif
 
       - uses: ./.github/actions/setup-clang
@@ -93,13 +102,6 @@ jobs:
           restore-keys: |
             composer-${{ runner.os }}-php${{ matrix.php }}-${{ matrix.thread_safety }}-
             composer-${{ runner.os }}-
-
-      - name: Pin MSVC toolset to match PHP build (Windows)
-        if: runner.os == 'Windows'
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-          toolset: ${{ contains(fromJSON('["8.2", "8.3"]'), matrix.php) && '14.29' || '14.44' }}
 
       - name: Remove MSYS GNU link.exe (Windows)
         if: runner.os == 'Windows'

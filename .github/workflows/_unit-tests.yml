@@ -24,7 +24,6 @@ jobs:
           submodules: recursive
 
       - uses: ./.github/actions/setup-libheif
-
       - uses: ./.github/actions/setup-pdfium
 
       - name: Set up Rust toolchain

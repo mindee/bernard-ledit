@@ -210,6 +210,14 @@ jobs:
         with:
           submodules: recursive
 
+      # MSVC setup changes VCPKG_ROOT because it brings its own vcpkg tree; 
+      # run it first so setup-libheif can select MSVC's installed vcpkg tree.
+      - name: Pin the MSVC toolset of the PHP build
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+          toolset: ${{ matrix.msvc }}
+
       - uses: ./.github/actions/setup-libheif
 
       - name: Download static PDFium
@@ -236,12 +244,6 @@ jobs:
           tools: composer:v2
         env:
           phpts: ${{ matrix.thread_safety }}
-
-      - name: Pin the MSVC toolset of the PHP build
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-          toolset: ${{ matrix.msvc }}
 
       # Git Bash puts its GNU link.exe ahead of MSVC's on PATH, where Rust looks up the linker.
       - name: Remove Git's GNU link.exe

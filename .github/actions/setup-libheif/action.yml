@@ -42,4 +42,5 @@ runs:
         if ($LASTEXITCODE -ne 0) { throw "libheif verification failed" }
         "VCPKG_ROOT=$root" >> $env:GITHUB_ENV
         "VCPKGRS_DYNAMIC=1" >> $env:GITHUB_ENV
+        "LIBHEIF_DLL_DIR=$bin" >> $env:GITHUB_ENV
         $bin >> $env:GITHUB_PATH
