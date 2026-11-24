@@ -18,7 +18,7 @@ permissions:
 jobs:
   # Builds any missing static PDFium library, then tests the PHP extension against all of them.
   static-pdfium:
-    uses: ./.github/workflows/build-static-pdfium.yml
+    uses: ./.github/workflows/pdfium-build-static.yml
     needs: version
     permissions:
       contents: write
@@ -28,11 +28,11 @@ jobs:
     needs: static-pdfium
 
   unit-tests:
-    uses: ./.github/workflows/_unit-tests.yml
+    uses: ./.github/workflows/_core-tests.yml
     needs: pre-commit
 
   test-release:
-    uses: ./.github/workflows/_test-release.yml
+    uses: ./.github/workflows/_core-test-release.yml
     needs: unit-tests
 
   python-binding-tests:
@@ -99,13 +99,13 @@ jobs:
 
   # Creates the release as a draft, which nobody sees until publish-release makes it public.
   release:
-    uses: ./.github/workflows/_create-release.yml
+    uses: ./.github/workflows/_release-create.yml
     needs: tag
     permissions:
       contents: write
 
   package-php:
-    uses: ./.github/workflows/_package-php-pie.yml
+    uses: ./.github/workflows/_php-package-pie.yml
     needs: [ version, release ]
     with:
       release-tag: ${{ needs.version.outputs.tag }}

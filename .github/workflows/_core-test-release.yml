@@ -1,45 +1,37 @@
-name: Unit tests
+name: Rust core release tests
 
 on:
   workflow_call:
-
 permissions:
   contents: read
-
 jobs:
-  unit-tests:
-    name: Test (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+  test-release:
+    name: Rust release tests (Linux)
+    runs-on: ubuntu-latest
     env:
       CARGO_INCREMENTAL: 0
-
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
       - uses: actions/checkout@v6
         with:
           submodules: recursive
-
       - uses: ./.github/actions/setup-libheif
+      - uses: extractions/setup-just@v4
+
       - uses: ./.github/actions/setup-pdfium
 
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@1.99.0
 
-      - uses: extractions/setup-just@v4
-
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ matrix.os }}
+          key: test-release-${{ runner.os }}
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-nextest
 
-      - name: Run core tests
-        run: just core test
+      - name: Run release tests
+        run: just core test-release

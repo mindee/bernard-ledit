@@ -115,7 +115,7 @@ All core and binding builds link PDFium statically. Cargo looks for the target's
 (or `pdfium.lib` on Windows) in `.pdfium-static/` at the repository root. The pinned PDFium version
 is in [`core/pdfium-release`](core/pdfium-release).
 
-Static libraries are prebuilt by [`build-static-pdfium.yml`](.github/workflows/build-static-pdfium.yml) and published,
+Static libraries are prebuilt by [`pdfium-build-static.yml`](.github/workflows/pdfium-build-static.yml) and published,
 each with a `.sha256` checksum, to the `pdfium-static-<release>` GitHub release of this repository (e.g.
 `pdfium-static-chromium_8076`). Each target's archive is published with its corresponding license bundle.
 

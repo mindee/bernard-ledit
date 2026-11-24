@@ -1,6 +1,5 @@
 name: PHP binding tests (static lib build)
 
-# Called by build-static-pdfium.yml once the static libraries are published.
 on:
   workflow_call:
   workflow_dispatch:
