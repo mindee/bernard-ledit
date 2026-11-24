@@ -27,13 +27,9 @@ jobs:
     uses: ./.github/workflows/_pre-commit.yml
     needs: static-pdfium
 
-  unit-tests:
+  core-tests:
     uses: ./.github/workflows/_core-tests.yml
     needs: pre-commit
-
-  test-release:
-    uses: ./.github/workflows/_core-test-release.yml
-    needs: unit-tests
 
   python-binding-tests:
     uses: ./.github/workflows/_python-binding-tests.yml
@@ -88,8 +84,7 @@ jobs:
     needs:
       - static-pdfium
       - pre-commit
-      - unit-tests
-      - test-release
+      - core-tests
       - python-binding-tests
       - php-binding-tests
       - java-binding-tests

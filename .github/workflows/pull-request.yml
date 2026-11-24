@@ -15,7 +15,7 @@ jobs:
   pre-commit:
     uses: ./.github/workflows/_pre-commit.yml
 
-  unit-tests:
+  core-tests:
     uses: ./.github/workflows/_core-tests.yml
     needs: pre-commit
 

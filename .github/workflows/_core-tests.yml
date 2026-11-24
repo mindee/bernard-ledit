@@ -1,4 +1,4 @@
-name: Core unit tests
+name: Core tests
 
 on:
   workflow_call:
@@ -7,7 +7,7 @@ permissions:
   contents: read
 
 jobs:
-  unit-tests:
+  core-tests:
     name: Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     env:
@@ -43,3 +43,6 @@ jobs:
 
       - name: Run core tests
         run: just core test
+
+      - name: Run core tests (release)
+        run: just core test-release
