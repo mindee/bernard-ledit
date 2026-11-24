@@ -1,5 +1,6 @@
 [package]
 name = "bernard-ledit"
+# inherit the following from the workspace's cargo.toml
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

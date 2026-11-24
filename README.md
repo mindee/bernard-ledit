@@ -161,7 +161,7 @@ the archive in the same directory, run `cargo clean -p pdfium-render` so Cargo r
 
 ```bash
 # Rust core (release)
-just core build
+just core build-release
 ```
 
 ### Test

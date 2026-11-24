@@ -14,24 +14,16 @@ build:
 build-release:
     cargo build -p bernard-ledit-php --release
 
-# Runs PHP with the debug build, e.g. `just php run tests/smoke.php`; see run-code for inline code.
-run *ARGS: build (php-with "debug" ARGS)
+# Removes the Composer dependencies; the root `just clean` removes the shared cargo target.
+clean:
+    rm -rf vendor/
 
-# Runs PHP code with the debug build, e.g. `just php run-code 'print_r(get_loaded_extensions());'`.
-run-code CODE: build (php-with "debug" "-r " + quote(CODE))
+format:
+    cargo fmt -p bernard-ledit-php
 
-smoke: build
-    just php-with debug -m | grep -iE '^bernard[-_]ledit'
-
-reflect: build
-    #!/usr/bin/env bash
-    set -euo pipefail
-    module="$(just php-with debug -m | grep -iE '^bernard[-_]ledit' | head -n 1)"
-    just php-with debug --re "$module"
-
-test *ARGS: composer-deps build (php-with "debug" "vendor/bin/phpunit " + ARGS)
-
-test-static: composer-deps build-release (php-with "static" "vendor/bin/phpunit")
+format-check:
+    cargo fmt -p bernard-ledit-php --check
+    cargo clippy -p bernard-ledit-php --all-targets --all-features -- -D warnings
 
 # Regenerates the IDE and PHPStan stub file from the debug build.
 stubs: build
@@ -52,18 +44,26 @@ phpstan: stubs
         echo "phpstan isn't installed (composer require --dev phpstan/phpstan); skipping." >&2
     fi
 
-format:
-    cargo fmt -p bernard-ledit-php
+test *ARGS: composer-deps build (php-with "debug" "vendor/bin/phpunit " + ARGS)
 
-format-check:
-    cargo fmt -p bernard-ledit-php --check
-    cargo clippy -p bernard-ledit-php --all-targets --all-features -- -D warnings
+test-static: composer-deps build-release (php-with "static" "vendor/bin/phpunit")
+
+# Runs PHP with the debug build, e.g. `just php run tests/smoke.php`; see run-code for inline code.
+run *ARGS: build (php-with "debug" ARGS)
+
+# Runs PHP code with the debug build, e.g. `just php run-code 'print_r(get_loaded_extensions());'`.
+run-code CODE: build (php-with "debug" "-r " + quote(CODE))
+
+smoke: build
+    just php-with debug -m | grep -iE '^bernard[-_]ledit'
+
+reflect: build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    module="$(just php-with debug -m | grep -iE '^bernard[-_]ledit' | head -n 1)"
+    just php-with debug --re "$module"
 
 ci: format-check build test
-
-# Removes the Composer dependencies; the root `just clean` removes the shared cargo target.
-clean:
-    rm -rf vendor/
 
 # Runs PHP without php.ini. ARGS is pasted into the command line as shell code.
 [private]

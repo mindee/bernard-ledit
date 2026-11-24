@@ -5,7 +5,6 @@ default:
     @just --list
 
 build:
-    @command -v maturin > /dev/null || { echo "maturin not found. Install it with: pip install 'maturin>=1.0,<2.0'" >&2; exit 1; }
     @echo "Cleaning up stale C-extensions..."
     rm -f bernard_ledit/_bernard_ledit*.so
     maturin develop --extras test,lint
@@ -13,11 +12,11 @@ build:
 wheel:
     maturin build --release
 
-test: build
-    #!/usr/bin/env bash
-    set -euo pipefail
-    python -m pytest -vvv -n auto
-
+clean:
+    rm -rf target/
+    rm -rf *.egg-info/
+    find . -type d -name "__pycache__" -exec rm -rf {} +
+    rm -rf ./**/*.abi3.so
 
 format:
     ruff format .
@@ -28,11 +27,10 @@ format-check:
     ruff check .
     mypy .
 
-clean:
-    rm -rf target/
-    rm -rf *.egg-info/
-    find . -type d -name "__pycache__" -exec rm -rf {} +
-    rm -rf ./**/*.abi3.so
-
 stubs-check:
     python -m mypy.stubtest bernard_ledit --allowlist stubtest-allowlist.txt
+
+test: build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    python -m pytest -vvv -n auto

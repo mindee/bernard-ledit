@@ -20,4 +20,3 @@ test:
     cd bernard-ledit && mvn test -DargLine="-Djava.library.path=../../target/debug"
 
 ci: format-check test
-

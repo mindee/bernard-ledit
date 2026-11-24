@@ -10,6 +10,12 @@ mod php "bindings/php/justfile"
 mod rust "rust.just"
 mod core "rust.just"
 
+clean:
+    @just core clean
+    @just java clean
+    @just python clean
+    @just php clean
+
 format:
     just core format
     just java format
@@ -78,9 +84,3 @@ check-all:
 
     print_summary
     printf '\n%sAll checks passed.%s\n' "$green" "$reset"
-
-clean:
-    @just core clean
-    @just java clean
-    @just python clean
-    @just php clean

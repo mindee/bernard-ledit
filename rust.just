@@ -3,7 +3,13 @@ default:
     @just -f rust.just --list
 
 build:
+    cargo build -p bernard-ledit
+
+build-release:
     cargo build --release -p bernard-ledit
+
+clean:
+    cargo clean
 
 format:
     cargo fmt --all
@@ -12,9 +18,6 @@ format-check:
     cargo fmt --all --check
     cargo clippy --all-features --all-targets -- -D warnings
     cargo check -p bernard-ledit
-
-clean:
-    cargo clean
 
 # Checks for dependencies (requires nightly for cargo-udeps; installs it automatically if missing)
 check-deps:
