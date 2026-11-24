@@ -114,6 +114,6 @@ jobs:
         run: just php test
 
       - name: Test PHP extension over HTTP
-        if: runner.os == 'Linux' && matrix.php == '8.2' && matrix.thread_safety == 'nts'
+        if: matrix.php == '8.2' && matrix.thread_safety == 'nts'
         shell: bash
         run: bash bindings/php/tools/test-server.sh

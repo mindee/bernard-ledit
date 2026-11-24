@@ -44,7 +44,7 @@ jobs:
       php-versions: '["8.2", "8.3", "8.4", "8.5"]'
 
   java-binding-tests:
-    uses: ./.github/workflows/_java-binding-ci.yml
+    uses: ./.github/workflows/_java-binding-tests.yml
     needs: pre-commit
     with:
       java-versions: '["11", "17", "21"]'
