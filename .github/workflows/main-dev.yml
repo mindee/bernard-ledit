@@ -17,12 +17,9 @@ permissions:
 
 jobs:
   # Builds any missing static PDFium library, then tests the PHP extension against all of them.
-  # On a version commit, it also packages each tested extension for PIE, as a workflow artifact.
   static-pdfium:
     uses: ./.github/workflows/build-static-pdfium.yml
     needs: version
-    with:
-      release-tag: ${{ needs.version.outputs.tag }}
     permissions:
       contents: write
 
@@ -33,6 +30,10 @@ jobs:
   unit-tests:
     uses: ./.github/workflows/_unit-tests.yml
     needs: pre-commit
+
+  test-release:
+    uses: ./.github/workflows/_test-release.yml
+    needs: unit-tests
 
   python-binding-tests:
     uses: ./.github/workflows/_python-binding-tests.yml
@@ -52,9 +53,6 @@ jobs:
     with:
       java-versions: '["11", "17", "21"]'
 
-  test-release:
-    uses: ./.github/workflows/_test-release.yml
-    needs: unit-tests
 
   # The tag a version commit (":bookmark: Version X.Y.Z") gets: v + the workspace version in
   # Cargo.toml, which the commit message must name. Empty for any other commit.
@@ -75,7 +73,7 @@ jobs:
             echo "tag=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          version="$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["workspace"]["package"]["version"])')"
+          version="$(yq -p=toml -o=yaml -r -e '.workspace.package.version' Cargo.toml)"
           named="$(grep -oE 'Version [0-9]+\.[0-9]+\.[0-9]+([-.](alpha|beta|rc)[0-9])?' <<< "$MESSAGE" | head -n 1 | cut -d' ' -f2 || true)"
           if [ "$named" != "$version" ]; then
             echo "::error::The commit message names version '$named', but Cargo.toml has $version"
@@ -83,16 +81,19 @@ jobs:
           fi
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
-  # Only runs for a version commit, once everything above has passed, PIE packaging included.
+  # Only runs for a version commit, once everything above has passed.
   tag:
     if: contains(github.event.head_commit.message, ':bookmark:')
     uses: mindee/client-lib-actions/.github/workflows/tag-version.yml@main
     needs:
+      - static-pdfium
+      - pre-commit
+      - unit-tests
+      - test-release
       - python-binding-tests
       - php-binding-tests
       - java-binding-tests
-      - test-release
-      - static-pdfium
+      - version
     permissions:
       contents: write
 
@@ -103,11 +104,15 @@ jobs:
     permissions:
       contents: write
 
-  # Uploads the PIE archives static-pdfium packaged, then publishes the release. If this fails, the
-  # release stays a draft: re-run the failed jobs.
+  package-php:
+    uses: ./.github/workflows/_package-php-pie.yml
+    needs: [ version, release ]
+    with:
+      release-tag: ${{ needs.version.outputs.tag }}
+
   publish-release:
     name: Upload the PIE archives and publish the release
-    needs: [ version, release ]
+    needs: [ version, release, package-php ]
     runs-on: ubuntu-latest
     permissions:
       contents: write

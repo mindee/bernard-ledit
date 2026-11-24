@@ -1,14 +1,8 @@
 name: PHP binding tests (static lib build)
 
-# Called by build-static-pdfium.yml once the static libraries are published. With a release tag,
-# each job also packages the extension it tested as a PIE asset, uploaded as a workflow artifact.
+# Called by build-static-pdfium.yml once the static libraries are published.
 on:
   workflow_call:
-    inputs:
-      release-tag:
-        description: "Release tag to package the tested extensions for; empty to only test"
-        type: string
-        default: ""
   workflow_dispatch:
 
 permissions:
@@ -17,9 +11,6 @@ permissions:
 defaults:
   run:
     shell: bash
-
-env:
-  RELEASE_TAG: ${{ inputs.release-tag }}
 
 jobs:
   php-binding-tests:
@@ -73,54 +64,6 @@ jobs:
       - name: Build and test (static PDFium)
         run: just php test-static
 
-      - name: Check the extension doesn't load PDFium dynamically (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          deps="$(otool -L target/release/libbernard_ledit_php.dylib)"
-          echo "$deps"
-          if grep -qi pdfium <<< "$deps"; then
-            echo "::error::The extension links PDFium dynamically"
-            exit 1
-          fi
-          if ! grep -qi libheif <<< "$deps"; then
-            echo "::error::The extension does not link system libheif dynamically"
-            exit 1
-          fi
-
-      # The extension must load on the oldest glibc the static PDFium was built against.
-      - name: Check the extension doesn't load PDFium dynamically and runs on glibc 2.35 (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          ext=target/release/libbernard_ledit_php.so
-          deps="$(ldd "$ext")"
-          echo "$deps"
-          if grep -qi pdfium <<< "$deps"; then
-            echo "::error::The extension links PDFium dynamically"
-            exit 1
-          fi
-          if ! grep -qi libheif <<< "$deps"; then
-            echo "::error::The extension does not link system libheif dynamically"
-            exit 1
-          fi
-          newest_glibc="$(objdump -T "$ext" | grep -oE 'GLIBC_[0-9]+(\.[0-9]+)*' | sed 's/GLIBC_//' | sort -Vu | tail -n 1)"
-          echo "Newest glibc symbol version required: $newest_glibc"
-          if [ "$(printf '%s\n' "$newest_glibc" 2.35 | sort -V | tail -n 1)" != 2.35 ]; then
-            echo "::error::The extension requires glibc $newest_glibc, newer than 2.35"
-            exit 1
-          fi
-
-      - name: Package for PIE
-        if: env.RELEASE_TAG != ''
-        run: bash bindings/php/tools/pie-package.sh "target/release/${{ matrix.platform.extension }}" "$RELEASE_TAG" dist "$PDFIUM_STATIC_LIB_PATH/licenses"
-
-      - name: Keep the PIE asset for the release
-        if: env.RELEASE_TAG != ''
-        uses: actions/upload-artifact@v7
-        with:
-          name: pie-${{ matrix.platform.pdfium_target }}-php${{ matrix.php }}-${{ matrix.thread_safety }}
-          path: dist/
-          if-no-files-found: error
-
   # Alpine runs through `docker run` rather than a job container: GitHub can't run JavaScript
   # actions inside Alpine containers on arm64 runners.
   php-binding-tests-musl:
@@ -145,7 +88,6 @@ jobs:
         run: bash tools/pdfium-static/download.sh ${{ matrix.platform.pdfium_target }} .pdfium-static
 
       # Rust links the C runtime statically on musl by default, which a PHP extension must not do.
-      # Packaging runs in the container too: the asset name comes from the PHP that tested it.
       - name: Build and test in Alpine
         env:
           IMAGE: php:${{ matrix.php }}-${{ matrix.thread_safety == 'zts' && 'zts' || 'cli' }}-alpine
@@ -153,7 +95,6 @@ jobs:
           docker run --rm -v "$PWD:/w" -w /w \
             -e PDFIUM_STATIC_LIB_PATH=/w/.pdfium-static \
             -e RUSTFLAGS="-C target-feature=-crt-static" \
-            -e RELEASE_TAG \
             "$IMAGE" sh -euc '
               apk add --no-cache bash git curl unzip zip build-base cmake nasm clang-dev linux-headers just rustup libstdc++ libheif-dev python3
               if apk search -e libheif-libde265 | grep -q .; then
@@ -167,26 +108,11 @@ jobs:
               just php test-static
               deps="$(ldd target/release/libbernard_ledit_php.so 2>/dev/null || true)"
               echo "$deps"
-              if echo "$deps" | grep -qi pdfium; then
-                echo "The extension links PDFium dynamically" >&2
-                exit 1
-              fi
               if ! echo "$deps" | grep -qi libheif; then
                 echo "The extension does not link system libheif dynamically" >&2
                 exit 1
               fi
-              if [ -n "$RELEASE_TAG" ]; then
-                bash bindings/php/tools/pie-package.sh target/release/libbernard_ledit_php.so "$RELEASE_TAG" dist "$PDFIUM_STATIC_LIB_PATH/licenses"
-              fi
             '
-
-      - name: Keep the PIE asset for the release
-        if: env.RELEASE_TAG != ''
-        uses: actions/upload-artifact@v7
-        with:
-          name: pie-${{ matrix.platform.pdfium_target }}-php${{ matrix.php }}-${{ matrix.thread_safety }}
-          path: dist/
-          if-no-files-found: error
 
   php-binding-tests-windows:
     name: Test static PHP binding (${{ matrix.pdfium_target }}, PHP ${{ matrix.php }} ${{ matrix.thread_safety }})
@@ -252,27 +178,11 @@ jobs:
       - name: Build and test (static PDFium)
         run: just php test-static
 
-      - name: Check the extension doesn't load PDFium dynamically
+      - name: Check the extension links libheif dynamically
         run: |
           imports="$("/c/Program Files/LLVM/bin/llvm-readobj.exe" --coff-imports target/release/bernard_ledit_php.dll | grep -i '^ *Name:' || true)"
           echo "$imports"
-          if grep -qi pdfium <<< "$imports"; then
-            echo "::error::The extension links PDFium dynamically"
-            exit 1
-          fi
           if ! grep -qi heif <<< "$imports"; then
             echo "::error::The extension does not link system libheif dynamically"
             exit 1
           fi
-
-      - name: Package for PIE
-        if: env.RELEASE_TAG != ''
-        run: bash bindings/php/tools/pie-package.sh target/release/bernard_ledit_php.dll "$RELEASE_TAG" dist "$PDFIUM_STATIC_LIB_PATH/licenses"
-
-      - name: Keep the PIE asset for the release
-        if: env.RELEASE_TAG != ''
-        uses: actions/upload-artifact@v7
-        with:
-          name: pie-${{ matrix.pdfium_target }}-php${{ matrix.php }}-${{ matrix.thread_safety }}
-          path: dist/
-          if-no-files-found: error

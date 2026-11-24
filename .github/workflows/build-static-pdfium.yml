@@ -6,17 +6,9 @@ on:
         description: "Rebuild and overwrite targets that are already published"
         type: boolean
         default: false
-  # main-dev.yml calls it on every push to main; release-php.yml calls it with the release tag, so
-  # the tested extensions are also packaged for PIE. Version commits and releases only consume the
-  # libraries (build-missing: false): they never wait in the publish queue, so no later push can
-  # cancel them there.
+  # main-dev.yml builds missing libraries; releases only consume published libraries.
   workflow_call:
     inputs:
-      release-tag:
-        description: "Release tag to package the tested PHP extensions for; empty to only test"
-        type: string
-        required: false
-        default: ""
       build-missing:
         description: "Build unpublished libraries; when false, fail if any is missing"
         type: boolean
@@ -280,5 +272,3 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/_php-static-check.yml
-    with:
-      release-tag: ${{ inputs.release-tag || '' }}

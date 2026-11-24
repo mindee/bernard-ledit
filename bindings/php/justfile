@@ -8,11 +8,9 @@ ext_release := "../../target/release/" + ext_name
 default:
     @just --list
 
-# Builds the extension in debug mode.
 build:
     cargo build -p bernard-ledit-php
 
-# Builds the extension in release mode.
 build-release:
     cargo build -p bernard-ledit-php --release
 
@@ -33,7 +31,6 @@ reflect: build
 
 test *ARGS: composer-deps build (php-with "debug" "vendor/bin/phpunit " + ARGS)
 
-# Runs the PHPUnit suite against the release build.
 test-static: composer-deps build-release (php-with "static" "vendor/bin/phpunit")
 
 # Regenerates the IDE and PHPStan stub file from the debug build.

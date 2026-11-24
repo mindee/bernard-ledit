@@ -1,0 +1,171 @@
+name: Package PHP extension for PIE
+
+on:
+  workflow_call:
+    inputs:
+      release-tag:
+        description: Release tag used to name and validate the PIE archives
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  RELEASE_TAG: ${{ inputs.release-tag }}
+
+jobs:
+  package:
+    name: Package (${{ matrix.platform.pdfium_target }}, PHP ${{ matrix.php }} ${{ matrix.thread_safety }})
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { runner: ubuntu-latest,    pdfium_target: linux-x64-glibc,   extension: libbernard_ledit_php.so }
+          - { runner: ubuntu-24.04-arm, pdfium_target: linux-arm64-glibc, extension: libbernard_ledit_php.so }
+          - { runner: macos-latest,     pdfium_target: mac-arm64,         extension: libbernard_ledit_php.dylib }
+          - { runner: macos-15-intel,   pdfium_target: mac-x64,           extension: libbernard_ledit_php.dylib }
+        php: [ "8.2", "8.3", "8.4", "8.5" ]
+        thread_safety: [ "zts", "nts" ]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/setup-libheif
+      - uses: ./.github/actions/setup-clang
+        if: runner.os == 'Linux'
+      - name: Download static PDFium and licenses
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PDFIUM_TARGET: ${{ matrix.platform.pdfium_target }}
+        run: |
+          bash tools/pdfium-static/download.sh "$PDFIUM_TARGET" "$RUNNER_TEMP/pdfium-static"
+          echo "PDFIUM_STATIC_LIB_PATH=$RUNNER_TEMP/pdfium-static" >> "$GITHUB_ENV"
+      - uses: extractions/setup-just@v4
+      - uses: dtolnay/rust-toolchain@1.99.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: php-pie-${{ matrix.platform.pdfium_target }}-php${{ matrix.php }}-${{ matrix.thread_safety }}
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: composer:v2
+        env:
+          phpts: ${{ matrix.thread_safety }}
+      - name: Build and package
+        env:
+          EXTENSION: ${{ matrix.platform.extension }}
+        run: |
+          just php build-release
+          bash bindings/php/tools/pie-package.sh "target/release/$EXTENSION" "$RELEASE_TAG" dist "$PDFIUM_STATIC_LIB_PATH/licenses"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pie-${{ matrix.platform.pdfium_target }}-php${{ matrix.php }}-${{ matrix.thread_safety }}
+          path: dist/
+          if-no-files-found: error
+
+  package-musl:
+    name: Package (${{ matrix.platform.pdfium_target }}, PHP ${{ matrix.php }} ${{ matrix.thread_safety }})
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { runner: ubuntu-latest,    pdfium_target: linux-x64-musl }
+          - { runner: ubuntu-24.04-arm, pdfium_target: linux-arm64-musl }
+        php: [ "8.2", "8.3", "8.4", "8.5" ]
+        thread_safety: [ "zts", "nts" ]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - name: Download static PDFium and licenses
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PDFIUM_TARGET: ${{ matrix.platform.pdfium_target }}
+        run: bash tools/pdfium-static/download.sh "$PDFIUM_TARGET" .pdfium-static
+      - name: Build and package in Alpine
+        env:
+          IMAGE: php:${{ matrix.php }}-${{ matrix.thread_safety == 'zts' && 'zts' || 'cli' }}-alpine
+        run: |
+          docker run --rm -v "$PWD:/w" -w /w \
+            -e PDFIUM_STATIC_LIB_PATH=/w/.pdfium-static \
+            -e RUSTFLAGS="-C target-feature=-crt-static" \
+            -e RELEASE_TAG \
+            "$IMAGE" sh -euc '
+              apk add --no-cache bash git curl unzip zip build-base cmake nasm clang-dev linux-headers just rustup libstdc++ libheif-dev python3
+              if apk search -e libheif-libde265 | grep -q .; then
+                apk add --no-cache libheif-libde265
+              fi
+              pkg-config --atleast-version=1.17 libheif
+              python3 .github/actions/setup-libheif/check.py
+              rustup-init -y --default-toolchain none --profile minimal
+              . "$HOME/.cargo/env"
+              just php build-release
+              bash bindings/php/tools/pie-package.sh target/release/libbernard_ledit_php.so "$RELEASE_TAG" dist "$PDFIUM_STATIC_LIB_PATH/licenses"
+            '
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pie-${{ matrix.platform.pdfium_target }}-php${{ matrix.php }}-${{ matrix.thread_safety }}
+          path: dist/
+          if-no-files-found: error
+
+  package-windows:
+    name: Package (${{ matrix.pdfium_target }}, PHP ${{ matrix.php }} ${{ matrix.thread_safety }})
+    runs-on: windows-latest
+    env:
+      RUSTUP_TOOLCHAIN: nightly
+    strategy:
+      fail-fast: false
+      matrix:
+        php: [ "8.2", "8.3", "8.4", "8.5" ]
+        thread_safety: [ "zts", "nts" ]
+        include:
+          - { php: "8.2", msvc: "14.29", pdfium_target: win-x64-v142 }
+          - { php: "8.3", msvc: "14.29", pdfium_target: win-x64-v142 }
+          - { php: "8.4", msvc: "14.44", pdfium_target: win-x64-v143 }
+          - { php: "8.5", msvc: "14.44", pdfium_target: win-x64-v143 }
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      # MSVC setup changes VCPKG_ROOT; libheif must set it to the tree it installs into.
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+          toolset: ${{ matrix.msvc }}
+      - uses: ./.github/actions/setup-libheif
+      - name: Download static PDFium and licenses
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PDFIUM_TARGET: ${{ matrix.pdfium_target }}
+        run: |
+          bash tools/pdfium-static/download.sh "$PDFIUM_TARGET" "$RUNNER_TEMP/pdfium-static"
+          echo "PDFIUM_STATIC_LIB_PATH=$RUNNER_TEMP/pdfium-static" >> "$GITHUB_ENV"
+      - uses: extractions/setup-just@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: php-pie-${{ matrix.pdfium_target }}-php${{ matrix.php }}-${{ matrix.thread_safety }}
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: composer:v2
+        env:
+          phpts: ${{ matrix.thread_safety }}
+      - name: Remove Git's GNU link.exe
+        run: rm -f "/c/Program Files/Git/usr/bin/link.exe"
+      - name: Build and package
+        run: |
+          just php build-release
+          bash bindings/php/tools/pie-package.sh target/release/bernard_ledit_php.dll "$RELEASE_TAG" dist "$PDFIUM_STATIC_LIB_PATH/licenses"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pie-${{ matrix.pdfium_target }}-php${{ matrix.php }}-${{ matrix.thread_safety }}
+          path: dist/
+          if-no-files-found: error

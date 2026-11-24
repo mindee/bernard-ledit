@@ -1,8 +1,5 @@
 name: Release PHP extension
 
-# Builds, tests and packages the PHP extension for PIE on the release's own commit, then uploads one
-# archive per PHP version, thread safety and platform to the release. To retry, re-run the failed
-# jobs of this run: a fix to the code means a new tag.
 on:
   release:
     types: [ published ]
@@ -21,7 +18,7 @@ jobs:
         env:
           TAG: ${{ github.event.release.tag_name }}
         run: |
-          version="$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["workspace"]["package"]["version"])')"
+          version="$(yq -p=toml -o=yaml -r -e '.workspace.package.version' Cargo.toml)"
           if [ "${TAG#v}" != "$version" ]; then
             echo "::error::Tag $TAG doesn't match the workspace version $version in Cargo.toml"
             exit 1
@@ -32,15 +29,21 @@ jobs:
     needs: check-version
     permissions:
       contents: write
+    # TODO: useless ! REMOVE ME! THESE SHOULD RUN ONLY IF THE TESTS FROM OTHER WORKFLOW PASSES
     uses: ./.github/workflows/build-static-pdfium.yml
     with:
-      release-tag: ${{ github.event.release.tag_name }}
       build-missing: false
+
+  package:
+    needs: build-and-test
+    uses: ./.github/workflows/_package-php-pie.yml
+    with:
+      release-tag: ${{ github.event.release.tag_name }}
 
   # Runs only once every job has passed, so a release never gets a partial set of assets.
   publish:
     name: Upload the PIE assets
-    needs: build-and-test
+    needs: package
     runs-on: ubuntu-latest
     permissions:
       contents: write
