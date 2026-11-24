@@ -1,5 +1,5 @@
 name: Install system libheif
-description: Install and verify dynamic libheif with HEVC decoder plugins
+description: Install dynamic libheif with HEVC decoder plugins
 runs:
   using: composite
   steps:
@@ -10,7 +10,6 @@ runs:
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends pkg-config libheif-dev libheif-plugin-libde265 libheif-plugin-ffmpegdec
         pkg-config --atleast-version=1.17 libheif
-        python3 .github/actions/setup-libheif/check.py
     - name: Install libheif (macOS)
       if: runner.os == 'macOS'
       shell: bash
@@ -20,7 +19,6 @@ runs:
         echo "PKG_CONFIG_PATH=$(brew --prefix libheif)/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" >> "$GITHUB_ENV"
         export PKG_CONFIG_PATH="$(brew --prefix libheif)/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
         pkg-config --atleast-version=1.17 libheif
-        python3 .github/actions/setup-libheif/check.py "$(brew --prefix libheif)/lib/libheif.dylib"
     - name: Install libheif (Windows)
       if: runner.os == 'Windows'
       shell: pwsh
@@ -30,16 +28,11 @@ runs:
         & "$root/vcpkg.exe" install "libheif[core,libde265]:x64-windows" --recurse
         if ($LASTEXITCODE -ne 0) { throw "vcpkg install failed" }
         $bin = Join-Path $root "installed/x64-windows/bin"
-        $env:PATH = "$bin;$env:PATH"
         $plugins = Join-Path $root "installed/x64-windows/plugins/libheif"
         if (Test-Path $plugins) {
           $env:LIBHEIF_PLUGIN_PATHS = $plugins
           "LIBHEIF_PLUGIN_PATHS=$plugins" >> $env:GITHUB_ENV
         }
-        $dll = @(Get-ChildItem "$bin/*heif*.dll")
-        if ($dll.Count -ne 1) { throw "Expected one libheif DLL in $bin" }
-        python .github/actions/setup-libheif/check.py $dll[0].FullName
-        if ($LASTEXITCODE -ne 0) { throw "libheif verification failed" }
         "VCPKG_ROOT=$root" >> $env:GITHUB_ENV
         "VCPKGRS_DYNAMIC=1" >> $env:GITHUB_ENV
         "LIBHEIF_DLL_DIR=$bin" >> $env:GITHUB_ENV

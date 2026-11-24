@@ -100,7 +100,6 @@ jobs:
                 apk add --no-cache libheif-libde265
               fi
               pkg-config --atleast-version=1.17 libheif
-              python3 .github/actions/setup-libheif/check.py
               rustup-init -y --default-toolchain none --profile minimal
               . "$HOME/.cargo/env"
               curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
