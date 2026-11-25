@@ -28,7 +28,7 @@ format-check:
     mypy .
 
 stubs-check:
-    python -m mypy.stubtest bernard_ledit --allowlist stubtest-allowlist.txt
+    python -m mypy.stubtest bernard_ledit
 
 test: build
     #!/usr/bin/env bash
