@@ -13,10 +13,16 @@ wheel:
     maturin build --release
 
 clean:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo clean -p bernard-ledit-python
+    target_dir="$(cargo metadata --no-deps --format-version 1 | yq -p=json -o=yaml -r -e '.target_directory')"
+    rm -f "$target_dir"/wheels/bernard_ledit-*.whl
     rm -rf target/
     rm -rf *.egg-info/
     find . -type d -name "__pycache__" -exec rm -rf {} +
     rm -rf ./**/*.abi3.so
+    rm -f bernard_ledit/_bernard_ledit*.so bernard_ledit/_bernard_ledit*.pyd
 
 format:
     ruff format .

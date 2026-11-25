@@ -8,6 +8,7 @@ build:
     cd bernard-ledit && mvn clean package
 
 clean:
+    cargo clean -p bernard-ledit-java
     cd bernard-ledit && mvn clean
 
 format:

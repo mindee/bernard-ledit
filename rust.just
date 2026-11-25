@@ -9,7 +9,7 @@ build-release:
     cargo build --release -p bernard-ledit
 
 clean:
-    cargo clean
+    cargo clean -p bernard-ledit
 
 format:
     cargo fmt --all

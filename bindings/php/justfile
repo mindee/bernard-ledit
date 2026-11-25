@@ -14,8 +14,8 @@ build:
 build-release:
     cargo build -p bernard-ledit-php --release
 
-# Removes the Composer dependencies; the root `just clean` removes the shared cargo target.
 clean:
+    cargo clean -p bernard-ledit-php
     rm -rf vendor/
 
 format:
