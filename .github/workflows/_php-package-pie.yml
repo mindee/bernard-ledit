@@ -30,7 +30,7 @@ jobs:
           - { runner: ubuntu-24.04-arm, pdfium_target: linux-arm64-glibc, extension: libbernard_ledit_php.so }
           - { runner: macos-latest,     pdfium_target: mac-arm64,         extension: libbernard_ledit_php.dylib }
           - { runner: macos-15-intel,   pdfium_target: mac-x64,           extension: libbernard_ledit_php.dylib }
-
+        php: ${{ fromJSON(vars.PHP_VERSIONS) }}
         thread_safety: [ "zts", "nts" ]
     steps:
       - uses: actions/checkout@v6
