@@ -23,7 +23,7 @@ jobs:
     uses: ./.github/workflows/_python-binding-tests.yml
     needs: pre-commit
     with:
-      python-versions: '["3.11"]'
+      python-versions: ${{ vars.PYTHON_VERSIONS }}
 
   php-binding-tests:
     uses: ./.github/workflows/_php-binding-tests.yml
