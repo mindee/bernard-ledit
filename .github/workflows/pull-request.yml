@@ -31,8 +31,9 @@ jobs:
     with:
       php-versions: ${{ vars.PHP_VERSIONS }}
 
-  java-binding-tests:
-    uses: ./.github/workflows/_java-binding-tests.yml
-    needs: pre-commit
-    with:
-      java-versions: '["11"]'
+  # TODO: uncomment when Java is implemented
+  # java-binding-tests:
+  #   uses: ./.github/workflows/_java-binding-tests.yml
+  #   needs: pre-commit
+  #   with:
+  #     java-versions: '["11"]'
