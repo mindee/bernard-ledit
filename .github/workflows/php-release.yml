@@ -1,0 +1,56 @@
+name: Release PHP extension
+
+on:
+  release:
+    types: [ published ]
+
+permissions:
+  contents: read
+
+jobs:
+  check-version:
+    name: Check the tag matches the version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Compare the tag with the workspace version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="$(yq -p=toml -o=yaml -r -e '.workspace.package.version' Cargo.toml)"
+          if [ "${TAG#v}" != "$version" ]; then
+            echo "::error::Tag $TAG doesn't match the workspace version $version in Cargo.toml"
+            exit 1
+          fi
+
+  package:
+    needs: check-version
+    uses: ./.github/workflows/_php-package-pie.yml
+    with:
+      release-tag: ${{ github.event.release.tag_name }}
+
+  # Runs only once every job has passed, so a release never gets a partial set of assets.
+  publish:
+    name: Upload the PIE assets
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Collect the PIE assets
+        uses: actions/download-artifact@v4
+        with:
+          pattern: pie-*
+          merge-multiple: true
+          path: dist
+
+      - name: Upload them to the release
+        working-directory: dist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          ls -1 ./*.zip
+          sha256sum ./*.zip > SHA256SUMS-php
+          gh release upload "$TAG" ./*.zip SHA256SUMS-php --clobber --repo "$GITHUB_REPOSITORY"

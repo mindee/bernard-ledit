@@ -6,6 +6,8 @@ ignore = [
     # paste is unmaintained (RUSTSEC-2024-0436) but is a transitive dep via
     # rav1e -> ravif -> image with no available upgrade path.
     { id = "RUSTSEC-2024-0436", reason = "Transitive dep via rav1e/ravif/image; no upstream fix available" },
+    # chrono is a transitive dep via pdfium-render with no available upgrade path.
+    { id = "RUSTSEC-2026-0543", reason = "Transitive dep via pdfium-render; no upstream fix available" },
     { id = "RUSTSEC-2026-0374", reason = "basic-toml via askama_derive <- uniffi_bindgen (build-time only); no upstream fix yet" },
 ]
 

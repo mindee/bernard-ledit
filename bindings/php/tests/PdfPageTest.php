@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
+use BernardLedit\Image\Image;
 use BernardLedit\Pdf\PdfDocument;
 
 require_once __DIR__ . '/config.php';
@@ -21,44 +22,21 @@ final class PdfPageTest extends TestCase
         self::assertSame(2, $doc->getPage(2)->getIndex());
     }
 
-    public function testSizeReturnsPositiveWidthAndHeight(): void
+    public function testTextIsEmptyOnBlankPage(): void
     {
         $doc = new PdfDocument(self::loadFileContents('blank_1.pdf'));
-        [$width, $height] = $doc->getPage(0)->getSize();
+        self::assertSame('', $doc->getPage(0)->getText());
+    }
 
+    public function testRenderReturnsImage(): void
+    {
+        $doc = new PdfDocument(self::loadFileContents('blank_1.pdf'));
+        $image = $doc->getPage(0)->render();
+
+        self::assertInstanceOf(Image::class, $image);
+        [$width, $height] = $image->getSize();
         self::assertGreaterThan(0, $width);
         self::assertGreaterThan(0, $height);
-    }
-
-    public function testIsEmptyTrueForBlankPage(): void
-    {
-        $doc = new PdfDocument(self::loadFileContents('blank_1.pdf'));
-        self::assertTrue($doc->getPage(0)->isEmpty());
-    }
-
-    public function testIsEmptyFalseForMultipage(): void
-    {
-        $doc = new PdfDocument(self::loadFileContents('multipage.pdf'));
-        self::assertFalse($doc->getPage(0)->isEmpty());
-    }
-
-    public function testTextAndCharsAreEmptyOnBlankPage(): void
-    {
-        $doc = new PdfDocument(self::loadFileContents('blank_1.pdf'));
-        $page = $doc->getPage(0);
-
-        self::assertSame('', $page->getText());
-        self::assertSame([], $page->getChars());
-    }
-
-    public function testRenderReturnsBitmap(): void
-    {
-        $doc = new PdfDocument(self::loadFileContents('blank_1.pdf'));
-        $bitmap = $doc->getPage(0)->renderToBitmap();
-
-        self::assertInstanceOf(\BernardLedit\Pdf\PdfBitmap::class, $bitmap);
-        self::assertGreaterThan(0, $bitmap->getWidth());
-        self::assertGreaterThan(0, $bitmap->getHeight());
     }
 
     public function testRenderDefaultScaleIsOne(): void
@@ -66,11 +44,10 @@ final class PdfPageTest extends TestCase
         $doc = new PdfDocument(self::loadFileContents('blank_1.pdf'));
         $page = $doc->getPage(0);
 
-        $defaultScale = $page->renderToBitmap();
-        $explicitOne = $page->renderToBitmap(1.0);
+        $defaultScale = $page->render();
+        $explicitOne = $page->render(1.0);
 
-        self::assertSame($defaultScale->getWidth(), $explicitOne->getWidth());
-        self::assertSame($defaultScale->getHeight(), $explicitOne->getHeight());
+        self::assertSame($defaultScale->getSize(), $explicitOne->getSize());
     }
 
     public function testRenderScaleAffectsSize(): void
@@ -78,11 +55,11 @@ final class PdfPageTest extends TestCase
         $doc = new PdfDocument(self::loadFileContents('blank_1.pdf'));
         $page = $doc->getPage(0);
 
-        $small = $page->renderToBitmap(1.0);
-        $large = $page->renderToBitmap(2.0);
+        [$smallWidth, $smallHeight] = $page->render(1.0)->getSize();
+        [$largeWidth, $largeHeight] = $page->render(2.0)->getSize();
 
-        self::assertGreaterThanOrEqual($small->getWidth() * 2 - 1, $large->getWidth());
-        self::assertGreaterThanOrEqual($small->getHeight() * 2 - 1, $large->getHeight());
+        self::assertGreaterThanOrEqual($smallWidth * 2 - 1, $largeWidth);
+        self::assertGreaterThanOrEqual($smallHeight * 2 - 1, $largeHeight);
     }
 
     public function testOperationsOnPageFromClosedDocumentThrow(): void
@@ -92,6 +69,6 @@ final class PdfPageTest extends TestCase
         $doc->close();
 
         $this->expectException(\Exception::class);
-        $page->getSize();
+        $page->getText();
     }
 }

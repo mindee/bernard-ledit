@@ -11,18 +11,10 @@ on:
   workflow_dispatch:
     inputs:
       python_version:
-        description: "Select a Python version to test (or all)"
-        type: choice
+        description: "Enter a Python version to test, or All"
+        type: string
         required: true
-        default: "3.9"
-        options:
-          - "3.9"
-          - "3.10"
-          - "3.11"
-          - "3.12"
-          - "3.13"
-          - "3.14"
-          - "All"
+        default: "All"
 permissions:
   contents: read
 
@@ -39,21 +31,18 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
-        python: ${{ fromJSON(github.event_name == 'workflow_dispatch' && (inputs.python_version == 'All' && '["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]' || format('["{0}"]', inputs.python_version)) || inputs['python-versions']) }}
+        python: ${{ fromJSON(github.event_name == 'workflow_dispatch' && (inputs.python_version != 'All' && format('[{0}]', toJSON(inputs.python_version)) || vars.PYTHON_VERSIONS) || inputs['python-versions']) }}
 
     steps:
       - uses: actions/checkout@v6
         with:
           submodules: recursive
 
-      - name: Cache PDFium binary
-        uses: actions/cache@v6
-        with:
-          path: core/.pdfium_cache
-          key: pdfium-v1-${{ runner.os }}-${{ hashFiles('core/build.rs', 'core/Cargo.toml') }}
+      - uses: ./.github/actions/setup-libheif
+
+      - uses: ./.github/actions/setup-pdfium
 
       - uses: extractions/setup-just@v4
-
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@1.99.0
 
@@ -70,14 +59,25 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
 
+      - name: Create a virtualenv
+        shell: bash
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          echo "VIRTUAL_ENV=$RUNNER_TEMP/venv" >> "$GITHUB_ENV"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            echo "$RUNNER_TEMP/venv/Scripts" >> "$GITHUB_PATH"
+          else
+            echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
+          fi
+
       - name: Set up uv
         uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
           cache-dependency-glob: bindings/python/pyproject.toml
 
-      - name: Install Python dependencies
-        run: uv pip install --system -e ".[test]"
+      - name: Install Maturin
+        run: uv pip install "maturin>=1.0,<2.0"
         working-directory: bindings/python
 
       - name: Run Python binding tests

@@ -17,7 +17,7 @@ name = "bernard_ledit_php"
 crate-type = ["cdylib"]
 
 [dependencies]
-bernard-ledit = { path = "../../core", features = ["full"] }
+bernard-ledit = { path = "../../core" }
 ext-php-rs = "=0.16.3"
 
 [build-dependencies]
@@ -25,9 +25,3 @@ ext-php-rs = { version = "=0.16.3", features = ["closure"] }
 
 [lints]
 workspace = true
-
-[features]
-static-link = ["bernard-ledit/static-link"]
-static-pdfium = ["static-link", "bernard-ledit/static-pdfium"]
-static-pdfium-libcxx = ["static-link", "bernard-ledit/static-pdfium-libcxx"]
-static-pdfium-msvc = ["static-link", "bernard-ledit/static-pdfium-msvc"]

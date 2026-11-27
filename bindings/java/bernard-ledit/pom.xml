@@ -10,7 +10,7 @@
     <packaging>jar</packaging>
 
     <name>Bernard l'Édit</name>
-    <description>Java bindings for Bernard l'Édit - PDF, image, and geometry utilities.</description>
+    <description>Java bindings for Bernard l'Édit - PDF and image utilities.</description>
     <url>https://github.com/mindee/bernard-ledit</url>
 
     <licenses>
@@ -38,6 +38,7 @@
         <maven.compiler.target>11</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <junit.version>5.10.2</junit.version>
+        <google-java-format.version>1.24.0</google-java-format.version>
     </properties>
 
     <dependencies>
@@ -100,7 +101,9 @@
                 <version>2.46.1</version>
                 <configuration>
                     <java>
-                        <googleJavaFormat/>
+                        <googleJavaFormat>
+                            <version>${google-java-format.version}</version>
+                        </googleJavaFormat>
                     </java>
                 </configuration>
             </plugin>
@@ -121,4 +124,17 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- Keep the formatter compatible with the Java 11-21 CI matrix and newer javac internals. -->
+        <profile>
+            <id>jdk-25-google-java-format</id>
+            <activation>
+                <jdk>[25,)</jdk>
+            </activation>
+            <properties>
+                <google-java-format.version>1.35.0</google-java-format.version>
+            </properties>
+        </profile>
+    </profiles>
 </project>

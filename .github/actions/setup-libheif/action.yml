@@ -1,0 +1,40 @@
+name: Install system libheif
+description: Install dynamic libheif with HEVC decoder plugins
+runs:
+  using: composite
+  steps:
+    - name: Install libheif (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends pkg-config zlib1g-dev libheif-dev libheif-plugin-libde265 libheif-plugin-ffmpegdec
+        pkg-config --atleast-version=1.17 libheif
+        pkg-config --libs --cflags libheif
+    - name: Install libheif (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        brew list libheif >/dev/null 2>&1 || brew install libheif
+        brew list pkgconf >/dev/null 2>&1 || brew install pkgconf
+        echo "PKG_CONFIG_PATH=$(brew --prefix libheif)/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" >> "$GITHUB_ENV"
+        export PKG_CONFIG_PATH="$(brew --prefix libheif)/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+        pkg-config --atleast-version=1.17 libheif
+    - name: Install libheif (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $root = $env:VCPKG_INSTALLATION_ROOT
+        if (-not $root) { throw "VCPKG_INSTALLATION_ROOT is not set" }
+        & "$root/vcpkg.exe" install "libheif[core,libde265]:x64-windows" --recurse
+        if ($LASTEXITCODE -ne 0) { throw "vcpkg install failed" }
+        $bin = Join-Path $root "installed/x64-windows/bin"
+        $plugins = Join-Path $root "installed/x64-windows/plugins/libheif"
+        if (Test-Path $plugins) {
+          $env:LIBHEIF_PLUGIN_PATHS = $plugins
+          "LIBHEIF_PLUGIN_PATHS=$plugins" >> $env:GITHUB_ENV
+        }
+        "VCPKG_ROOT=$root" >> $env:GITHUB_ENV
+        "VCPKGRS_DYNAMIC=1" >> $env:GITHUB_ENV
+        "LIBHEIF_DLL_DIR=$bin" >> $env:GITHUB_ENV
+        $bin >> $env:GITHUB_PATH

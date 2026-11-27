@@ -1,5 +1,4 @@
 //! PDF utilities of the php bindings for bernard-ledit
-pub mod bitmap;
 pub mod document;
 pub mod error;
 mod fix;
@@ -7,26 +6,14 @@ pub mod page;
 mod page_options;
 pub mod text_char;
 
-use ext_php_rs::{
-    flags::IniEntryPermission,
-    prelude::*,
-    zend::{IniEntryDef, IniEntryDefs},
-};
-use std::ffi::CStr;
+use ext_php_rs::prelude::*;
 use std::sync::OnceLock;
 
-#[cfg(not(feature = "static-link"))]
-use ext_php_rs::zend::ExecutorGlobals;
-
-pub const INI_PDFIUM_PATH: &CStr = c"bernard_ledit.pdfium_path";
-
-/// Register classes and ini entries.
-/// Register classes and ini entries.
+/// Register classes and functions.
 pub fn register(module: ModuleBuilder) -> ModuleBuilder {
     let module = module
         .class::<document::PhpPdfDocument>()
         .class::<page::PdfPage>()
-        .class::<bitmap::PhpPdfBitmap>()
         .class::<text_char::PhpTextChar>();
 
     let module = document::register_functions(module);
@@ -34,15 +21,6 @@ pub fn register(module: ModuleBuilder) -> ModuleBuilder {
 
     page_options::register_functions(module)
 }
-/// Called from MINIT (`lib.rs::startup`).
-pub fn register_ini(mod_num: i32) {
-    static INI_ENTRIES: IniEntryDefs<2> = IniEntryDefs::new([
-        IniEntryDef::new(INI_PDFIUM_PATH, c"", IniEntryPermission::System),
-        IniEntryDef::end(),
-    ]);
-    IniEntryDef::register(INI_ENTRIES.as_slice(), mod_num);
-}
-
 /// Ensures pdfium is bound.
 /// # Errors
 /// Returns a `PhpException` if pdfium could not be bound.
@@ -54,42 +32,6 @@ pub(crate) fn ensure_pdfium() -> PhpResult<()> {
         .map_err(crate::exceptions::pdfium_exception)
 }
 
-#[cfg(feature = "static-link")]
 fn bind_pdfium() -> Result<(), bernard_ledit::pdf::PdfError> {
-    bernard_ledit::pdf::initialize_static()
-}
-
-#[cfg(not(feature = "static-link"))]
-fn bind_pdfium() -> Result<(), bernard_ledit::pdf::PdfError> {
-    use bernard_ledit::pdf::{PdfError, initialize};
-    let ini = ExecutorGlobals::get().ini_values();
-    let from_ini = ini
-        .get(INI_PDFIUM_PATH.to_str().unwrap())
-        .cloned()
-        .flatten()
-        .filter(|s| !s.is_empty());
-    let ext_dir = ini.get("extension_dir").cloned().flatten();
-    let candidates = [
-        std::env::var("PDFIUM_PATH").ok(),
-        from_ini,
-        ext_dir.map(|d| {
-            format!(
-                "{d}/{}pdfium{}",
-                std::env::consts::DLL_PREFIX,
-                std::env::consts::DLL_SUFFIX
-            )
-        }),
-    ];
-    let mut last = None;
-    for path in candidates.into_iter().flatten() {
-        match initialize(&path) {
-            Ok(()) => return Ok(()),
-            Err(e) => last = Some(e),
-        }
-    }
-    Err(last.unwrap_or_else(|| {
-        PdfError::Other(
-            "libpdfium not found: set PDFIUM_PATH env or bernard_ledit.pdfium_path INI".into(),
-        )
-    }))
+    bernard_ledit::pdf::initialize()
 }

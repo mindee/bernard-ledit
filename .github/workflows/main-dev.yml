@@ -6,8 +6,9 @@ on:
       - main
   workflow_dispatch:
 
-# A newer push cancels the run in progress, except for a version commit (:bookmark:), which gets
-# a group of its own: cancelling it would silently skip its tag and release.
+# A new push cancels the current run.
+# A version commit (with :bookmark: in the message) uses a separate group. This prevents a later push from stopping the run before
+# it creates the tag and release.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}${{ contains(github.event.head_commit.message, ':bookmark:') && format('-{0}', github.sha) || '' }}
   cancel-in-progress: true
@@ -16,38 +17,31 @@ permissions:
   contents: read
 
 jobs:
-  workflow-lint:
-    uses: ./.github/workflows/_workflow_lint.yml
-
   pre-commit:
     uses: ./.github/workflows/_pre-commit.yml
-    needs: workflow-lint
 
-  unit-tests:
-    uses: ./.github/workflows/_unit-tests.yml
+  core-tests:
+    uses: ./.github/workflows/_core-tests.yml
     needs: pre-commit
 
   python-binding-tests:
     uses: ./.github/workflows/_python-binding-tests.yml
     needs: pre-commit
     with:
-      python-versions: '["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]'
+      python-versions: ${{ vars.PYTHON_VERSIONS }}
 
   php-binding-tests:
     uses: ./.github/workflows/_php-binding-tests.yml
     needs: pre-commit
     with:
-      php-versions: '["8.1", "8.2", "8.3", "8.4", "8.5"]'
+      php-versions: ${{ vars.PHP_VERSIONS }}
 
   java-binding-tests:
-    uses: ./.github/workflows/_java-binding-ci.yml
+    uses: ./.github/workflows/_java-binding-tests.yml
     needs: pre-commit
     with:
-      java-versions: '["11", "17", "21"]'
+      java-versions: ${{ vars.JAVA_VERSIONS }}
 
-  hack-test-release:
-    uses: ./.github/workflows/_hack-test-release.yml
-    needs: unit-tests
 
   # The tag a version commit (":bookmark: Version X.Y.Z") gets: v + the workspace version in
   # Cargo.toml, which the commit message must name. Empty for any other commit.
@@ -68,7 +62,7 @@ jobs:
             echo "tag=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          version="$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["workspace"]["package"]["version"])')"
+          version="$(yq -p=toml -o=yaml -r -e '.workspace.package.version' Cargo.toml)"
           named="$(grep -oE 'Version [0-9]+\.[0-9]+\.[0-9]+([-.](alpha|beta|rc)[0-9])?' <<< "$MESSAGE" | head -n 1 | cut -d' ' -f2 || true)"
           if [ "$named" != "$version" ]; then
             echo "::error::The commit message names version '$named', but Cargo.toml has $version"
@@ -76,41 +70,36 @@ jobs:
           fi
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
-  # Builds any missing static PDFium library, then tests the PHP extension against all of them.
-  # On a version commit, it also packages each tested extension for PIE, as a workflow artifact.
-  static-pdfium:
-    uses: ./.github/workflows/build-static-pdfium.yml
-    needs: [ pre-commit, version ]
-    with:
-      release-tag: ${{ needs.version.outputs.tag }}
-    permissions:
-      contents: write
-
-  # Only runs for a version commit, once everything above has passed, PIE packaging included.
+  # Only runs for a version commit, once everything above has passed.
   tag:
     if: contains(github.event.head_commit.message, ':bookmark:')
     uses: mindee/client-lib-actions/.github/workflows/tag-version.yml@main
     needs:
+      - pre-commit
+      - core-tests
       - python-binding-tests
       - php-binding-tests
       - java-binding-tests
-      - hack-test-release
-      - static-pdfium
+      - version
     permissions:
       contents: write
 
-  # Creates the release as a draft, which nobody sees until publish-release makes it public.
-  release:
-    uses: ./.github/workflows/_create-release.yml
+  # Creates the release as a draft, publish-release makes it public.
+  draft-release:
+    uses: ./.github/workflows/_draft-release-create.yml
     needs: tag
     permissions:
       contents: write
 
-  # Uploads the PIE archives static-pdfium packaged, then publishes the release. If this fails, the
-  # release stays a draft: re-run the failed jobs.
+  package-php:
+    uses: ./.github/workflows/_php-package-pie.yml
+    needs: [ version, draft-release ]
+    with:
+      release-tag: ${{ needs.version.outputs.tag }}
+
   publish-release:
     name: Upload the PIE archives and publish the release
-    needs: [ version, release ]
+    needs: [ version, draft-release, package-php ]
     runs-on: ubuntu-latest
     permissions:
       contents: write

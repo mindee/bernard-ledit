@@ -1,5 +1,6 @@
 [package]
 name = "bernard-ledit"
+# inherit the following from the workspace's cargo.toml
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -19,27 +20,19 @@ development = ["cargo-husky"]
 [lib]
 crate-type = ["cdylib", "rlib"]
 
-[features]
-default = []
-pdf = []
-image = []
-full = ["pdf", "image"]
-static-link = ["pdf", "pdfium-render/static"]
-static-pdfium = ["static-link", "pdfium-render/libstdc++"]        # Linux (glibc, musl)
-static-pdfium-libcxx = ["static-link", "pdfium-render/libc++"]    # macOS
-static-pdfium-msvc = ["static-link"]   # Windows: MSVC links its C++ runtime itself
-
 [dependencies]
-serde = { version = "1.0.228", features = ["derive"] }
-pdfium-render = "0.9.4"
 thiserror = "2.0.18"
+pdfium-render = { version = "0.9.4", features = ["static"] }
 image = "0.25.9"
-mozjpeg = "0.10.13"
+jpeg-encoder = "0.7.1"
+# setting features to 1_17 to support older versions of libheif
+libheif-rs = { version = "3.0", default-features = false, features = ["v1_17"] }
 
-[build-dependencies]
-tar = "0.4.45"
-flate2 = "1.1.9"
-ureq = "3.3.0"
+[target.'cfg(target_os = "linux")'.dependencies]
+pdfium-render = { version = "0.9.4", features = ["libstdc++"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+pdfium-render = { version = "0.9.4", features = ["libc++", "core_graphics"] }
 
 [dev-dependencies]
 test-case = { version = "3.3" }

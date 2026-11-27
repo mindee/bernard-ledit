@@ -28,7 +28,7 @@ final class ExtractDocumentsTest extends TestCase
     public function testOutputRoundtrips(): void
     {
         [$doc] = extractFromPageRanges($this->loadFileContents('pdf/multipage.pdf'), [[0, 1]]);
-        $bytes = $doc->asBytes();
+        $bytes = $doc->toBytes();
         $this->assertStringStartsWith('%PDF-', $bytes);
         $this->assertSame(2, (new PdfDocument($bytes))->getPageCount());
     }

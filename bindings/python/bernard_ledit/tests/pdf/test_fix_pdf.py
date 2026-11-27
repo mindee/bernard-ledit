@@ -20,9 +20,11 @@ def test_fix_pdf_uses_first_marker_when_several_exist():
     assert fix_pdf(data) == b"%PDF-1 cd%PDF-2"
 
 
-def test_fix_pdf_binary_io_support():
+def test_fix_pdf_rejects_file_like_without_reading():
     stream = io.BytesIO(b"junk%PDF-1.5 stream data")
-    assert fix_pdf(stream) == b"%PDF-1.5 stream data"
+    with pytest.raises(TypeError):
+        fix_pdf(stream)
+    assert stream.tell() == 0
 
 
 def test_fix_pdf_respects_maximum_offset():

@@ -1,0 +1,248 @@
+name: Static PDFium
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Rebuild and overwrite targets that are already published"
+        type: boolean
+        default: false
+permissions:
+  contents: read
+
+jobs:
+  # Targets live in tools/pdfium-static/targets.json. win-arm64 builds on windows-2022: the
+  # VS 2026 image behind windows-latest has no ARM64 libraries for the 14.44 toolset.
+  plan:
+    name: Find the targets to build
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.plan.outputs.release }}
+      targets: ${{ steps.plan.outputs.targets }}
+    steps:
+      - uses: actions/checkout@v6
+
+      # A target is up to date once its library, its licenses and both checksums are published.
+      - name: List the unpublished targets
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          release="pdfium-static-$(tr -d '[:space:]' < core/pdfium-release)"
+          release="${release//\//_}"
+          published="$(gh release view "$release" --json assets --jq '[.assets[].name]' 2>/dev/null || echo '[]')"
+          targets="$(jq -c --argjson published "$published" --arg force "$FORCE" '
+            def is_published($name): $published | any(.[]; . == $name);
+            map(select(
+              "libpdfium-\(.target).\(if .os == "win" then "lib" else "a" end)" as $asset
+              | "libpdfium-\(.target)-licenses.tar.gz" as $licenses
+              | $force == "true"
+                or ([$asset, $asset + ".sha256", $licenses, $licenses + ".sha256"] | all(is_published(.)) | not)
+            ))' tools/pdfium-static/targets.json)"
+          missing="$(jq -r 'map(.target) | join(", ")' <<< "$targets")"
+          echo "release=$release" >> "$GITHUB_OUTPUT"
+          echo "targets=$targets" >> "$GITHUB_OUTPUT"
+          echo "To build: ${missing:-nothing}"
+
+  build:
+    name: Build ${{ matrix.target }}
+    needs: plan
+    if: needs.plan.outputs.targets != '[]'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      # googlesource throttles parallel gclient syncs.
+      max-parallel: 2
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.targets) }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      PDFIUM_OS: ${{ matrix.os }}
+      PDFIUM_CPU: ${{ matrix.cpu }}
+      PDFIUM_ENV: ${{ matrix.env }}
+      MSVC_TOOLSET: ${{ matrix.msvc }}
+      # Makes depot_tools use the runner's Visual Studio instead of Google's internal toolchain.
+      DEPOT_TOOLS_WIN_TOOLCHAIN: "0"
+      WORK_DIR: ${{ matrix.os == 'win' && 'C:/pdfium-static' || '/tmp/pdfium-static' }}
+      OUT_DIR: ${{ github.workspace }}/out
+      LIB_NAME: ${{ matrix.os == 'win' && 'pdfium.lib' || 'libpdfium.a' }}
+      ASSET: libpdfium-${{ matrix.target }}.${{ matrix.os == 'win' && 'lib' || 'a' }}
+    steps:
+      - uses: actions/checkout@v6
+
+      # Sources only: Ninja could reuse stale objects from a cached out/ after a toolchain change.
+      - name: Cache the PDFium sources
+        uses: actions/cache@v6
+        with:
+          path: |
+            ${{ env.WORK_DIR }}/pdfium-binaries/pdfium
+            !${{ env.WORK_DIR }}/pdfium-binaries/pdfium/out
+          key: pdfium-src-${{ hashFiles('core/pdfium-release') }}-${{ matrix.target }}
+
+      # Chromium's checkout has paths beyond Windows' default length limit. The runner's LLVM is the
+      # namespacer's fallback for tools that Chromium's LLVM package lacks.
+      - name: Prepare the Windows build
+        if: runner.os == 'Windows'
+        run: |
+          git config --global core.longpaths true
+          echo "C:/Program Files/LLVM/bin" >> "$GITHUB_PATH"
+
+      - name: Set up Python (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # Retries the build when it fails on a network error, which googlesource returns under load.
+      # A build that prints nothing for 30 minutes is stuck: the watchdog lists its processes, then
+      # kills Ninja, so the build fails instead of running into the job's 6-hour limit. The step's
+      # own limit leaves time to upload the build log.
+      - name: Build
+        timeout-minutes: 300
+        run: |
+          bash tools/pdfium-static/watchdog.sh build.log 1800 &
+          watchdog=$!
+          trap 'kill "$watchdog" 2>/dev/null || true' EXIT
+          max_attempts=5
+          for attempt in $(seq "$max_attempts"); do
+            if bash tools/pdfium-static/build.sh 2>&1 | tee build.log; then
+              exit 0
+            fi
+            if ! tail -n 60 build.log | grep -qE 'HTTP 5[0-9]{2}|RPC failed|Could not resolve host'; then
+              exit 1
+            fi
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              delay=$((attempt * 120 + RANDOM % 60))
+              echo "::warning::Network failure on attempt $attempt/$max_attempts, retrying in ${delay}s"
+              sleep "$delay"
+            fi
+          done
+          echo "::error::Network failures persisted after $max_attempts attempts"
+          exit 1
+
+      # The Linux build runs as root in Docker; the cache can only save files the runner user can read.
+      - name: Fix ownership (Linux)
+        if: runner.os == 'Linux'
+        run: sudo chown -R "$(id -u):$(id -g)" "$WORK_DIR"
+
+      - name: Pin the target MSVC toolset (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.cpu == 'arm64' && 'amd64_arm64' || 'x64' }}
+          toolset: ${{ matrix.msvc }}
+
+      # Links a throwaway DLL that pulls in the PDFium API bernard-ledit uses, with the target
+      # toolset's link.exe and runtime libraries. This entry-point-less link also leaves the C
+      # runtime's startup objects unresolved, so only symbols referenced from pdfium.lib count.
+      # The full path avoids Git Bash's GNU `link`.
+      - name: Check the library links with the target toolset (Windows)
+        if: runner.os == 'Windows'
+        env:
+          MACHINE: ${{ matrix.cpu == 'arm64' && 'ARM64' || 'X64' }}
+        run: |
+          link_exe="$(cygpath -u "$VCToolsInstallDir")/bin/Hostx64/$PDFIUM_CPU/link.exe"
+          [ -f "$link_exe" ] || { echo "::error::link.exe not found at $link_exe"; exit 1; }
+          MSYS_NO_PATHCONV=1 "$link_exe" /NOLOGO /DLL /NOENTRY "/MACHINE:$MACHINE" /OUT:linktest.dll \
+            /INCLUDE:FPDF_InitLibraryWithConfig /INCLUDE:FPDF_LoadMemDocument64 \
+            /INCLUDE:FPDF_RenderPageBitmap /INCLUDE:FPDFText_LoadPage \
+            /INCLUDE:FPDFPage_GenerateContent /INCLUDE:FPDF_SaveAsCopy \
+            "$(cygpath -w "$OUT_DIR/$LIB_NAME")" msvcrt.lib msvcprt.lib vcruntime.lib ucrt.lib \
+            gdi32.lib user32.lib advapi32.lib > linktest.log 2>&1 || true
+          if grep -E '(^|[\\/])pdfium\.lib\(.*unresolved external symbol' linktest.log; then
+            echo "::error::pdfium.lib needs symbols that toolset $MSVC_TOOLSET doesn't provide"
+            exit 1
+          fi
+          if grep -E 'fatal error LNK' linktest.log | grep -v LNK1120; then
+            cat linktest.log
+            echo "::error::The link test stopped before resolving pdfium.lib's symbols"
+            exit 1
+          fi
+          echo "pdfium.lib links with toolset $MSVC_TOOLSET"
+
+      - name: Prepare the library, its checksum and its licenses
+        run: |
+          mkdir -p publish
+          cp "$OUT_DIR/$LIB_NAME" "publish/$ASSET"
+          cp -R "$OUT_DIR/licenses" publish/licenses
+          cd publish
+          if command -v sha256sum >/dev/null; then
+            sha256sum "$ASSET" > "$ASSET.sha256"
+          else
+            shasum -a 256 "$ASSET" > "$ASSET.sha256"
+          fi
+
+      - name: Keep them for the publish job
+        uses: actions/upload-artifact@v7
+        with:
+          name: static-pdfium-${{ matrix.target }}
+          path: publish/
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: true
+
+      - name: Upload the build log
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-log-${{ matrix.target }}
+          path: build.log
+
+  # One publisher per PDFium release and target at a time. It re-checks the release once it holds
+  # that slot: the first run to publish a target wins, and a later one keeps what is there. The
+  # library, its licenses and their checksums are always replaced together, by one job. Each target
+  # publishes on its own, so one failed build doesn't hold back the others.
+  publish:
+    name: Publish ${{ matrix.target }}
+    needs: [ plan, build ]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.targets != '[]' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: static-pdfium-publish-${{ needs.plan.outputs.release }}-${{ matrix.target }}
+      cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.targets) }}
+    env:
+      ASSET: libpdfium-${{ matrix.target }}.${{ matrix.os == 'win' && 'lib' || 'a' }}
+      LICENSES: libpdfium-${{ matrix.target }}-licenses.tar.gz
+      RELEASE: ${{ needs.plan.outputs.release }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Get the library this run built
+        uses: actions/download-artifact@v4
+        with:
+          name: static-pdfium-${{ matrix.target }}
+
+      # The licenses travel with the library: whoever redistributes it must ship them.
+      - name: Archive the licenses
+        run: |
+          tar -czf "$LICENSES" licenses
+          sha256sum "$LICENSES" > "$LICENSES.sha256"
+
+      # Replacing happens only on a forced rebuild, or to complete a partly published target.
+      - name: Publish, unless another run already has
+        env:
+          FORCE: ${{ inputs.force }}
+        run: |
+          published="$(gh release view "$RELEASE" --json assets --jq '.assets[].name' 2>/dev/null || true)"
+          complete=true
+          for name in "$ASSET" "$ASSET.sha256" "$LICENSES" "$LICENSES.sha256"; do
+            grep -qxF "$name" <<< "$published" || complete=false
+          done
+          if [ "$FORCE" != true ] && [ "$complete" = true ]; then
+            echo "::notice::$ASSET and its licenses are already published in $RELEASE; keeping them"
+            exit 0
+          fi
+          if ! gh release view "$RELEASE" >/dev/null 2>&1; then
+            gh release create "$RELEASE" --prerelease --title "$RELEASE" \
+              --notes "Static PDFium for bernard-ledit: a build input for CI and local static builds, not a product release." ||
+              gh release view "$RELEASE" >/dev/null
+          fi
+          gh release upload "$RELEASE" "$ASSET" "$ASSET.sha256" "$LICENSES" "$LICENSES.sha256" --clobber

@@ -1,0 +1,16 @@
+name: Set up Clang for PHP bindings
+description: Install matching Clang executable and libclang on Linux
+runs:
+  using: composite
+  steps:
+    - name: Install matching Clang and libclang
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends clang libclang-dev
+        resource_dir="$(/usr/bin/clang -print-resource-dir)"
+        libclang="$(dirname "$(dirname "$resource_dir")")/libclang.so"
+        test -f "$libclang"
+        /usr/bin/clang --version
+        echo "CLANG_PATH=/usr/bin/clang" >> "$GITHUB_ENV"
+        echo "LIBCLANG_PATH=$libclang" >> "$GITHUB_ENV"
