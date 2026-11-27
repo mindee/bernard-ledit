@@ -29,7 +29,7 @@ jobs:
     uses: ./.github/workflows/_php-binding-tests.yml
     needs: pre-commit
     with:
-      php-versions: '["8.2"]'
+      php-versions: ${{ vars.PHP_VERSIONS }}
 
   java-binding-tests:
     uses: ./.github/workflows/_java-binding-tests.yml
