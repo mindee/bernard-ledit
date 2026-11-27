@@ -6,14 +6,6 @@ on:
         description: "Rebuild and overwrite targets that are already published"
         type: boolean
         default: false
-  # main-dev.yml builds missing libraries; releases only consume published libraries.
-  workflow_call:
-    inputs:
-      build-missing:
-        description: "Build unpublished libraries; when false, fail if any is missing"
-        type: boolean
-        required: false
-        default: true
 permissions:
   contents: read
 
@@ -35,8 +27,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           FORCE: ${{ inputs.force }}
-          # Empty when dispatched manually, which builds.
-          BUILD_MISSING: ${{ inputs.build-missing }}
         run: |
           release="pdfium-static-$(tr -d '[:space:]' < core/pdfium-release)"
           release="${release//\//_}"
@@ -50,10 +40,6 @@ jobs:
                 or ([$asset, $asset + ".sha256", $licenses, $licenses + ".sha256"] | all(is_published(.)) | not)
             ))' tools/pdfium-static/targets.json)"
           missing="$(jq -r 'map(.target) | join(", ")' <<< "$targets")"
-          if [ "$BUILD_MISSING" = false ] && [ "$targets" != '[]' ]; then
-            echo "::error::$release lacks $missing. Version commits and releases don't build static PDFium: wait for a main build to publish it, then re-run the failed jobs."
-            exit 1
-          fi
           echo "release=$release" >> "$GITHUB_OUTPUT"
           echo "targets=$targets" >> "$GITHUB_OUTPUT"
           echo "To build: ${missing:-nothing}"
@@ -204,11 +190,10 @@ jobs:
           name: build-log-${{ matrix.target }}
           path: build.log
 
-  # One publisher per PDFium release and target at a time, whichever run it comes from (main,
-  # release or manual), and it re-checks the release once it holds that slot: the first run to
-  # publish a target wins, and a later one keeps what is there. The library, its licenses and their
-  # checksums are thus always replaced together, by one job. Each target publishes on its own, so
-  # one failed build doesn't hold back the others.
+  # One publisher per PDFium release and target at a time. It re-checks the release once it holds
+  # that slot: the first run to publish a target wins, and a later one keeps what is there. The
+  # library, its licenses and their checksums are always replaced together, by one job. Each target
+  # publishes on its own, so one failed build doesn't hold back the others.
   publish:
     name: Publish ${{ matrix.target }}
     needs: [ plan, build ]

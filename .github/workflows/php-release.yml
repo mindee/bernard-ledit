@@ -24,18 +24,8 @@ jobs:
             exit 1
           fi
 
-  build-and-test:
-    name: Build and test
-    needs: check-version
-    permissions:
-      contents: write
-    # TODO: useless ! REMOVE ME! THESE SHOULD RUN ONLY IF THE TESTS FROM OTHER WORKFLOW PASSES
-    uses: ./.github/workflows/pdfium-build-static.yml
-    with:
-      build-missing: false
-
   package:
-    needs: build-and-test
+    needs: check-version
     uses: ./.github/workflows/_php-package-pie.yml
     with:
       release-tag: ${{ github.event.release.tag_name }}

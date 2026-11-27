@@ -11,16 +11,10 @@ on:
   workflow_dispatch:
     inputs:
       php_version:
-        description: "Select a PHP version to test (or all)"
-        type: choice
+        description: "Enter a PHP version to test, or All"
+        type: string
         required: true
-        default: "8.2"
-        options:
-          - "8.2"
-          - "8.3"
-          - "8.4"
-          - "8.5"
-          - "All"
+        default: "All"
 
 permissions:
   contents: read
@@ -37,7 +31,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
-        php: ${{ fromJSON(github.event_name == 'workflow_dispatch' && (inputs.php_version == 'All' && '["8.2", "8.3", "8.4", "8.5"]' || format('["{0}"]', inputs.php_version)) || inputs['php-versions']) }}
+        php: ${{ fromJSON(github.event_name == 'workflow_dispatch' && (inputs.php_version != 'All' && format('[{0}]', toJSON(inputs.php_version)) || vars.PHP_VERSIONS) || inputs['php-versions']) }}
         thread_safety: [ "zts", "nts" ]
 
     steps:

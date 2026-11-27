@@ -6,8 +6,9 @@ on:
       - main
   workflow_dispatch:
 
-# A newer push cancels the run in progress, except for a version commit (:bookmark:), which gets
-# a group of its own: cancelling it would silently skip its tag and release.
+# A new push cancels the current run.
+# A version commit (with :bookmark: in the message) uses a separate group. This prevents a later push from stopping the run before
+# it creates the tag and release.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}${{ contains(github.event.head_commit.message, ':bookmark:') && format('-{0}', github.sha) || '' }}
   cancel-in-progress: true
@@ -16,16 +17,8 @@ permissions:
   contents: read
 
 jobs:
-  # Builds any missing static PDFium library, then tests the PHP extension against all of them.
-  static-pdfium:
-    uses: ./.github/workflows/pdfium-build-static.yml
-    needs: version
-    permissions:
-      contents: write
-
   pre-commit:
     uses: ./.github/workflows/_pre-commit.yml
-    needs: static-pdfium
 
   core-tests:
     uses: ./.github/workflows/_core-tests.yml
@@ -35,19 +28,19 @@ jobs:
     uses: ./.github/workflows/_python-binding-tests.yml
     needs: pre-commit
     with:
-      python-versions: '["3.11", "3.12", "3.13", "3.14"]'
+      python-versions: ${{ vars.PYTHON_VERSIONS }}
 
   php-binding-tests:
     uses: ./.github/workflows/_php-binding-tests.yml
     needs: pre-commit
     with:
-      php-versions: '["8.2", "8.3", "8.4", "8.5"]'
+      php-versions: ${{ vars.PHP_VERSIONS }}
 
   java-binding-tests:
     uses: ./.github/workflows/_java-binding-tests.yml
     needs: pre-commit
     with:
-      java-versions: '["11", "17", "21"]'
+      java-versions: ${{ vars.JAVA_VERSIONS }}
 
 
   # The tag a version commit (":bookmark: Version X.Y.Z") gets: v + the workspace version in
@@ -82,7 +75,6 @@ jobs:
     if: contains(github.event.head_commit.message, ':bookmark:')
     uses: mindee/client-lib-actions/.github/workflows/tag-version.yml@main
     needs:
-      - static-pdfium
       - pre-commit
       - core-tests
       - python-binding-tests
