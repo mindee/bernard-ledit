@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
-# Packages a built bernard_ledit extension as the release asset PIE downloads for the PHP that runs
-# this script. The PHP version, thread safety, architecture, OS, libc and, on Windows, compiler are
-# read from that PHP the way PIE reads them, so the asset name matches what PIE looks for.
+# Create a PIE release archive for a built bernard_ledit PHP extension.
+# Get the PHP version, thread safety, architecture and OS from PHP.
+# Get the Linux libc from ldd and the Windows compiler version from PHP.
+# Use these values to make the PIE asset name.
 #
 # Usage: pie-package.sh <extension> <tag> <output-dir> <pdfium-licenses>
-#   extension        the built library: libbernard_ledit_php.so, .dylib, or bernard_ledit_php.dll
-#   tag              the release tag, exactly as written: PIE names assets after it
-#   output-dir       where to write the archive
-#   pdfium-licenses  the licenses/ folder download.sh saved with the static PDFium it linked;
-#                    the archive ships it, as redistributing PDFium requires
+#   extension        The built library: libbernard_ledit_php.so, libbernard_ledit_php.dylib
+#                    or bernard_ledit_php.dll.
+#   tag              The release tag. PIE uses this value in the asset name.
+#   output-dir       The directory for the archive.
+#   pdfium-licenses  The licenses/ directory from the static PDFium download.
+#                    The archive includes these licenses.
 set -euo pipefail
 
 readonly EXTENSION_NAME="bernard_ledit"
@@ -18,13 +20,12 @@ die() {
   exit 1
 }
 
-# Runs a PHP snippet without php.ini and prints its output. PHP's own warnings go to stderr, so they
-# can't end up in the output.
+# Run PHP without php.ini. Send PHP warnings to stderr.
 php_eval() {
   php -n -d display_errors=stderr -r "$1"
 }
 
-# Prints a path in the form PHP and 7-Zip accept: Windows programs need Windows paths in Git Bash.
+# Convert the path for PHP and 7-Zip on Windows.
 native_path() {
   if command -v cygpath >/dev/null; then
     cygpath -w "$1"
@@ -33,21 +34,20 @@ native_path() {
   fi
 }
 
-# Fails unless PHP loads the extension under the name PIE checks after installing it.
+# Check that PHP loads the extension with the name that PIE uses.
 check_extension_name() {
   php -n -d "extension=$(native_path "$1")" -r "exit(extension_loaded('$EXTENSION_NAME') ? 0 : 1);" ||
     die "$1 does not load as the '$EXTENSION_NAME' extension"
 }
 
-# Fails unless the extension reports the release's version: the one Composer compares
-# ext-bernard_ledit constraints against.
+# Check that the extension version matches the release tag.
 check_extension_version() {
   local reported
     reported="$(php -n -d display_errors=stderr -d "extension=$(native_path "$1")" -r "echo phpversion('$EXTENSION_NAME');")"
   [ "$reported" = "${2#v}" ] || die "$1 reports version '$reported', but the tag $2 means '${2#v}'"
 }
 
-# Prints the architecture under PIE's name for it: x86_64 or arm64.
+# Get the architecture name that PIE uses: x86_64 or arm64.
 architecture() {
   local machine
   machine="$(php_eval 'echo php_uname("m");')"
@@ -58,7 +58,7 @@ architecture() {
   esac
 }
 
-# Prints the Linux libc as PIE detects it: musl when `ls` links against musl, glibc otherwise.
+# Identify Linux libc as PIE does. Check if ls links to musl.
 linux_libc() {
   if ldd "$(command -v ls)" 2>/dev/null | grep -q musl; then
     echo musl
@@ -67,7 +67,7 @@ linux_libc() {
   fi
 }
 
-# Prints the compiler PHP was built with on Windows (vs16, vs17), from "PHP Extension Build".
+# Get the Windows compiler version from PHP Extension Build.
 windows_compiler() {
   local compiler
   compiler="$(php -n -i | grep '^PHP Extension Build' | grep -oE 'VS[0-9]+' || true)"
@@ -75,7 +75,7 @@ windows_compiler() {
   printf '%s\n' "$compiler" | tr '[:upper:]' '[:lower:]'
 }
 
-# Zips the contents of a directory, keeping its subdirectories, into the archive named first.
+# Create a ZIP archive. Include the subdirectories.
 create_zip() {
   local archive="$1" dir="$2"
   if command -v zip >/dev/null; then

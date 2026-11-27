@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Run a PHP server test using the built PHP extension in all OS environments
+# Run a PHP server test using the built PHP extension.
+# works with all OS environments
 # sends blank.pdf and expects the result 10.
 # expects the PHP extension to be built and the PDF file fixture blank.pdf
 set -euo pipefail
