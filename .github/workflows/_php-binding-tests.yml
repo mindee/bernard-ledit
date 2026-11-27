@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   php-binding-tests:
-    name: Test PHP binding (${{ matrix.os }}, PHP ${{ matrix.php }})
+    name: Test PHP binding (${{ matrix.os }}, PHP ${{ matrix.php }} ${{ matrix.thread_safety }})
     runs-on: ${{ matrix.os }}
     env:
       CARGO_INCREMENTAL: 0
@@ -30,14 +30,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest, macos-latest, windows-latest ]
-        php: ${{ fromJSON(github.event_name == 'workflow_dispatch' && (inputs.php_version != 'All' && format('[{0}]', toJSON(inputs.php_version)) || vars.PHP_VERSIONS) || inputs['php-versions']) }}
+        os: [ ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-15-intel, windows-latest ]
+        php: ${{ fromJSON(inputs['php-versions'] != '' && inputs['php-versions'] || (inputs.php_version != 'All' && format('[{0}]', toJSON(inputs.php_version)) || vars.PHP_VERSIONS)) }}
         thread_safety: [ "zts", "nts" ]
 
     steps:
       - uses: actions/checkout@v6
         with:
           submodules: recursive
+
+      - uses: ./.github/actions/php-windows-toolchain
+        if: runner.os == 'Windows'
+        id: windows-toolchain
+        with:
+          php-version: ${{ matrix.php }}
 
       # MSVC setup changes VCPKG_ROOT because it brings its own vcpkg tree; 
       # run it first so setup-libheif can select MSVC's installed vcpkg tree.
@@ -46,7 +52,7 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
-          toolset: ${{ contains(fromJSON('["8.2", "8.3"]'), matrix.php) && '14.29' || '14.44' }}
+          toolset: ${{ steps.windows-toolchain.outputs.msvc }}
 
       - uses: ./.github/actions/setup-libheif
 
@@ -55,7 +61,7 @@ jobs:
 
       - uses: ./.github/actions/setup-pdfium
         with:
-          target: ${{ runner.os == 'Windows' && (contains(fromJSON('["8.2", "8.3"]'), matrix.php) && 'win-x64-v142' || 'win-x64-v143') || '' }}
+          target: ${{ runner.os == 'Windows' && steps.windows-toolchain.outputs.pdfium-target || '' }}
 
       - uses: extractions/setup-just@v4
 
@@ -92,10 +98,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: composer-${{ runner.os }}-php${{ matrix.php }}-${{ matrix.thread_safety }}-${{ hashFiles('bindings/php/composer.json') }}
+          key: composer-${{ matrix.os }}-php${{ matrix.php }}-${{ matrix.thread_safety }}-${{ hashFiles('bindings/php/composer.json') }}
           restore-keys: |
-            composer-${{ runner.os }}-php${{ matrix.php }}-${{ matrix.thread_safety }}-
-            composer-${{ runner.os }}-
+            composer-${{ matrix.os }}-php${{ matrix.php }}-${{ matrix.thread_safety }}-
+            composer-${{ matrix.os }}-
 
       - name: Remove MSYS GNU link.exe (Windows)
         if: runner.os == 'Windows'
@@ -107,7 +113,58 @@ jobs:
       - name: Unit test
         run: just php test
 
+      - name: Test release build
+        run: just php test-static
+
       - name: Test PHP extension over HTTP
         if: matrix.php == '8.2' && matrix.thread_safety == 'nts'
         shell: bash
         run: bash bindings/php/tools/test-server.sh
+
+  php-binding-tests-musl:
+    name: Test PHP binding (${{ matrix.platform.pdfium_target }}, PHP ${{ matrix.php }} ${{ matrix.thread_safety }})
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { runner: ubuntu-latest, pdfium_target: linux-x64-musl }
+          - { runner: ubuntu-24.04-arm, pdfium_target: linux-arm64-musl }
+        php: ${{ fromJSON(inputs['php-versions'] != '' && inputs['php-versions'] || (inputs.php_version != 'All' && format('[{0}]', toJSON(inputs.php_version)) || vars.PHP_VERSIONS)) }}
+        thread_safety: [ "zts", "nts" ]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Download static PDFium
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PDFIUM_TARGET: ${{ matrix.platform.pdfium_target }}
+        run: bash tools/pdfium-static/download.sh "$PDFIUM_TARGET" .pdfium-static
+
+      # Use docker run because JavaScript actions cannot run in Alpine on ARM64.
+      - name: Build and test in Alpine
+        env:
+          IMAGE: php:${{ matrix.php }}-${{ matrix.thread_safety == 'zts' && 'zts' || 'cli' }}-alpine
+        run: |
+          docker run --rm -v "$PWD:/w" -w /w \
+            -e PDFIUM_STATIC_LIB_PATH=/w/.pdfium-static \
+            -e RUSTFLAGS="-C target-feature=-crt-static" \
+            "$IMAGE" sh -euc '
+              apk add --no-cache bash git curl unzip zip build-base cmake nasm clang-dev linux-headers just rustup libstdc++ libheif-dev python3
+              if apk search -e libheif-libde265 | grep -q .; then
+                apk add --no-cache libheif-libde265
+              fi
+              pkg-config --atleast-version=1.17 libheif
+              rustup-init -y --default-toolchain none --profile minimal
+              . "$HOME/.cargo/env"
+              curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+              just php test-static
+              deps="$(ldd target/release/libbernard_ledit_php.so 2>/dev/null || true)"
+              echo "$deps"
+              if ! echo "$deps" | grep -qi libheif; then
+                echo "The extension does not link system libheif dynamically" >&2
+                exit 1
+              fi
+            '

@@ -30,7 +30,7 @@ jobs:
           - { runner: ubuntu-24.04-arm, pdfium_target: linux-arm64-glibc, extension: libbernard_ledit_php.so }
           - { runner: macos-latest,     pdfium_target: mac-arm64,         extension: libbernard_ledit_php.dylib }
           - { runner: macos-15-intel,   pdfium_target: mac-x64,           extension: libbernard_ledit_php.dylib }
-        php: [ "8.2", "8.3", "8.4", "8.5" ]
+
         thread_safety: [ "zts", "nts" ]
     steps:
       - uses: actions/checkout@v6
@@ -78,7 +78,7 @@ jobs:
         platform:
           - { runner: ubuntu-latest,    pdfium_target: linux-x64-musl }
           - { runner: ubuntu-24.04-arm, pdfium_target: linux-arm64-musl }
-        php: [ "8.2", "8.3", "8.4", "8.5" ]
+        php: ${{ fromJSON(vars.PHP_VERSIONS) }}
         thread_safety: [ "zts", "nts" ]
     steps:
       - uses: actions/checkout@v6
@@ -115,34 +115,33 @@ jobs:
           if-no-files-found: error
 
   package-windows:
-    name: Package (${{ matrix.pdfium_target }}, PHP ${{ matrix.php }} ${{ matrix.thread_safety }})
+    name: Package (Windows x64, PHP ${{ matrix.php }} ${{ matrix.thread_safety }})
     runs-on: windows-latest
     env:
       RUSTUP_TOOLCHAIN: nightly
     strategy:
       fail-fast: false
       matrix:
-        php: [ "8.2", "8.3", "8.4", "8.5" ]
+        php: ${{ fromJSON(vars.PHP_VERSIONS) }}
         thread_safety: [ "zts", "nts" ]
-        include:
-          - { php: "8.2", msvc: "14.29", pdfium_target: win-x64-v142 }
-          - { php: "8.3", msvc: "14.29", pdfium_target: win-x64-v142 }
-          - { php: "8.4", msvc: "14.44", pdfium_target: win-x64-v143 }
-          - { php: "8.5", msvc: "14.44", pdfium_target: win-x64-v143 }
     steps:
       - uses: actions/checkout@v6
         with:
           submodules: recursive
+      - uses: ./.github/actions/php-windows-toolchain
+        id: windows-toolchain
+        with:
+          php-version: ${{ matrix.php }}
       # MSVC setup changes VCPKG_ROOT; libheif must set it to the tree it installs into.
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
-          toolset: ${{ matrix.msvc }}
+          toolset: ${{ steps.windows-toolchain.outputs.msvc }}
       - uses: ./.github/actions/setup-libheif
       - name: Download static PDFium and licenses
         env:
           GH_TOKEN: ${{ github.token }}
-          PDFIUM_TARGET: ${{ matrix.pdfium_target }}
+          PDFIUM_TARGET: ${{ steps.windows-toolchain.outputs.pdfium-target }}
         run: |
           bash tools/pdfium-static/download.sh "$PDFIUM_TARGET" "$RUNNER_TEMP/pdfium-static"
           echo "PDFIUM_STATIC_LIB_PATH=$RUNNER_TEMP/pdfium-static" >> "$GITHUB_ENV"
@@ -150,7 +149,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@nightly
       - uses: Swatinem/rust-cache@v2
         with:
-          key: php-pie-${{ matrix.pdfium_target }}-php${{ matrix.php }}-${{ matrix.thread_safety }}
+          key: php-pie-${{ steps.windows-toolchain.outputs.pdfium-target }}-php${{ matrix.php }}-${{ matrix.thread_safety }}
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
@@ -165,6 +164,6 @@ jobs:
           bash bindings/php/tools/pie-package.sh target/release/bernard_ledit_php.dll "$RELEASE_TAG" dist "$PDFIUM_STATIC_LIB_PATH/licenses"
       - uses: actions/upload-artifact@v7
         with:
-          name: pie-${{ matrix.pdfium_target }}-php${{ matrix.php }}-${{ matrix.thread_safety }}
+          name: pie-${{ steps.windows-toolchain.outputs.pdfium-target }}-php${{ matrix.php }}-${{ matrix.thread_safety }}
           path: dist/
           if-no-files-found: error

@@ -34,6 +34,11 @@ On Windows, build with Rust nightly (`RUSTUP_TOOLCHAIN=nightly`, required by ext
 the MSVC toolset your PHP was built with: 14.29 (v142) for PHP 8.2 – 8.3, 14.44 (v143) for 8.4
 and 8.5, downloading the matching `win-x64-v142` or `win-x64-v143` library.
 
+The GitHub Actions variable `PHP_VERSIONS` sets the full PHP test and package matrices as a
+JSON array of strings. When you add a PHP version, also set its Windows toolchain in
+[_php-binding-tests.yml](../../.github/workflows/_php-binding-tests.yml) and
+[_php-package-pie.yml](../../.github/workflows/_php-package-pie.yml).
+
 Document and image inputs are encoded bytes in PHP strings. The calling application handles
 all file and stream I/O, including writing returned bytes.
 

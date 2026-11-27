@@ -1,0 +1,29 @@
+name: Select PHP Windows toolchain
+description: Select the MSVC toolset and PDFium target for a PHP version
+inputs:
+  php-version:
+    description: PHP version to build
+    required: true
+outputs:
+  msvc:
+    description: MSVC toolset version
+    value: ${{ steps.select.outputs.msvc }}
+  pdfium-target:
+    description: PDFium archive target
+    value: ${{ steps.select.outputs.pdfium-target }}
+runs:
+  using: composite
+  steps:
+    - name: Select toolchain
+      id: select
+      shell: bash
+      env:
+        PHP_VERSION: ${{ inputs.php-version }}
+      run: |
+        case "$PHP_VERSION" in
+          8.2|8.3) msvc=14.29; pdfium_target=win-x64-v142 ;;
+          8.4|8.5) msvc=14.44; pdfium_target=win-x64-v143 ;;
+          *) echo "::error::No Windows toolchain configured for PHP $PHP_VERSION"; exit 1 ;;
+        esac
+        echo "msvc=$msvc" >> "$GITHUB_OUTPUT"
+        echo "pdfium-target=$pdfium_target" >> "$GITHUB_OUTPUT"

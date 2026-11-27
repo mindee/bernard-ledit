@@ -246,14 +246,3 @@ jobs:
               gh release view "$RELEASE" >/dev/null
           fi
           gh release upload "$RELEASE" "$ASSET" "$ASSET.sha256" "$LICENSES" "$LICENSES.sha256" --clobber
-
-  # Tests the PHP extension against the published libraries, on the commit that built them. Also
-  # runs when every target was already published (build and publish skipped), but not after a
-  # failed or cancelled build or publish.
-  test:
-    name: Test
-    needs: [ plan, build, publish ]
-    if: ${{ !cancelled() && !failure() && !contains(needs.*.result, 'cancelled') }}
-    permissions:
-      contents: read
-    uses: ./.github/workflows/_php-static-check.yml
