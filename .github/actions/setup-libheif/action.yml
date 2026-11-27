@@ -8,8 +8,9 @@ runs:
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt-get install -y --no-install-recommends pkg-config libheif-dev libheif-plugin-libde265 libheif-plugin-ffmpegdec
+        sudo apt-get install -y --no-install-recommends pkg-config zlib1g-dev libheif-dev libheif-plugin-libde265 libheif-plugin-ffmpegdec
         pkg-config --atleast-version=1.17 libheif
+        pkg-config --libs --cflags libheif
     - name: Install libheif (macOS)
       if: runner.os == 'macOS'
       shell: bash

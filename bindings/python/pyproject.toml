@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "bernard-ledit"
 dynamic = ["version"]
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
@@ -27,7 +27,7 @@ dev = [
 ]
 [tool.ruff]
 line-length = 88
-target-version = "py311"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP"]

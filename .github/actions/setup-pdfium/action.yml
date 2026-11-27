@@ -11,6 +11,7 @@ runs:
     - name: Select PDFium target
       id: target
       shell: bash
+      working-directory: ${{ github.action_path }}/../../..
       env:
         PDFIUM_TARGET: ${{ inputs.target }}
       run: |
@@ -28,22 +29,24 @@ runs:
           esac
         fi
         echo "target=$target" >> "$GITHUB_OUTPUT"
+        release="$(tr -d '[:space:]' < core/pdfium-release)"
+        echo "release=${release//\//_}" >> "$GITHUB_OUTPUT"
 
     - name: Cache static PDFium
       uses: actions/cache@v6
       with:
         path: .pdfium-static
-        key: pdfium-static-v2-${{ steps.target.outputs.target }}-${{ hashFiles('core/pdfium-release') }}
+        key: pdfium-static-v3-${{ steps.target.outputs.target }}-${{ steps.target.outputs.release }}
 
     - name: Download static PDFium
       shell: bash
+      working-directory: ${{ github.action_path }}/../../..
       env:
         GH_TOKEN: ${{ github.token }}
         PDFIUM_TARGET: ${{ steps.target.outputs.target }}
+        PDFIUM_RELEASE: ${{ steps.target.outputs.release }}
       run: |
-        release="$(tr -d '[:space:]' < core/pdfium-release)"
-        release="${release//\//_}"
-        directory="$GITHUB_WORKSPACE/.pdfium-static/$release/$PDFIUM_TARGET"
+        directory="$GITHUB_WORKSPACE/.pdfium-static/$PDFIUM_RELEASE/$PDFIUM_TARGET"
         if [[ "$PDFIUM_TARGET" == win-* ]]; then
           archive=pdfium.lib
         else
