@@ -3,13 +3,13 @@
 # releases as pre-releases, and escapes the release notes as JSON. It also creates the release as a
 # draft, which main-dev.yml publishes once the PIE archives are uploaded: keep that when switching
 # back to the shared workflow.
-name: Create Release
+name: Create Draft Release
 
 on:
   workflow_call:
 
 jobs:
-  create-release:
+  create-draft-release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -22,7 +22,7 @@ jobs:
       - name: Install Dependencies
         run: sudo apt-get install pcregrep
 
-      - name: Create Release
+      - name: Create Draft Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

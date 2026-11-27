@@ -84,22 +84,22 @@ jobs:
     permissions:
       contents: write
 
-  # Creates the release as a draft, which nobody sees until publish-release makes it public.
-  release:
-    uses: ./.github/workflows/_release-create.yml
+  # Creates the release as a draft, publish-release makes it public.
+  draft-release:
+    uses: ./.github/workflows/_draft-release-create.yml
     needs: tag
     permissions:
       contents: write
 
   package-php:
     uses: ./.github/workflows/_php-package-pie.yml
-    needs: [ version, release ]
+    needs: [ version, draft-release ]
     with:
       release-tag: ${{ needs.version.outputs.tag }}
 
   publish-release:
     name: Upload the PIE archives and publish the release
-    needs: [ version, release, package-php ]
+    needs: [ version, draft-release, package-php ]
     runs-on: ubuntu-latest
     permissions:
       contents: write
